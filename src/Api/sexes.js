@@ -1,4 +1,4 @@
-import axios from './axios';
+import axios from './instance';
 
 // Obtener todos los sexos
 export const getSexes = async (skip = 0, limit = 100) => {

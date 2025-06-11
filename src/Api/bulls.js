@@ -1,4 +1,4 @@
-import axios from './axios';
+import axios from './instance';
 
 // Obtener todos los toros
 export const getBulls = async (skip = 0, limit = 100, date_from = null, date_to = null) => {

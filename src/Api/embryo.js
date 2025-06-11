@@ -1,4 +1,4 @@
-import axios from './axios';
+import axios from './instance';
 
 // Obtener producción embrionaria por cliente
 export const getProductionByClient = async (clientId, skip = 0, limit = 100) => {

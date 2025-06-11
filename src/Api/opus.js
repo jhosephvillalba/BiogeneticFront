@@ -1,4 +1,4 @@
-import axios from './axios';
+import axios from './instance';
 
 /**
  * Obtiene un registro de OPUS por su ID

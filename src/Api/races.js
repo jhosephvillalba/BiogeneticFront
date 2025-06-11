@@ -1,4 +1,4 @@
-import axios from './axios';
+import axios from './instance';
 
 // Obtener todas las razas
 export const getRaces = async (skip = 0, limit = 100) => {

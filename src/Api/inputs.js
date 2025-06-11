@@ -1,4 +1,4 @@
-import axios from './axios';
+import axios from './instance';
 
 // Obtener todos los inputs
 export const getInputs = async (skip = 0, limit = 100) => {

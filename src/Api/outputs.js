@@ -1,4 +1,4 @@
-import axios from './axios';
+import axios from "./instance";
 
 // Añadir un output a un input
 export const createOutput = async (inputId, outputData) => {

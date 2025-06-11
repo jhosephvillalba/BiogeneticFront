@@ -1,4 +1,4 @@
-import axios from './axios';
+import axios from './instance';
 
 // Obtener todos los usuarios con paginación y soporte de filtrado
 export const getUsers = async (skip = 0, limit = 100) => {
