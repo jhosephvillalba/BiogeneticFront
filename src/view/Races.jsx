@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Pagination } from 'react-bootstrap';
-import { racesApi } from '../Api'; // Importamos los servicios de razas
+import { racesApi } from '../api'; // Importamos los servicios de razas
 
 const BreedManagement = () => {
   const [breedForm, setBreedForm] = useState({

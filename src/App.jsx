@@ -11,7 +11,7 @@ import Inputs from "./view/Inputs";
 import InputsDetails from "./view/InputsDetails";
 import Outputs from './view/Outputs';
 import OutputsDetails from './view/OutputsDetails';
-import { getCurrentUser, logout } from "./Api/auth";
+import { getCurrentUser, logout } from "./api/auth";
 import ClientDetails from "./view/ClientDetails";
 import Admins from "./view/Admins";
 import Bulls from "./view/Bulls";

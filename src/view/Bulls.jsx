@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { filterBulls, deleteBull, createBull, getBullsByClient } from '../Api/bulls';
-import { racesApi, sexesApi, usersApi } from '../Api';
+import { filterBulls, deleteBull, createBull, getBullsByClient } from "../api/bulls";
+import { racesApi, sexesApi, usersApi } from '../api';
 
 const Bulls = () => {
   const navigate = useNavigate();
@@ -259,7 +259,7 @@ const Bulls = () => {
       console.log('Datos a enviar al servidor:', inputData);
       
       // Crear la entrada
-      const inputsModule = await import('../Api/inputs');
+      const inputsModule = await import('../api/inputs');
       const response = await inputsModule.createInput(inputData);
       console.log('Respuesta del servidor:', response);
       
@@ -307,7 +307,7 @@ const Bulls = () => {
     // Cargar las entradas existentes de este toro
     try {
       setLoadingInputs(true);
-      const inputsModule = await import('../Api/inputs');
+      const inputsModule = await import('../api/inputs');
       const inputs = await inputsModule.getInputsByBull(bull.id, 0, 100);
       
       // Formatear las entradas para mostrarlas
@@ -335,7 +335,7 @@ const Bulls = () => {
         setShowInputDetailsModal(true);
       } else {
         // Si no la tenemos, intentamos obtenerla del API
-        const inputsModule = await import('../Api/inputs');
+        const inputsModule = await import('../api/inputs');
         
         // Verificar si la función existe
         if (typeof inputsModule.getInputById !== 'function') {

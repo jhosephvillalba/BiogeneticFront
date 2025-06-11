@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getBull, updateBull, createBull } from '../Api/bulls';
-import { racesApi, sexesApi } from '../Api';
+import { getBull, updateBull, createBull } from '../api/bulls';
+import { racesApi, sexesApi } from '../api';
 
 const BullEdit = () => {
   const { id } = useParams();

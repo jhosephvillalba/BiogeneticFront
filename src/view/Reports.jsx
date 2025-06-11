@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import * as opusApi from '../Api/opus';
+import * as opusApi from '../api/opus';
 
 const Reports = () => {
   const navigate = useNavigate();

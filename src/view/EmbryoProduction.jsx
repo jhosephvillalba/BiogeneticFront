@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usersApi } from '../Api';
-import { getBullsByClient } from '../Api/bulls';
-import * as opusApi from '../Api/opus';
+import { usersApi } from '../api';
+import { getBullsByClient } from '../api/bulls';
+import * as opusApi from '../api/opus';
 
 const EmbryoProduction = () => {
   const navigate = useNavigate();
