@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getInputs, filterInputs } from '../Api/inputs';
+import { getInputs, filterInputs } from '../api/inputs';
 
 const Inventory = () => {
   const navigate = useNavigate();
