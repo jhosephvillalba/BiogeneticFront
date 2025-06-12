@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getInputs, filterInputs } from '../api/inputs';
+import api from "../api";
 
 const Inventory = () => {
   const navigate = useNavigate();
@@ -31,7 +31,7 @@ const Inventory = () => {
       try {
         setLoading(true);
         // Usar filterInputs en lugar de getInputs para obtener datos completos
-        const response = await filterInputs({}, 0, pagination.itemsPerPage);
+        const response = await api.inputs.filterInputs({}, 0, pagination.itemsPerPage);
         console.log("Datos de entradas iniciales:", response);
         
         if (Array.isArray(response)) {
@@ -151,7 +151,7 @@ const fetchFilteredData = async () => {
     
     console.log("Filtros a enviar:", filterParams);
     
-    const response = await filterInputs(filterParams, skip, limit);
+    const response = await api.inputs.filterInputs(filterParams, skip, limit);
     console.log("Respuesta de filtros:", response);
     
     let newEntries = [];
@@ -237,7 +237,7 @@ const handleSearch = (e) => {
     const loadInitial = async () => {
       setLoading(true);
       try {
-        const response = await filterInputs({}, 0, pagination.itemsPerPage);
+        const response = await api.inputs.filterInputs({}, 0, pagination.itemsPerPage);
         
         let newEntries = [];
         if (Array.isArray(response)) {
