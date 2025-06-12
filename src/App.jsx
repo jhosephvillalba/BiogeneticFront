@@ -11,7 +11,7 @@ import Inputs from "./view/Inputs";
 import InputsDetails from "./view/InputsDetails";
 import Outputs from './view/Outputs';
 import OutputsDetails from './view/OutputsDetails';
-import api from './api';
+import api from '../src/api';
 import ClientDetails from "./view/ClientDetails";
 import Admins from "./view/Admins";
 import Bulls from "./view/Bulls";
