@@ -11,7 +11,7 @@ import {
   Legend
 } from 'chart.js';
 
-import { getOpusByDate } from '../api/opus';
+import { getOpusByDate } from '../Api/opus';
 
 ChartJS.register(
   CategoryScale,

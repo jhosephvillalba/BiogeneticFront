@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { usersApi } from '../api';
-import * as opusApi from "../api/opus";
+import { usersApi } from '../Api';
+import * as opusApi from "../Api/opus";
 
 const OpusSummary = () => {
   const [summaryData, setSummaryData] = useState([]);

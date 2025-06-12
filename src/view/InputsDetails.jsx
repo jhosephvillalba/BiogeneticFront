@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faEdit, faCheck } from '@fortawesome/free-solid-svg-icons';
-import { inputsApi, outputsApi } from '../api';
-import { getBull } from '../api/bulls';
-import { getRaceById } from '../api/races';
-import { getSexById } from '../api/sexes';
+import { inputsApi, outputsApi } from '../Api';
+import { getBull } from '../Api/bulls';
+import { getRaceById } from '../Api/races';
+import { getSexById } from '../Api/sexes';
 
 const InputsDetails = () => {
   const { id } = useParams();

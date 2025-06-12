@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getBull, filterBulls } from "../api/bulls";
-import { getInputsByBull, updateInput, getInputsByUser } from "../api/inputs";
-import { getRaceById } from "../api/races";
-import { createOutput } from "../api/outputs";
-import { filterUsers } from "../api/users";
-import { getCurrentUser } from "../api/auth";
+import { getBull, filterBulls } from "../Api/bulls";
+import { getInputsByBull, updateInput, getInputsByUser } from "../Api/inputs";
+import { getRaceById } from "../Api/races";
+import { createOutput } from "../Api/outputs";
+import { filterUsers } from "../Api/users";
+import { getCurrentUser } from "../Api/auth";
 
 const Inputs = () => {
   const navigate = useNavigate();

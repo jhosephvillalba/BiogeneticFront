@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usersApi } from '../api';
+import { usersApi } from '../Api';
 
 const Veterinary = () => {
   const navigate = useNavigate();

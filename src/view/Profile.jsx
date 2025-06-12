@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { usersApi } from "../api";
-import { authApi } from "../api";
+import { usersApi } from "../Api";
+import { authApi } from "../Api";
 
 const ProfileView = ({ updateUser }) => {
   const [isEditing, setIsEditing] = useState(false);

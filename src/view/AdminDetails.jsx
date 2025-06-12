@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { usersApi, rolesApi } from '../api';
+import { usersApi, rolesApi } from '../Api';
 
 const AdminDetails = () => {
   const { id } = useParams();

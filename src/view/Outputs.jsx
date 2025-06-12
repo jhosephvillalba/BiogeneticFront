@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye } from '@fortawesome/free-solid-svg-icons';
-import { getOutputs } from '../api/outputs'; // Importamos correctamente el servicio
+import { getOutputs } from '../Api/outputs'; // Importamos correctamente el servicio
 
 const Outputs = () => {
   const navigate = useNavigate();

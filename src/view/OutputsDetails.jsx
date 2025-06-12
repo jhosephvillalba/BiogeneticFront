@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { outputsApi } from '../api';
+import { outputsApi } from '../Api';
 
 const OutputsDetails = () => {
   const { id } = useParams();
