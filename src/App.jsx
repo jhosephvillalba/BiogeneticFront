@@ -22,7 +22,7 @@ import OpusSummary from "./view/OpusSummary";
 import Reports from "./view/Reports";
 // import DetailReport from "./view/DetailReport";
 import ReportDetails from "./view/ReportDetails";
-import api from "./api/index";
+import api from './api/index.js';
 // import "./App.css";
 
 const App = () => {
