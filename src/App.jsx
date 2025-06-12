@@ -11,7 +11,7 @@ import Inputs from "./view/Inputs";
 import InputsDetails from "./view/InputsDetails";
 import Outputs from './view/Outputs';
 import OutputsDetails from './view/OutputsDetails';
-import { getCurrentUser, logout } from "./api/auth";
+import api from './api';
 import ClientDetails from "./view/ClientDetails";
 import Admins from "./view/Admins";
 import Bulls from "./view/Bulls";
@@ -78,7 +78,7 @@ const App = () => {
       try {
         if (isMounted) setLoading(true);
   
-        const userData = await getCurrentUser();
+        const userData = await api.auth.getCurrentUser();
         const userRole = checkUserRole(userData);
   
         if (isMounted) {
@@ -137,7 +137,7 @@ const App = () => {
 
     if (options) {
       // Llamar a la función de logout correcta
-      logout();
+      api.auth.logout();
       // Eliminar datos del usuario
       localStorage.removeItem('userData');
       setUser(null);
