@@ -11,7 +11,6 @@ import Inputs from "./view/Inputs";
 import InputsDetails from "./view/InputsDetails";
 import Outputs from './view/Outputs';
 import OutputsDetails from './view/OutputsDetails';
-import api from '../src/api';
 import ClientDetails from "./view/ClientDetails";
 import Admins from "./view/Admins";
 import Bulls from "./view/Bulls";
@@ -21,8 +20,9 @@ import AdminDetails from "./view/AdminDetails";
 import EmbryoProduction from "./view/EmbryoProduction";
 import OpusSummary from "./view/OpusSummary";
 import Reports from "./view/Reports";
-import DetailReport from "./view/DetailReport";
+// import DetailReport from "./view/DetailReport";
 import ReportDetails from "./view/ReportDetails";
+import api from "./api/index";
 // import "./App.css";
 
 const App = () => {
