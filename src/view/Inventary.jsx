@@ -93,10 +93,10 @@ const Inventory = () => {
   const getStatusColor = (spanishStatus) => {
     const status = getStatusInEnglish(spanishStatus);
     switch (status) {
-      case 'pending': return 'warning';
-      case 'processing': return 'primary';
-      case 'completed': return 'success';
-      case 'cancelled': return 'danger';
+      case 'pending': return 'primary';
+      case 'processing': return 'warning';
+      case 'completed': return 'danger';
+      case 'cancelled': return 'success';
       default: return 'secondary';
     }
   };
@@ -283,10 +283,10 @@ const handleSearch = (e) => {
   // Función para formatear fecha en formato legible
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString('es-CO', {
+timeZone: 'UTC' 
+    });
   };
-
-
 
   return (
     <div className="container-fluid py-4 inventory-view">
@@ -443,10 +443,10 @@ const handleSearch = (e) => {
               <thead className="table-light">
                 <tr>
                   <th>ID</th>
-                  <th>Toro</th>
+                  <th>Fecha</th>
                   <th>Cliente</th>
                   <th>Documento</th>
-                  <th>Fecha</th>
+                  <th>Toro</th>
                   <th>Cantidad Recibida</th>
                   <th>Disponible</th>
                   <th>Lote</th>
@@ -481,26 +481,27 @@ const handleSearch = (e) => {
                   entries.map(entry => (
                     <tr 
                       key={entry.id} 
-                      onClick={() => handleRowClick(entry.id)}
+                      onClick={() => handleRowClick(entry.input_id)}
                       className="cursor-pointer"
                     >
-                      <td className="fw-semibold">#{entry.id}</td>
-                      <td>
-                        <span className="badge bg-secondary bg-opacity-10 text-secondary rounded-pill">
-                          {entry.bull?.name || entry.bull_name || `Toro #${entry.bull_id}` || 'N/A'}
-                        </span>
-                      </td>
+                      <td className="fw-semibold">{entry.input_id}</td>
+                       <td>{formatDate(entry.created_at)}</td>
                       <td>
                         <span className="badge bg-info bg-opacity-10 text-info rounded-pill">
                           {entry.user?.full_name || entry.client_name || entry.client?.full_name || 'N/A'}
                         </span>
                       </td>
-                      <td>
+                       <td>
                         <span className="badge bg-dark bg-opacity-10 text-dark">
                           {entry.user?.number_document || entry.client_document || entry.client?.number_document || 'N/A'}
                         </span>
                       </td>
-                      <td>{formatDate(entry.created_at)}</td>
+                      <td>
+                        <span className="badge bg-secondary bg-opacity-10 text-secondary rounded-pill">
+                          {entry.bull?.name || entry.bull_name || `Toro #${entry.bull_id}` || 'N/A'}
+                        </span>
+                      </td>
+                     
                       <td className="fw-semibold">{parseFloat(entry.quantity_received || 0).toFixed(1)}</td>
                       <td>
                         <span className={parseFloat(entry.total || 0) <= 0 ? 'text-danger fw-bold' : 'text-success'}>
@@ -512,8 +513,8 @@ const handleSearch = (e) => {
                       </td>
                       <td>{entry.lote || entry.lote || 'N/A'}</td>
                       <td>
-                        <span className={`badge bg-${getStatusColor(entry.status)}`}>
-                          {entry.status}
+                        <span className={`badge bg-${getStatusColor(entry.status_id)}`}>
+                          {entry.status_id}
                         </span>
                       </td>
                     </tr>

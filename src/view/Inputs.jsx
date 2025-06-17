@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getBull, filterBulls } from "../Api/bulls";
-import { getInputsByBull, updateInput, getInputsByUser } from "../Api/inputs";
+import { getBull } from "../Api/bulls";
+import { getInputsByBull, getInputsByUser, updateInput } from "../Api/inputs";
 import { getRaceById } from "../Api/races";
+import { searchUsers } from "../Api/users";
 import { createOutput } from "../Api/outputs";
-import { filterUsers } from "../Api/users";
-import { getCurrentUser } from "../Api/auth";
 
 const Inputs = () => {
   const navigate = useNavigate();
@@ -44,45 +43,6 @@ const Inputs = () => {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateError, setUpdateError] = useState(null);
 
-  // Función para formatear la fecha al formato ISO 8601 completo
-  const formatDate = (dateString) => {
-    if (!dateString) return undefined;
-
-    try {
-      // Crear un objeto Date a partir del string
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return undefined; // Fecha inválida
-
-      // Formatear como YYYY-MM-DDTHH:MM:SS.sssZ para cumplir con ISO 8601 completo
-      return date.toISOString();
-    } catch (error) {
-      console.error("Error al formatear fecha:", error);
-      return undefined;
-    }
-  };
-
-const roundToDecimal = (number) => {
-  // Manejar casos especiales como 0.1 directamente
-  if (Math.abs(number - 0.1) < 0.000001) return 0.1;
-  
-  // Redondear a 10 decimales primero para evitar errores de precisión
-  const rounded = Math.round(number * 10000000000) / 10000000000;
-  // Luego redondear a 1 decimal para presentación
-  return Math.round(rounded * 10) / 10;
-};
-
-const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
-  return Math.abs(a - b) < tolerance;
-};
-
-  // Función para comparar números con tolerancia
-  const isGreaterThan = (a, b) => {
-    // Añadimos una pequeña tolerancia para la comparación
-    const tolerance = 0.0001;
-    return a - b > tolerance;
-  };
-
-  // Función para cargar usuarios con rol de cliente
   const loadUsers = async (reset = false) => {
     try {
       setLoading(true);
@@ -102,23 +62,12 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
       // Añadir término de búsqueda si existe
       if (searchTerm && searchTerm.trim() !== "") {
         // Intentar buscar en múltiples campos
-        filters.full_name = searchTerm.trim();
-        filters.email = searchTerm.trim();
-        filters.number_document = searchTerm.trim();
+        filters.q = searchTerm.trim();
       }
 
-      console.log(
-        "Enviando filtros a la API:",
-        filters,
-        "skip:",
-        skip,
-        "limit:",
-        itemsPerPage
-      ); // Debug
+      const response = await searchUsers(filters, skip, itemsPerPage);
 
-      const response = await filterUsers(filters, skip, itemsPerPage);
-
-      console.log("Respuesta de la API:", response); // Debug
+      // console.log("Respuesta de la API:", response); // Debug
 
       // Manejar la respuesta
       if (response && response.items) {
@@ -143,107 +92,6 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
         "No se pudieron cargar los usuarios. Por favor, intente nuevamente."
       );
       setUsers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Función para cargar los toros desde la API
-  const loadBulls = async (reset = false) => {
-    try {
-      setLoading(true);
-      if (reset) {
-        setError(null);
-        setCurrentPage(1);
-      }
-
-      // Creamos un objeto para los filtros no vacíos
-      const filtersToApply = {};
-
-      if (searchTerm && searchTerm.trim() !== "") {
-        filtersToApply.search = searchTerm.trim();
-      }
-
-      if (startDate && endDate) {
-        const formattedStartDate = formatDate(startDate);
-        const formattedEndDate = formatDate(endDate);
-
-        if (formattedStartDate && formattedEndDate) {
-          filtersToApply.date_from = formattedStartDate;
-          filtersToApply.date_to = formattedEndDate;
-        }
-      }
-
-      console.log("Preparando filtros para la API:", filtersToApply);
-
-      let response;
-      // Si no hay filtros, usar getBulls en lugar de filterBulls
-      try {
-        if (Object.keys(filtersToApply).length === 0) {
-          response = await filterBulls(
-            {},
-            (currentPage - 1) * itemsPerPage,
-            itemsPerPage
-          );
-        } else {
-          console.log("Filtros finales enviados a la API:", filtersToApply);
-          response = await filterBulls(
-            filtersToApply,
-            (currentPage - 1) * itemsPerPage,
-            itemsPerPage
-          );
-        }
-
-        console.log("Respuesta completa:", response);
-
-        // Verifica la estructura de la respuesta y extrae los datos correctamente
-        let bullsData = [];
-        let totalCount = 0;
-
-        if (Array.isArray(response)) {
-          // Si la respuesta es un array directo
-          bullsData = response;
-          totalCount = response.length;
-        } else if (
-          response &&
-          response.results &&
-          Array.isArray(response.results)
-        ) {
-          // Si la respuesta tiene formato {results: [...], total: X}
-          bullsData = response.results;
-          totalCount = response.total || bullsData.length;
-        } else if (
-          response &&
-          response.items &&
-          Array.isArray(response.items)
-        ) {
-          // Si la respuesta tiene formato {items: [...], total: X}
-          bullsData = response.items;
-          totalCount = response.total || bullsData.length;
-        } else if (response && typeof response === "object") {
-          // Si es otro tipo de objeto, intenta extraer datos útiles
-          console.log("Formato de respuesta diferente:", response);
-          bullsData = [];
-          totalCount = 0;
-        }
-
-        console.log("Datos de toros extraídos:", bullsData);
-        setBulls(bullsData || []);
-        setTotalItems(totalCount || 0);
-      } catch (innerError) {
-        console.error("Error específico en la llamada API:", innerError);
-        throw innerError;
-      }
-    } catch (error) {
-      console.error("Error específico del filtro:", error);
-      if (error.response) {
-        console.error("Detalles del error:", error.response.data);
-      }
-      console.error("Error al cargar toros:", error);
-      setError(
-        "No se pudieron cargar los datos. Por favor, intente nuevamente."
-      );
-      setBulls([]);
     } finally {
       setLoading(false);
     }
@@ -330,7 +178,7 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
   // Handle search button click
   const handleSearch = (e) => {
     e.preventDefault();
-    console.log("Iniciando búsqueda con término:", searchTerm); // Debug
+    // console.log("Iniciando búsqueda con término:", searchTerm); // Debug
     loadUsers(true);
   };
 
@@ -353,23 +201,9 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
     }
   };
 
-  // Validar fechas antes de aplicar filtros
-  const validateDates = () => {
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-
-      if (start > end) {
-        setError("La fecha inicial no puede ser posterior a la fecha final");
-        return false;
-      }
-    }
-    return true;
-  };
-
   // Limpiar filtros
   const handleClearFilters = () => {
-    console.log("Limpiando filtros"); // Debug
+    // console.log("Limpiando filtros"); // Debug
     setSearchTerm("");
     setSelectedUser(null);
     setSelectedBull(null);
@@ -383,107 +217,122 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-  // Función para normalizar números a 1 decimal
-  const normalizeNumber = (number) => {
-  if (typeof number !== "number" || isNaN(number)) {
-    return NaN;
-  }
-  
-  // Solución 1: Usar toFixed y parseFloat
-  const fixed = parseFloat(number.toFixed(10)); // Primero fijamos muchos decimales
-  return parseFloat(fixed.toFixed(1)); // Luego reducimos a 1 decimal
-  
-  // Solución 2: Usar redondeo matemático con tolerancia
-  // const rounded = Math.round(Math.round(number * 100) / 10) / 10;
-  // return rounded;
+  // Función simplificada para manejar decimales
+  const formatDecimal = (num) => {
+  const value = parseFloat(num) || 0;
+  return parseFloat(value.toFixed(1)); // Redondear a 1 decimal sin error de precisión
+};
+
+  // Manejador de cambio para el input de edición
+  const handleEditChange = (e) => {
+    const rawValue = e.target.value;
+    // Permitir valores vacíos temporalmente para mejor UX
+    if (rawValue === "") {
+      setEditValue("");
+      return;
+    }
+
+    const value = parseFloat(rawValue);
+    if (!isNaN(value)) {
+      setEditValue(value >= 0 ? value : 0);
+    }
   };
 
-  // Función para actualizar la cantidad utilizada
-  const handleUpdateQuantity = async (input, newQuantity) => {
+  // const handleUpdateQuantity = async (input) => {
+  //   try {
+  //     setUpdateLoading(true);
+  //     setUpdateError(null);
+
+  //     const newQty = formatDecimal(editValue);
+  //     console.log("actualizando cantidad a:", editValue); // Debug
+  //     console.log("Actualizando cantidad a:", newQty); // Debug
+  //     // ... validaciones existentes ...
+
+  //     // Llamada real a la API
+  //     const response = await updateInput(input.id, {
+  //       quantity_taken: newQty,
+  //       // incluir otros campos necesarios
+  //     });
+
+  //     // Verificar respuesta exitosa
+  //     if (response.status === 200) {
+  //       const fechaActual = new Date().toISOString();
+
+  //       // console.log({salida: output })
+  //       // // Actualizar estado local con los datos del servidor
+  //       setBullInputs(
+  //         bullInputs.map((item) =>
+  //           item.id === input.id ? { ...item, ...response.data } : item
+  //         )
+  //       );
+
+  //       // Limpiar campos de edición
+  //       setEditingInputId(null);
+
+  //        const output = await createOutput(input.id, {
+  //         quantity_output: formatDecimal(newQty - input.quantity_taken),
+  //         output_date: fechaActual,
+  //         remark: "Registro automatico.",
+  //       });
+
+  //     } else {
+  //       throw new Error(response.message || "Error al actualizar");
+  //     }
+  //   } catch (error) {
+  //     setUpdateError(error.message);
+  //   } finally {
+  //     setUpdateLoading(false);
+  //   }
+  // };
+
+  const handleUpdateQuantity = async (input) => {
     try {
       setUpdateLoading(true);
       setUpdateError(null);
 
-      // Normalizar todas las cantidades a 1 decimal fijo
-      const receivedQty = normalizeNumber(input.quantity_received || 0);
-      const currentQty = normalizeNumber(input.quantity_taken || 0);
-      const newQty = normalizeNumber(newQuantity);
-      const currentTotal = normalizeNumber(
-        input.total || input.quantity_received || 0
+      const newQty = formatDecimal(editValue);
+      const received = formatDecimal(input.quantity_received);
+
+      // Validaciones
+      if (newQty < input.quantity_taken) {
+        throw new Error("No puedes reducir la cantidad utilizada");
+      }
+
+      if (newQty > received) {
+        throw new Error(`No puedes tomar más de ${received} unidades`);
+      }
+
+      // Actualización optimista
+      setBullInputs((prev) =>
+        prev.map((item) =>
+          item.id === input.id
+            ? { ...item, quantity_taken: newQty, total: received - newQty }
+            : item
+        )
       );
 
-      console.log("Cantidades normalizadas:", {
-        receivedQty,
-        currentQty,
-        newQty,
-        currentTotal,
-      });
-
-      // Validaciones básicas
-      if (isNaN(newQty) || newQty <= 0) {
-        throw new Error("La cantidad debe ser un número positivo");
-      }
-
-      if (isEqualWithTolerance(newQty, receivedQty)) {
-        throw new Error(
-          `La cantidad (${newQty}) no puede ser mayor que la cantidad recibida (${receivedQty})`
-        );
-      }
-
-      // Calcular la diferencia
-      const difference = normalizeNumber(newQty - currentQty);
-
-      console.log("Diferencia calculada:", difference);
-
-      if (difference <= 0) {
-        throw new Error(
-          "La nueva cantidad debe ser mayor que la cantidad actual"
-        );
-      }
-
-      if (difference > currentTotal) {
-        throw new Error(
-          `No hay suficiente cantidad disponible. Disponible: ${currentTotal}, Solicitado: ${difference}`
-        );
-      }
-
-      // Preparar los datos de la salida con cantidades normalizadas
-      const outputData = {
-        input_id: input.id,
-        quantity_output: difference,
+      // Llamadas a API
+      const updateRes = await updateInput(input.id, { quantity_taken: newQty });
+      await createOutput(input.id, {
+        quantity_output: formatDecimal(newQty - input.quantity_taken),
         output_date: new Date().toISOString(),
-        remark: "Salida registrada desde edición",
-        bull_id: input.bull_id,
-        user_id: selectedUser.id,
-      };
-
-      console.log("Datos de salida:", outputData);
-
-      // Registrar la salida
-      const outputResponse = await createOutput(input.id, outputData);
-      console.log("Respuesta de la API:", outputResponse);
-
-      // Actualizar la lista de entradas
-      const updatedInputs = bullInputs.map((item) => {
-        if (item.id === input.id) {
-          const newTotal = normalizeNumber(currentTotal - difference);
-          return {
-            ...item,
-            quantity_taken: newQty,
-            total: newTotal,
-            updated_at: new Date().toISOString(),
-          };
-        }
-        return item;
+        remark: "Registro automático",
       });
 
-      setBullInputs(updatedInputs);
+      // Recarga final para sincronización
+      const refreshed = selectedBull
+        ? await getInputsByBull(selectedBull.id)
+        : await getInputsByUser(selectedUser.id);
+
+      setBullInputs(
+        Array.isArray(refreshed) ? refreshed : refreshed.items || []
+      );
+
       setEditingInputId(null);
-      setEditValue("");
-      setUpdateError(null);
     } catch (error) {
-      console.error("Error completo:", error);
-      setUpdateError(error.message || "Error al actualizar la cantidad");
+      setUpdateError(error.message);
+      // Revertir cambios si falla
+      setBullInputs((prev) => [...prev]);
     } finally {
       setUpdateLoading(false);
     }
@@ -525,7 +374,7 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
       <div className="mb-4 p-3 bg-light rounded">
         <h4 className="mb-3">Filtrar Clientes</h4>
         <form onSubmit={handleSearch} className="row g-3 align-items-end">
-          <div className="col-md-8">
+          <div className="col-md-9">
             <label htmlFor="searchTerm" className="form-label">
               Búsqueda
             </label>
@@ -538,8 +387,8 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
               placeholder="Buscar por nombre, email o documento..."
             />
           </div>
-          <div className="col-md-4">
-            <div className="d-grid gap-2">
+          <div className="col-md-3">
+            <div className="d-flex gap-3">
               <button
                 type="submit"
                 className="btn btn-primary"
@@ -736,16 +585,14 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
                   <tbody>
                     {bullInputs.length > 0 ? (
                       bullInputs.map((input) => {
-                        const received = roundToDecimal(
+                        const received = formatDecimal(
                           parseFloat(input.quantity_received || 0)
                         );
-                        const used = roundToDecimal(
+                        const used = formatDecimal(
                           parseFloat(input.quantity_taken || 0)
                         );
-                        const available = roundToDecimal(
-                          parseFloat(
-                            input.total || input.quantity_received || 0
-                          )
+                        const available = formatDecimal(
+                          parseFloat(input.total)
                         );
 
                         return (
@@ -762,7 +609,8 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
                               {input.created_at
                                 ? new Date(
                                     input.created_at
-                                  ).toLocaleDateString()
+                                  ).toLocaleDateString('es-CO', {
+timeZone: 'UTC' })
                                 : "N/A"}
                             </td>
                             <td>{received.toFixed(1)}</td>
@@ -773,13 +621,15 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
                                   className="form-control form-control-sm"
                                   value={editValue}
                                   onChange={(e) => {
-                                    const value = normalizeNumber(
-                                      e.target.value || 0
-                                    );
+                                    // Permitir cualquier valor numérico positivo
+                                    const value =
+                                      Math.max(0, parseFloat(e.target.value)) ||
+                                      0;
+                                    console.log({ value: value });
                                     setEditValue(value);
                                   }}
-                                  step="0.1"
-                                  min={used}
+                                  step={0.1}
+                                  min={0}
                                   max={received}
                                 />
                               ) : (
@@ -955,7 +805,8 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
                             {selectedBull.created_at
                               ? new Date(
                                   selectedBull.created_at
-                                ).toLocaleDateString()
+                                ).toLocaleDateString('es-CO', {
+timeZone: 'UTC' })
                               : "Desconocida"}
                           </td>
                         </tr>
@@ -965,7 +816,8 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
                             {selectedBull.updated_at
                               ? new Date(
                                   selectedBull.updated_at
-                                ).toLocaleDateString()
+                                ).toLocaleDateString('es-CO', {
+timeZone: 'UTC' })
                               : "Desconocida"}
                           </td>
                         </tr>
@@ -1053,30 +905,30 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
                     <tr>
                       <th>ID</th>
                       <th>Fecha</th>
-                      <th>Cantidad Recibida (ml)</th>
-                      <th>Cantidad Utilizada (ml)</th>
-                      <th>Disponible (ml)</th>
+                      <th>Cantidad Recibida (Unidades)</th>
+                      <th>Cantidad Utilizada (Unidades)</th>
+                      <th>Disponible (Unidades)</th>
                       <th>Última Salida</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {bullInputs.map((input) => {
-                      const received = roundToDecimal(
+                      const received = formatDecimal(
                         parseFloat(input.quantity_received || 0)
                       );
-                      const used = roundToDecimal(
+                      const used = formatDecimal(
                         parseFloat(input.quantity_taken || 0)
                       );
                       const available =
                         input.quantity_available !== undefined
-                          ? roundToDecimal(parseFloat(input.quantity_available))
+                          ? formatDecimal(parseFloat(input.quantity_available))
                           : received - used;
 
                       // Calcular diferencia si está editando
                       const editingDifference =
                         editingInputId === input.id
-                          ? roundToDecimal(parseFloat(editValue || 0)) - used
+                          ? formatDecimal(parseFloat(editValue || 0)) - used
                           : 0;
 
                       return (
@@ -1084,7 +936,8 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
                           <td>{input.id}</td>
                           <td>
                             {input.created_at
-                              ? new Date(input.created_at).toLocaleDateString()
+                              ? new Date(input.created_at).toLocaleDateString('es-CO', {
+timeZone: 'UTC' })
                               : "N/A"}
                           </td>
                           <td>{received.toFixed(1)}</td>
@@ -1094,15 +947,14 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
                                 type="number"
                                 className="form-control form-control-sm"
                                 value={editValue}
-                                onChange={(e) => {
-                                  const value = normalizeNumber(
-                                    e.target.value || 0
-                                  );
-                                  setEditValue(value);
-                                }}
+                                onChange={handleEditChange}
                                 step="0.1"
-                                min="0"
-                                max={received}
+                                min={input.quantity_taken}
+                                max={input.quantity_received}
+                                onKeyPress={(e) =>
+                                  e.key === "Enter" &&
+                                  handleUpdateQuantity(input)
+                                }
                               />
                             ) : (
                               used.toFixed(1)
@@ -1119,7 +971,7 @@ const isEqualWithTolerance = (a, b, tolerance = 0.000001) => {
                               {editingInputId === input.id
                                 ? (
                                     received -
-                                    roundToDecimal(parseFloat(editValue || 0))
+                                    formatDecimal(parseFloat(editValue || 0))
                                   ).toFixed(1)
                                 : available.toFixed(1)}
                               {available <= 0 && (

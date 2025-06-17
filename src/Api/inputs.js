@@ -34,7 +34,7 @@ export const createInput = async (inputData) => {
 export const updateInput = async (inputId, inputData) => {
   try {
     const response = await axios.put(`/inputs/${inputId}`, inputData);
-    return response.data;
+    return response;
   } catch (error) {
     console.error("Error al actualizar la entrada:", error);
     throw error;

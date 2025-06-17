@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEye, faEdit, faCheck } from '@fortawesome/free-solid-svg-icons';
-import { inputsApi, outputsApi } from '../Api';
-import { getBull } from '../Api/bulls';
-import { getRaceById } from '../Api/races';
-import { getSexById } from '../Api/sexes';
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEye, faEdit, faCheck } from "@fortawesome/free-solid-svg-icons";
+import { inputsApi, outputsApi } from "../Api";
+import { getBull } from "../Api/bulls";
+import { getRaceById } from "../Api/races";
+import { getSexById } from "../Api/sexes";
+import { parse } from "@fortawesome/fontawesome-svg-core";
 
 const InputsDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [input, setInput] = useState(null);
   const [bullDetails, setBullDetails] = useState(null);
   const [bullInputs, setBullInputs] = useState([]);
@@ -19,28 +20,28 @@ const InputsDetails = () => {
   const [loading, setLoading] = useState(true);
   const [loadingBullInputs, setLoadingBullInputs] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // Formulario para agregar nueva salida
   const [outputForm, setOutputForm] = useState({
-    quantity_output: '',
-    output_date: new Date().toISOString().split('T')[0],
-    remark: ''
+    quantity_output: "",
+    output_date: new Date().toISOString().split("T")[0],
+    remark: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [showAddOutput, setShowAddOutput] = useState(false);
-  
+
   // Cargar detalles del input y del toro asociado
   useEffect(() => {
     const loadDetails = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         // Cargar detalles de la entrada
         const inputData = await inputsApi.getInputById(id);
         console.log("Datos de entrada obtenidos:", inputData);
         setInput(inputData);
-        
+
         // Si tenemos el ID del toro, cargar sus detalles
         if (inputData && inputData.bull_id) {
           try {
@@ -48,7 +49,7 @@ const InputsDetails = () => {
             const bull = await getBull(inputData.bull_id);
             console.log("Datos completos del toro:", bull);
             setBullDetails(bull);
-            
+
             // Verificar si necesitamos cargar datos de raza
             if (bull.race_id && (!bull.race || !bull.race.name)) {
               try {
@@ -59,7 +60,7 @@ const InputsDetails = () => {
                 console.error("Error al cargar datos de raza:", raceError);
               }
             }
-            
+
             // Verificar si necesitamos cargar datos de sexo
             if (bull.sex_id && (!bull.sex || !bull.sex.name)) {
               try {
@@ -70,138 +71,139 @@ const InputsDetails = () => {
                 console.error("Error al cargar datos de sexo:", sexError);
               }
             }
-            
+
             // Cargar historial de entradas del toro
-            await loadBullInputs(inputData.bull_id);
+            await loadBullOutput(id);
+            // console.log("Entradas del toro cargadas:", bullInputs);
           } catch (bullError) {
             console.error("Error al cargar datos del toro:", bullError);
           }
         }
       } catch (err) {
         console.error("Error al cargar detalles:", err);
-        setError("No se pudieron cargar los detalles. Por favor, intente nuevamente.");
+        setError(
+          "No se pudieron cargar los detalles. Por favor, intente nuevamente."
+        );
       } finally {
         setLoading(false);
       }
     };
-    
+
     loadDetails();
   }, [id]);
-  
+
   // Cargar todas las entradas del toro
-  const loadBullInputs = async (bullId) => {
-    if (!bullId) return;
-    
+  const loadBullOutput = async (inputId) => {
+    if (!inputId) return;
+
     setLoadingBullInputs(true);
     try {
       // Usamos el servicio específico para traer entradas por toro
-      const bullInputsData = await inputsApi.getInputsByBull(bullId);
-      console.log("Respuesta de getInputsByBull:", bullInputsData);
-      
-      // Aseguramos el formato correcto sea cual sea la respuesta de la API
-      let formattedInputs = [];
-      if (Array.isArray(bullInputsData)) {
-        formattedInputs = bullInputsData;
-      } else if (bullInputsData && bullInputsData.items) {
-        formattedInputs = bullInputsData.items;
-      } else if (bullInputsData && typeof bullInputsData === 'object') {
-        formattedInputs = [bullInputsData];
-      }
-      
-      setBullInputs(formattedInputs);
-      console.log("Historial de entradas del toro formateado:", formattedInputs);
+      const bullInputsData = await outputsApi.getOutputsByInput(inputId);
+      // console.log("Respuesta de getInputsByBull:", bullInputsData);
+
+      // // Aseguramos el formato correcto sea cual sea la respuesta de la API
+      // console.log("Datos de entradas del toro:", bullInputsData);
+
+      setBullInputs(bullInputsData || []);
     } catch (error) {
       console.error("Error al cargar entradas del toro:", error);
-      console.error("Detalles del error:", error.response?.data || error.message);
+      console.error(
+        "Detalles del error:",
+        error.response?.data || error.message
+      );
     } finally {
       setLoadingBullInputs(false);
     }
   };
-  
+
   // Manejar cambios en el formulario de salida
   const handleOutputChange = (e) => {
     const { name, value } = e.target;
     setOutputForm({ ...outputForm, [name]: value });
   };
-  
+
   // Enviar formulario de nueva salida
   const handleSubmitOutput = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    
+
     try {
       // Validar cantidad
       if (parseFloat(outputForm.quantity_output) <= 0) {
         throw new Error("La cantidad debe ser mayor a cero");
       }
-      
+
       // Crear nueva salida
       const response = await outputsApi.createOutput(id, outputForm);
       console.log("Salida creada:", response);
-      
+
       // Limpiar formulario
       setOutputForm({
-        quantity_output: '',
-        output_date: new Date().toISOString().split('T')[0],
-        remark: ''
+        quantity_output: "",
+        output_date: new Date().toISOString().split("T")[0],
+        remark: "",
       });
-      
+
       setShowAddOutput(false);
-      
+
       // Recargar los datos del input para ver el cambio en el total
       const updatedInput = await inputsApi.getInputById(id);
       setInput(updatedInput);
-      
     } catch (err) {
       console.error("Error al crear salida:", err);
-      setError(err.message || "No se pudo crear la salida. Por favor, intente nuevamente.");
+      setError(
+        err.message ||
+          "No se pudo crear la salida. Por favor, intente nuevamente."
+      );
     } finally {
       setSubmitting(false);
     }
   };
-  
+
   // Cambiar estado del input
   const handleStatusChange = async (newStatus) => {
     if (window.confirm(`¿Estás seguro de cambiar el estado a ${newStatus}?`)) {
       setLoading(true);
-      
+
       try {
         await inputsApi.updateInputStatus(id, newStatus);
-        
+
         // Actualizar el input en el estado
         const updatedInput = await inputsApi.getInputById(id);
         setInput(updatedInput);
-        
       } catch (err) {
         console.error("Error al cambiar estado:", err);
-        setError("No se pudo cambiar el estado. Por favor, intente nuevamente.");
+        setError(
+          "No se pudo cambiar el estado. Por favor, intente nuevamente."
+        );
       } finally {
         setLoading(false);
       }
     }
   };
-  
+
   // Navegar a la vista de detalles de otra entrada
   const viewInputDetails = (inputId) => {
     navigate(`/gestion/inputs/${inputId}`);
   };
-  
+
   // Función para obtener el nombre de la raza
   const getRaceName = () => {
     if (bullDetails?.race?.name) return bullDetails.race.name;
     if (bullDetails?.race_name) return bullDetails.race_name;
     if (raceData?.name) return raceData.name;
-    return 'No disponible';
+    return "No disponible";
   };
-  
+
   // Función para obtener el nombre del sexo
   const getSexName = () => {
     if (bullDetails?.sex?.name) return bullDetails.sex.name;
     if (bullDetails?.sex_name) return bullDetails.sex_name;
     if (sexData?.name) return sexData.name;
-    return 'No disponible';
+    return "No disponible";
   };
-  
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center py-5">
@@ -211,7 +213,7 @@ const InputsDetails = () => {
       </div>
     );
   }
-  
+
   if (error) {
     return (
       <div className="alert alert-danger m-4" role="alert">
@@ -219,14 +221,17 @@ const InputsDetails = () => {
         <p>{error}</p>
         <hr />
         <div className="d-flex justify-content-end">
-          <button className="btn btn-outline-secondary" onClick={() => navigate('/gestion/inputs')}>
+          <button
+            className="btn btn-outline-secondary"
+            onClick={() => navigate("/gestion/inputs")}
+          >
             Volver a la lista
           </button>
         </div>
       </div>
     );
   }
-  
+
   if (!input) {
     return (
       <div className="alert alert-warning m-4" role="alert">
@@ -234,37 +239,41 @@ const InputsDetails = () => {
         <p>No se encontró la entrada con ID: {id}</p>
         <hr />
         <div className="d-flex justify-content-end">
-          <button className="btn btn-outline-secondary" onClick={() => navigate('/gestion/inputs')}>
+          <button
+            className="btn btn-outline-secondary"
+            onClick={() => navigate("/gestion/inputs")}
+          >
             Volver a la lista
           </button>
         </div>
       </div>
     );
   }
-  
+
   // Calcular valores de cantidades
   const quantityReceived = parseFloat(input.quantity_received || 0);
-  const quantityUsed = parseFloat(input.quantity_used || 0);
-  const quantityAvailable = input.quantity_available !== undefined 
-    ? parseFloat(input.quantity_available) 
-    : (quantityReceived - quantityUsed);
-  
+  const quantityUsed = parseFloat(input.quantity_taken || 0);
+  const quantityAvailable = parseFloat(input.total);
+
   return (
     <div className="container-fluid py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="mb-0">
           <i className="bi bi-info-circle me-2"></i>
-          Detalles de Entrada #{input.id}
+          Detalles de Entrada - {input.id}
         </h2>
-        <button className="btn btn-outline-secondary" onClick={() => navigate('/gestion/inputs')}>
+        <button
+          className="btn btn-outline-secondary"
+          onClick={() => navigate("/inventory")}
+        >
           <i className="bi bi-arrow-left me-2"></i>
           Volver a la lista
         </button>
       </div>
-      
+
       {/* Detalles básicos */}
       <div className="row">
-        <div className="col-md-8">
+        <div className="col-md-6">
           <div className="card shadow-sm mb-4">
             <div className="card-header bg-primary text-white">
               <h5 className="mb-0">Información del Toro</h5>
@@ -273,14 +282,16 @@ const InputsDetails = () => {
               <div className="row mb-3">
                 <div className="col-md-6">
                   <h6 className="text-muted mb-1">Nombre</h6>
-                  <p className="mb-0 fs-5">{bullDetails?.name || 'No disponible'}</p>
+                  <p className="mb-0 fs-5">
+                    {bullDetails?.name || "No disponible"}
+                  </p>
                 </div>
                 <div className="col-md-6">
                   <h6 className="text-muted mb-1">ID del Toro</h6>
-                  <p className="mb-0 fs-5">#{bullDetails?.id || 'N/A'}</p>
+                  <p className="mb-0 fs-5">#{bullDetails?.id || "N/A"}</p>
                 </div>
               </div>
-              
+
               <div className="row mb-3">
                 <div className="col-md-6">
                   <h6 className="text-muted mb-1">Raza</h6>
@@ -288,19 +299,21 @@ const InputsDetails = () => {
                 </div>
                 <div className="col-md-6">
                   <h6 className="text-muted mb-1">Registro</h6>
-                  <p className="mb-0">{bullDetails?.register || 'No disponible'}</p>
+                  <p className="mb-0">
+                    {bullDetails?.register || "No disponible"}
+                  </p>
                 </div>
               </div>
-              
+
               <div className="row mb-3">
-                <div className="col-md-6">
+                {/* <div className="col-md-6">
                   <h6 className="text-muted mb-1">Estado</h6>
                   <p className="mb-0">
                     <span className={`badge bg-${bullDetails?.status === 'Active' ? 'success' : 'secondary'}`}>
                       {bullDetails?.status === 'Active' ? 'Activo' : 'Inactivo'}
                     </span>
                   </p>
-                </div>
+                </div> */}
                 <div className="col-md-6">
                   <h6 className="text-muted mb-1">Sexo</h6>
                   <p className="mb-0">{getSexName()}</p>
@@ -308,9 +321,10 @@ const InputsDetails = () => {
               </div>
             </div>
           </div>
-          
+        </div>
+        <div className="col-md-6">
           {/* Tarjeta para información de la entrada */}
-          {/* <div className="card shadow-sm mb-4">
+          <div className="card shadow-sm mb-4">
             <div className="card-header bg-secondary text-white">
               <h5 className="mb-0">Detalles de la Entrada</h5>
             </div>
@@ -319,54 +333,67 @@ const InputsDetails = () => {
                 <div className="col-md-4">
                   <h6 className="text-muted mb-1">Fecha de Registro</h6>
                   <p className="mb-0">
-                    {input.created_at ? new Date(input.created_at).toLocaleDateString() : 'No disponible'}
+                    {input.created_at
+                      ? new Date(input.created_at).toLocaleDateString("es-CO", {
+                          timeZone: "UTC",
+                        })
+                      : "No disponible"}
                   </p>
                 </div>
                 <div className="col-md-4">
                   <h6 className="text-muted mb-1">Estado</h6>
                   <p className="mb-0">
-                    <span className={`badge bg-${getStatusColor(input.status || input.status_id)}`}>
-                      {input.status || input.status_id || 'Pendiente'}
+                    <span
+                      className={`badge bg-${getStatusColor(
+                        input.status || input.status_id
+                      )}`}
+                    >
+                      {input.status || input.status_id || "Pendiente"}
                     </span>
                   </p>
                 </div>
                 <div className="col-md-4">
                   <h6 className="text-muted mb-1">Lote</h6>
-                  <p className="mb-0">{input.lot_code || input.lote || 'No disponible'}</p>
+                  <p className="mb-0">{input.lote}</p>
                 </div>
               </div>
-              
+
               <div className="row">
                 <div className="col-md-4">
-                  <h6 className="text-muted mb-1">Cantidad Recibida (ml)</h6>
+                  <h6 className="text-muted mb-1">Unidades Recibida</h6>
                   <p className="mb-0 fw-bold">{quantityReceived.toFixed(1)}</p>
                 </div>
                 <div className="col-md-4">
-                  <h6 className="text-muted mb-1">Cantidad Utilizada (ml)</h6>
+                  <h6 className="text-muted mb-1">Unidades Utilizada</h6>
                   <p className="mb-0 fw-bold">{quantityUsed.toFixed(1)}</p>
                 </div>
                 <div className="col-md-4">
-                  <h6 className="text-muted mb-1">Disponible (ml)</h6>
+                  <h6 className="text-muted mb-1">Unidades Disponibles</h6>
                   <p className="mb-0 fw-bold">
-                    <span className={quantityAvailable <= 0 ? 'text-danger' : 'text-success'}>
+                    <span
+                      className={
+                        quantityAvailable <= 0 ? "text-danger" : "text-success"
+                      }
+                    >
                       {quantityAvailable.toFixed(1)}
-                      {quantityAvailable <= 0 && <span className="badge bg-danger ms-2">Agotado</span>}
+                      {quantityAvailable <= 0 && (
+                        <span className="badge bg-danger ms-2">Agotado</span>
+                      )}
                     </span>
                   </p>
                 </div>
               </div>
-              
-              <div className="row mt-3">
+
+              {/* <div className="row mt-3">
                 <div className="col-12">
                   <h6 className="text-muted mb-1">Observaciones</h6>
                   <p className="mb-0">{input.observations || 'Sin observaciones'}</p>
                 </div>
-              </div>
+              </div> */}
             </div>
-          </div> */}
+          </div>
         </div>
-        
-        <div className="col-md-4">
+        {/* <div className="col-md-4">
           <div className="card shadow-sm mb-4">
             <div className="card-header bg-secondary text-white">
               <h5 className="mb-0">Detalles Adicionales</h5>
@@ -380,13 +407,14 @@ const InputsDetails = () => {
               <div className="mb-3">
                 <h6 className="text-muted mb-1">Última actualización</h6>
                 <p className="mb-0">
-                  {input.updated_at ? new Date(input.updated_at).toLocaleDateString() : 'Sin actualizar'}
+                  {input.updated_at ? new Date(input.updated_at).toLocaleDateString('es-CO', {
+timeZone: 'UTC' });() : 'Sin actualizar'}
                 </p>
               </div>
             </div>
           </div>
           
-          {/* Acciones */}
+
           <div className="card shadow-sm mb-4">
             <div className="card-header bg-dark text-white">
               <h5 className="mb-0">Acciones</h5>
@@ -449,9 +477,9 @@ const InputsDetails = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
-      
+
       {/* Formulario para agregar salida */}
       {showAddOutput && (
         <div className="card shadow-sm mb-4">
@@ -462,7 +490,9 @@ const InputsDetails = () => {
             <form onSubmit={handleSubmitOutput}>
               <div className="row">
                 <div className="col-md-4 mb-3">
-                  <label className="form-label fw-bold">Cantidad (ml)*</label>
+                  <label className="form-label fw-bold">
+                    Cantidad (Unidades)*
+                  </label>
                   <input
                     type="number"
                     className="form-control"
@@ -473,7 +503,9 @@ const InputsDetails = () => {
                     step="0.1"
                     min="0.1"
                     max={quantityAvailable > 0 ? quantityAvailable : undefined}
-                    placeholder={`Máximo: ${quantityAvailable.toFixed(1)} ml`}
+                    placeholder={`Máximo: ${quantityAvailable.toFixed(
+                      1
+                    )} unidades`}
                   />
                 </div>
                 <div className="col-md-4 mb-3">
@@ -499,21 +531,25 @@ const InputsDetails = () => {
                 </div>
               </div>
               <div className="d-flex justify-content-end">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-outline-secondary me-2"
                   onClick={() => setShowAddOutput(false)}
                 >
                   Cancelar
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn btn-success"
                   disabled={submitting || quantityAvailable <= 0}
                 >
                   {submitting ? (
                     <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      <span
+                        className="spinner-border spinner-border-sm me-2"
+                        role="status"
+                        aria-hidden="true"
+                      ></span>
                       Guardando...
                     </>
                   ) : (
@@ -528,17 +564,19 @@ const InputsDetails = () => {
           </div>
         </div>
       )}
-      
+
       {/* Historial de Entradas del Toro */}
       <div className="card shadow-sm">
         <div className="card-header bg-info text-white">
-          <h5 className="mb-0">Historial de Entradas del Toro</h5>
+          <h5 className="mb-0">Historial de salidas</h5>
         </div>
         <div className="card-body">
           {loadingBullInputs ? (
             <div className="text-center py-3">
               <div className="spinner-border text-primary" role="status"></div>
-              <p className="mt-2 text-muted">Cargando historial de entradas...</p>
+              <p className="mt-2 text-muted">
+                Cargando historial de entradas...
+              </p>
             </div>
           ) : bullInputs && bullInputs.length > 0 ? (
             <div className="table-responsive">
@@ -547,41 +585,43 @@ const InputsDetails = () => {
                   <tr>
                     <th>ID</th>
                     <th>Fecha</th>
-                    <th>Cantidad Recibida</th>
                     <th>Cantidad Utilizada</th>
-                    <th>Disponible</th>
-                    <th>Acciones</th>
+                    <th>Nota</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {bullInputs.map(item => {
+                  {bullInputs.map((item) => {
                     const received = parseFloat(item.quantity_received || 0);
-                    const used = parseFloat(item.quantity_used || 0);
-                    const available = item.quantity_available !== undefined 
-                      ? parseFloat(item.quantity_available) 
-                      : (received - used);
-                    
+                    const used = parseFloat(item.quantity_take || 0);
+                    const available =
+                      item.quantity_available !== undefined
+                        ? parseFloat(item.quantity_available)
+                        : received - used;
+
                     return (
                       <tr key={item.id}>
                         <td>{item.id}</td>
-                        <td>{item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}</td>
-                        <td>{received.toFixed(1)}</td>
-                        <td>{used.toFixed(1)}</td>
                         <td>
-                          <span className={available <= 0 ? 'text-danger fw-bold' : 'text-success'}>
-                            {available.toFixed(1)}
-                            {available <= 0 && <span className="badge bg-danger ms-2">Agotado</span>}
-                          </span>
+                          {item.created_at
+                            ? new Date(item.created_at).toLocaleDateString(
+                                "es-CO",
+                                {
+                                  timeZone: "UTC",
+                                }
+                              )
+                            : "N/A"}
                         </td>
-                        <td>
-                          <button 
+                        <td>{item.quantity_output}</td>
+                        <td>{item.remark || "Sin observaciones"}</td>
+                        {/* <td>
+                          <button
                             className="btn btn-sm btn-outline-primary me-1"
                             onClick={() => viewInputDetails(item.id)}
                             title="Ver detalles"
                           >
                             <FontAwesomeIcon icon={faEye} />
                           </button>
-                        </td>
+                        </td> */}
                       </tr>
                     );
                   })}
@@ -590,8 +630,10 @@ const InputsDetails = () => {
             </div>
           ) : (
             <div className="text-center py-3">
-              <i className="bi bi-inbox" style={{ fontSize: '2rem' }}></i>
-              <p className="text-muted mt-2">No hay otras entradas registradas para este toro</p>
+              <i className="bi bi-inbox" style={{ fontSize: "2rem" }}></i>
+              <p className="text-muted mt-2">
+                No hay otras entradas registradas para este toro
+              </p>
             </div>
           )}
         </div>
@@ -603,11 +645,16 @@ const InputsDetails = () => {
 // Función auxiliar para obtener el color según el estado
 const getStatusColor = (status) => {
   switch (status) {
-    case 'Pending': return 'warning';
-    case 'Processing': return 'primary';
-    case 'Completed': return 'success';
-    case 'Cancelled': return 'danger';
-    default: return 'secondary';
+    case "Pending":
+      return "primary";
+    case "Processing":
+      return "warning";
+    case "Completed":
+      return "danger";
+    case "Cancelled":
+      return "danger";
+    default:
+      return "secondary";
   }
 };
 

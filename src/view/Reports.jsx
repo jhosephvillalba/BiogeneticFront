@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as opusApi from '../Api/opus';
+import * as productionApi from '../Api/productionEmbrionary'; 
 
 const Reports = () => {
   const navigate = useNavigate();
@@ -16,17 +17,18 @@ const Reports = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await opusApi.getOpusGroupedByDate();
+      const response = await productionApi.getMyProductions()
+      console.log({response: response})
       
       const formattedData = response.map(opus => ({
         id: opus.id,
-        fecha: opus.fecha,
-        cliente: opus.cliente_nombre,
-        total_registros: opus.total_registros,
-        total_oocitos: opus.total_oocitos,
-        total_embriones: opus.total_embriones,
-        porcentaje_exito: opus.porcentaje_exito,
-        promedio_embriones: opus.promedio_embriones
+        fecha: opus.fecha_opu,
+        envase: opus.envase,
+        fecha_transferencia: opus.fecha_transferencia,
+        finca: opus.finca,
+        lugar:opus.lugar,
+        hora_inicio:opus.hora_inicio,
+        hora_final:opus.hora_final
       }));
 
       setOpuList(formattedData);
@@ -61,7 +63,8 @@ const Reports = () => {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
+    return date.toLocaleDateString('es-CO', {
+      timeZone: 'UTC',
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
@@ -70,9 +73,9 @@ const Reports = () => {
 
   const handleViewDetails = (opus) => {
     // Extraer solo la parte de la fecha (YYYY-MM-DD) sin la hora
-    const datePart = opus.fecha.split('T')[0];
+    const id = opus.id
     // Navegar a la ruta de detalle con la fecha como parámetro
-    navigate(`/reportdetails/${datePart}`);
+    navigate(`/reportdetails/${id}`);
   };
 
   return (
@@ -179,13 +182,14 @@ const Reports = () => {
               <table className="table table-hover">
                 <thead className="table-light">
                   <tr>
+                    <th>ID</th>
                     <th>Fecha</th>
-                    <th>Cliente</th>
-                    <th>Total Registros</th>
-                    <th>Total Oocitos</th>
-                    <th>Total Embriones</th>
-                    <th>% Éxito</th>
-                    <th>Promedio Embriones</th>
+                    <th>Envase</th>
+                    <th>Fecha Tansferencia</th>
+                    <th>Lugar</th>
+                    <th>Finca</th>
+                    <th>Hora Inicio</th>
+                    <th>Hora Final</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
@@ -194,16 +198,17 @@ const Reports = () => {
                     <tr>
                       <td colSpan="8" className="text-center">No hay registros disponibles</td>
                     </tr>
-                  ) : (
+                  ) : (    
                     filteredOpus.map((opus, index) => (
                       <tr key={index}>
-                        <td>{formatDate(opus.fecha)}</td>
-                        <td>{opus.cliente}</td>
-                        <td>{opus.total_registros}</td>
-                        <td>{opus.total_oocitos}</td>
-                        <td>{opus.total_embriones}</td>
-                        <td>{opus.porcentaje_exito}</td>
-                        <td>{opus.promedio_embriones}</td>
+                        <td>{opus.id}</td>
+                        <td>{opus.fecha}</td>
+                        <td>{opus.envase}</td>
+                        <td>{opus.fecha_transferencia}</td>
+                        <td>{opus.lugar}</td>
+                        <td>{opus.finca}</td>
+                        <td>{opus.hora_inicio}</td>
+                        <td>{opus.hora_final}</td>
                         <td>
                           <button
                             className="btn btn-primary btn-sm"

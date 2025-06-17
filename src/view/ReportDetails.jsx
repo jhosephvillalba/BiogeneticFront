@@ -11,7 +11,10 @@ import {
   Legend
 } from 'chart.js';
 
-import { getOpusByDate } from '../Api/opus';
+import { getOpusByProduction } from '../Api/opus';
+import { getProductionById } from '../Api/productionEmbrionary'; 
+import { getUserById } from '../Api/users'; 
+
 
 ChartJS.register(
   CategoryScale,
@@ -23,17 +26,28 @@ ChartJS.register(
 );
 
 const ReportDetails = () => {
-  const { fecha } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const [registros, setRegistros] = useState([]);
+  const [production, setProduction] = useState(null);
+  const [currentUserReport, setCurrentUserReport ] = useState(null); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data = await getOpusByDate(fecha);
+        const data = await getOpusByProduction(id);
+        const dataProduction = await getProductionById(id); 
+
         setRegistros(data);
+        console.log({data:data})
+        setProduction(dataProduction); 
+
+        const userReport = await getUserById(dataProduction.cliente_id); 
+
+        setCurrentUserReport(userReport); 
+
       } catch (err) {
         setError('No se pudo cargar el informe.');
       } finally {
@@ -42,13 +56,19 @@ const ReportDetails = () => {
     };
 
     fetchData();
-  }, [fecha]);
+  }, [id]);
 
   if (loading) return <div className="container p-4">Cargando informe...</div>;
   if (error) return <div className="container p-4 text-danger">{error}</div>;
-  if (!registros.length) return <div className="container p-4">No hay datos para mostrar.</div>;
+  if (!registros.length) return (<div className="d-flex justify-content-center align-items-center" style={{height: "70vh;"}}>
+  <div className="text-center p-5 rounded-3 shadow" style={{backgroundColor: "#f8f9fa", maxWidth: "600px;"}}>
+    <i className="bi bi-file-earmark-excel fs-1 text-muted mb-3"></i>
+    <h2 className="text-secondary mb-3">Aún no hay registros para este reporte</h2>
+    <p className="text-muted">Cuando existan datos disponibles, aparecerán aquí automáticamente.</p>
+    <button className="btn btn-outline-primary mt-2">Actualizar</button>
+  </div>
+</div>); 
 
-  const generalInfo = registros[0];
 
   const chartData = {
     labels: registros.map(r => r.donante_nombre),
@@ -106,6 +126,7 @@ const ReportDetails = () => {
     }
   };
 
+          console.log({data: registros, production: production})
   return (
     <div className="container-fluid">
       <button 
@@ -128,23 +149,23 @@ const ReportDetails = () => {
                   <tbody>
                     <tr>
                       <th>CLIENTE</th>
-                      <td>{generalInfo.cliente_nombre}</td>
+                      <td>{currentUserReport.full_name}</td>
                       <th>LUGAR</th>
-                      <td>{generalInfo.lugar}</td>
+                      <td>{production.lugar}</td>
                       <th>HORA INICIO OPU</th>
-                      <td>-</td>
+                      <td>{production.hora_inicio}</td>
                       <th>ENVASE</th>
-                      <td>{generalInfo.empaque}</td>
+                      <td>{production.envase}</td>
                     </tr>
                     <tr>
                       <th>FECHA OPU</th>
-                      <td>{generalInfo.fecha}</td>
+                      <td>{production.fecha_opu}</td>
                       <th>FINCA</th>
-                      <td>{generalInfo.finca}</td>
+                      <td>{production.finca}</td>
                       <th>HORA FINAL OPU</th>
-                      <td>-</td>
+                      <td>{production.hora_final}</td>
                       <th>FECHA DE TRANSFERENCIA</th>
-                      <td>-</td>
+                      <td>{production.fecha_transferencia}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -165,10 +186,16 @@ const ReportDetails = () => {
                 <th>VIABLES</th>
                 <th>OTROS</th>
                 <th>TOTAL</th>
-                <th>CUV</th>
+                <th>CIV</th>
                 <th>CLIVADOS</th>
                 <th>% CLIV.</th>
-                <th>PREVISIÓN</th>
+                <th style={{backgroundColor:"red", color:"white"}}>PREVISIÓN</th>
+                <th>% PREV</th>
+                <th style={{backgroundColor:"blue", color:"white"}}>EMPAQUE</th>
+                <th>% EMP</th>
+                <th style={{backgroundColor:"green", color:"white"}}>VT/DT</th>
+                <th>% VT/DT</th>
+                <th>TOTAL</th>
                 <th>%</th>
               </tr>
               <tr>
@@ -190,11 +217,11 @@ const ReportDetails = () => {
               </tr>
             </thead>
             <tbody>
-              {registros.map((registro, index) => (
+             {registros.map((registro, index) => (
                 <tr key={registro.id}>
                   <td>{index + 1}</td>
-                  <td>{registro.donante_nombre}</td>
-                  <td>-</td>
+                  <td>{registro.donante_code}</td>
+                  <td>{registro.race}</td>
                   <td>{registro.toro_nombre}</td>
                   <td>{registro.gi}</td>
                   <td>{registro.gii}</td>
@@ -206,7 +233,13 @@ const ReportDetails = () => {
                   <td>{registro.clivados}</td>
                   <td>{registro.porcentaje_cliv}</td>
                   <td>{registro.prevision}</td>
-                  <td>{registro.porcentaje_total_embriones}</td>
+                  <td>{registro.porcentaje_prevision}</td>
+                  <td>{registro.empaque}</td>
+                  <td>{registro.porcentaje_empaque}</td>
+                  <td>{registro.vt_dt}</td>
+                  <td>{registro.porcentaje_vtdt}</td>
+                  <td>{registro.empaque + registro.vt_dt + registro.prevision }</td>
+                  <td>{`${Math.round((parseFloat(registro.empaque + registro.vt_dt + registro.prevision ) / registro.ctv)) * 100}%`}</td>
                 </tr>
               ))}
             </tbody>

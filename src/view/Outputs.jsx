@@ -17,7 +17,7 @@ const Outputs = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
+  const [itemsPerPage] = useState(15);
   const [totalItems, setTotalItems] = useState(0);
 
   // Función para formatear la fecha al formato ISO
@@ -93,20 +93,21 @@ const Outputs = () => {
         // Extraer valores considerando diferentes posibles estructuras
         const id = output.id || output.output_id;
         const bullName = output.bull_name || (output.bull && output.bull.name) || 'Sin nombre';
-        const raceName = output.race_name || (output.bull && output.bull.race_name) || 'Sin raza';
+        const client_document = output.client_document;
         const clientName = output.client_name || (output.user && output.user.full_name) || 'Sin cliente';
-        const register = output.register_number || (output.bull && output.bull.register) || 'Sin registro';
+        const register = output.bull_register || 'Sin registro';
         const quantity = output.quantity_output || output.quantity || '0';
         const date = output.created_at || output.output_date || 'Sin fecha';
         
         return {
           id,
-          name: bullName,
-          breed: raceName,
           client: clientName,
+          client_document: client_document,
           registration: register,
+          name: bullName,
           quantity: typeof quantity === 'number' ? quantity.toFixed(1) : quantity,
-          date: date ? new Date(date).toLocaleDateString() : 'Sin fecha',
+          date: date ? new Date(date).toLocaleDateString('es-CO', {
+timeZone: 'UTC' }) : 'Sin fecha',
           remark: output.remark || ''
         };
       });
@@ -160,7 +161,7 @@ const Outputs = () => {
 
   // Handle view details
   const handleViewDetails = (id) => {
-    navigate(`/outputs/${id}`);
+    navigate(`/gestion/inputs/${id}`);
   };
 
   // Limpiar filtros
@@ -266,9 +267,9 @@ const Outputs = () => {
                 <thead className="table-dark">
                   <tr>
                     <th>ID</th>
-                    <th>Nombre</th>
-                    <th>Raza</th>
                     <th>Cliente</th>
+                    <th>Documento(Nit/CC)</th>
+                    <th>Nombre (Toro)</th>
                     <th>Registro</th>
                     <th>Cantidad</th>
                     <th>Fecha</th>
@@ -281,9 +282,9 @@ const Outputs = () => {
                     outputs.map((output) => (
                       <tr key={output.id}>
                         <td>{output.id}</td>
-                        <td>{output.name}</td>
-                        <td>{output.breed}</td>
                         <td>{output.client}</td>
+                        <td>{output.client_document}</td>
+                        <td>{output.name}</td>
                         <td>{output.registration}</td>
                         <td>{output.quantity}</td>
                         <td>{output.date}</td>

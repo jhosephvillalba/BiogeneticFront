@@ -220,11 +220,11 @@ const App = () => {
                       <i className="bi bi-box-arrow-in-right me-2"></i> Entradas
                     </Link>
                   </li>
-                  <li>
+                  {/* <li>
                     <Link to="/gestion/outputs" className="nav-link text-white">
                       <i className="bi bi-box-arrow-right me-2"></i> Salidas
                     </Link>
-                  </li>
+                  </li> */}
                   <li>
                     <Link to="/bulls" className="nav-link text-white">
                       <i className="bi bi-database me-2"></i> Toros
@@ -357,7 +357,7 @@ const App = () => {
                 <Route path="/opus-summary" element={<OpusSummary />} />
                 <Route path="/reports" element={<Reports />} />
                 {/* <Route path="/reports/:id" element={<DetailReport />} /> */}
-                <Route path="/reportdetails/:fecha" element={<ReportDetails />} />
+                <Route path="/reportdetails/:id" element={<ReportDetails />} />
               </Route>
               <Route path="*" element={<p>There's nothing here: 404!</p>} />
             </Routes>

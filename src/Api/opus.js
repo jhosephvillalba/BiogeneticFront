@@ -116,9 +116,9 @@ export const getOpusGroupedByDate = async (skip = 0, limit = 100) => {
 }; 
 
 
-export const getOpusByDate = async (date) => {
+export const getOpusByProduction = async (id) => {
   try {
-    const response = await axios.get(`/opus/by-date/${date}`);
+    const response = await axios.get(`/opus/by-production/${id}`);
     return response.data;
   } catch (error) {
     // Manejar errores específicos

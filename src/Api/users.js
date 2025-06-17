@@ -14,7 +14,7 @@ export const getUsers = async (skip = 0, limit = 100) => {
 // Filtrar usuarios por criterios específicos
 export const filterUsers = async (filters = {}, skip = 0, limit = 100) => {
   try {
-    const { email, full_name, number_document, role_id } = filters;
+    const { email, full_name, number_document, role_id} = filters;
     let queryParams = `skip=${skip}&limit=${limit}`;
     
     if (email) queryParams += `&email=${encodeURIComponent(email)}`;
@@ -22,6 +22,9 @@ export const filterUsers = async (filters = {}, skip = 0, limit = 100) => {
     if (number_document) queryParams += `&number_document=${encodeURIComponent(number_document)}`;
     if (role_id) queryParams += `&role_id=${role_id}`;
     
+     // Añadir el filtro genérico si existe
+    // if (query) queryParams += `&query=${encodeURIComponent(query)}`;
+
     const response = await axios.get(`/users/filter?${queryParams}`);
     return response.data;
   } catch (error) {
@@ -31,6 +34,26 @@ export const filterUsers = async (filters = {}, skip = 0, limit = 100) => {
 };
 
 // Búsqueda general de usuarios
+export const searchUsers = async (filters = {}, skip = 0, limit = 100) => {
+  try {
+    const { q, role_id } = filters;
+    let queryParams = `skip=${skip}&limit=${limit}`;
+    
+    // if (email) queryParams += `&email=${encodeURIComponent(email)}`;
+    // if (full_name) queryParams += `&full_name=${encodeURIComponent(full_name)}`;
+    // if (number_document) queryParams += `&number_document=${encodeURIComponent(number_document)}`;
+    if (role_id) queryParams += `&role_id=${role_id}`;
+    
+     // Añadir el filtro genérico si existe
+    if (q) queryParams += `&q=${encodeURIComponent(q)}`;
+
+    const response = await axios.get(`/users/search?${queryParams}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error filtrando usuarios:", error);
+    throw error;
+  }
+};
 
 
 // Crear un nuevo usuario (cliente por defecto)

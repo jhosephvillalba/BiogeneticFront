@@ -1,162 +1,174 @@
-import React, { useState, useEffect } from 'react';
-import { usersApi } from '../Api';
-import * as opusApi from "../Api/opus";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import * as reportApi from "../Api/productionEmbrionary";
+import * as userApi from "../Api/users.js";
 
 const OpusSummary = () => {
+  const navigate = useNavigate();
   const [summaryData, setSummaryData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [loadingClients, setLoadingClients] = useState(false);
-  const [clientError, setClientError] = useState(null);
-  
-  // Estados para filtros
-  const [clients, setClients] = useState([]);
-  const [selectedClient, setSelectedClient] = useState('');
+
+  const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState({
-    startDate: '',
-    endDate: ''
+    startDate: "",
+    endDate: "",
   });
 
-  // Cargar clientes
-  const loadClients = async () => {
-    try {
-      setLoadingClients(true);
-      setClientError(null);
-      const response = await usersApi.filterUsers({ role_id: 3 }, 0, 100);
-      const clientsList = Array.isArray(response) ? response : (response.items || []);
-      setClients(clientsList);
-    } catch (error) {
-      console.error("Error al cargar clientes:", error);
-      setClientError("Error al cargar la lista de clientes: " + (error.response?.data?.detail || error.message));
-      setClients([]);
-    } finally {
-      setLoadingClients(false);
-    }
-  };
-
-  useEffect(() => {
-    loadClients();
-  }, []);
-
-  // Cargar datos del resumen
   const loadSummaryData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      let data = [];
-      if (selectedClient) {
-        data = await opusApi.getOpusByClient(selectedClient);
-      } else {
-        // Si no hay cliente seleccionado, obtener todos los registros
-        data = await opusApi.getOpusGroupedByDate();
+      const filters = {};
+
+      // Agregar query de búsqueda si existe
+      if (searchQuery.trim()) {
+        filters.query = searchQuery.trim();
       }
 
-      // Filtrar por fecha si es necesario
-      if (dateRange.startDate || dateRange.endDate) {
-        data = data.filter(record => {
-          const recordDate = new Date(record.fecha);
-          const start = dateRange.startDate ? new Date(dateRange.startDate) : new Date(0);
-          const end = dateRange.endDate ? new Date(dateRange.endDate) : new Date();
-          return recordDate >= start && recordDate <= end;
-        });
+      // Agregar fechas solo si ambas están presentes
+      if (dateRange.startDate && dateRange.endDate) {
+        filters.fecha_inicio = dateRange.startDate;
+        filters.fecha_fin = dateRange.endDate;
       }
 
-      setSummaryData(data);
+      const data = await reportApi.getAllProductions(filters);
+      
+      const transforData = await Promise.all(
+        data.map(async (item) => {
+          const fullName = await getUserName(item.cliente_id);
+          return { full_name: fullName, ...item };
+        })
+      );
+      console.log({ dataReport: data });
+
+      setSummaryData(Array.isArray(transforData) ? transforData : []);
     } catch (error) {
       console.error("Error al cargar datos del resumen:", error);
-      setError("Error al cargar los datos: " + error.message);
+      setError(
+        "Error al cargar los datos: " +
+          (error.response?.data?.detail || error.message)
+      );
+      setSummaryData([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Cargar datos iniciales
   useEffect(() => {
     loadSummaryData();
-  }, [selectedClient, dateRange.startDate, dateRange.endDate]);
+  }, []);
 
-  // Calcular totales
-  const calculateTotals = () => {
-    return summaryData.reduce((acc, record) => ({
-      total_registros: (acc.total_registros || 0) + record.total_registros,
-      total_oocitos: (acc.total_oocitos || 0) + record.total_oocitos,
-      total_embriones: (acc.total_embriones || 0) + record.total_embriones,
-      promedio_embriones: ((acc.total_embriones || 0) + record.total_embriones) / summaryData.length
-    }), {});
+  // Manejar búsqueda con debounce - solo fechas si ambas están presentes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadSummaryData();
+    }, 500); // Esperar 500ms después de que el usuario deje de escribir
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    searchQuery,
+    ...(dateRange.startDate && dateRange.endDate
+      ? [dateRange.startDate, dateRange.endDate]
+      : []),
+  ]);
+
+  const getUserName = async (id) => {
+    try {
+      const result = await userApi.getUserById(id);
+      return result.full_name;
+    } catch (e) {
+      console.error({ error: e });
+      return "";
+    }
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('es-ES');
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleDateString("es-CO", {
+      timeZone: "UTC",
+    });
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return "-";
+    return timeString.substring(0, 5); // Mostrar solo HH:MM
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    loadSummaryData();
+  };
+
+  const handleRowClick = (recordId) => {
+    navigate(`/reportdetails/${recordId}`);
   };
 
   return (
     <div className="container-fluid py-4">
       <h2 className="mb-4">
         <i className="bi bi-clipboard2-data me-2"></i>
-        Resumen de Producción de Embriones
+        Resumen de Producciones
       </h2>
 
-      {/* Filtros */}
       <div className="card mb-4">
         <div className="card-body">
-          <div className="row">
-            <div className="col-md-4">
-              <label className="form-label">Cliente</label>
-              {clientError ? (
-                <div className="alert alert-danger py-2">
-                  <small>{clientError}</small>
-                  <button 
-                    className="btn btn-link btn-sm float-end py-0"
-                    onClick={() => loadClients()}
+          <form onSubmit={handleSearchSubmit}>
+            <div className="row">
+              <div className="col-md-4">
+                <label className="form-label">Buscar Cliente</label>
+                <div className="input-group">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Documento, nombre o correo..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  <button
+                    className="btn btn-outline-secondary"
+                    type="submit"
+                    disabled={loading}
                   >
-                    Reintentar
+                    <i className="bi bi-search"></i>
                   </button>
                 </div>
-              ) : (
-                <select 
-                  className="form-select"
-                  value={selectedClient}
-                  onChange={(e) => setSelectedClient(e.target.value)}
-                  disabled={loadingClients}
-                >
-                  <option value="">Todos los clientes</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>
-                      {client.full_name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              </div>
+              <div className="col-md-4">
+                <label className="form-label">Fecha Inicio</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={dateRange.startDate}
+                  onChange={(e) =>
+                    setDateRange((prev) => ({
+                      ...prev,
+                      startDate: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="col-md-4">
+                <label className="form-label">Fecha Fin</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={dateRange.endDate}
+                  onChange={(e) =>
+                    setDateRange((prev) => ({
+                      ...prev,
+                      endDate: e.target.value,
+                    }))
+                  }
+                />
+              </div>
             </div>
-            <div className="col-md-4">
-              <label className="form-label">Fecha Inicio</label>
-              <input
-                type="date"
-                className="form-control"
-                value={dateRange.startDate}
-                onChange={(e) => setDateRange(prev => ({
-                  ...prev,
-                  startDate: e.target.value
-                }))}
-              />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label">Fecha Fin</label>
-              <input
-                type="date"
-                className="form-control"
-                value={dateRange.endDate}
-                onChange={(e) => setDateRange(prev => ({
-                  ...prev,
-                  endDate: e.target.value
-                }))}
-              />
-            </div>
-          </div>
+          </form>
         </div>
       </div>
 
-      {/* Tabla de resumen */}
       <div className="card">
         <div className="card-body">
           {loading ? (
@@ -166,49 +178,97 @@ const OpusSummary = () => {
               </div>
             </div>
           ) : error ? (
-            <div className="alert alert-danger">{error}</div>
-          ) : (
-            <div className="table-responsive">
-              <table className="table table-bordered table-hover">
-                <thead className="table-light">
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Cliente</th>
-                    <th>Total Registros</th>
-                    <th>Total Oocitos</th>
-                    <th>Total Embriones</th>
-                    <th>% Éxito</th>
-                    <th>Promedio Embriones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summaryData.map((record, index) => (
-                    <tr key={index}>
-                      <td>{formatDate(record.fecha)}</td>
-                      <td>{record.cliente_nombre}</td>
-                      <td>{record.total_registros}</td>
-                      <td>{record.total_oocitos}</td>
-                      <td>{record.total_embriones}</td>
-                      <td>{record.porcentaje_exito}</td>
-                      <td>{record.promedio_embriones}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="table-light">
-                  <tr>
-                    <td colSpan="2"><strong>Totales</strong></td>
-                    {Object.entries(calculateTotals()).map(([key, value], index) => (
-                      <td key={index}>
-                        <strong>
-                          {key === 'promedio_embriones' ? value.toFixed(2) : value}
-                        </strong>
-                      </td>
-                    ))}
-                    <td></td> {/* Columna vacía para % Éxito */}
-                  </tr>
-                </tfoot>
-              </table>
+            <div className="alert alert-danger">
+              {error}
+              <button
+                className="btn btn-link btn-sm float-end"
+                onClick={() => loadSummaryData()}
+              >
+                Reintentar
+              </button>
             </div>
+          ) : (
+            <>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h5 className="mb-0">Resultados ({summaryData.length})</h5>
+                <div>
+                  {(dateRange.startDate || dateRange.endDate) &&
+                    !(dateRange.startDate && dateRange.endDate) && (
+                      <small className="text-warning me-3">
+                        <i className="bi bi-exclamation-triangle"></i>{" "}
+                        Selecciona ambas fechas para filtrar
+                      </small>
+                    )}
+                  {(searchQuery ||
+                    (dateRange.startDate && dateRange.endDate)) && (
+                    <button
+                      className="btn btn-sm btn-outline-secondary"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setDateRange({ startDate: "", endDate: "" });
+                      }}
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {summaryData.length === 0 ? (
+                <div className="text-center py-4 text-muted">
+                  <i className="bi bi-inbox fs-1"></i>
+                  <p className="mt-2">No se encontraron resultados</p>
+                </div>
+              ) : (
+                <div className="table-responsive">
+                  <table className="table table-bordered table-hover">
+                    <thead className="table-light">
+                      <tr>
+                        <th>ID</th>
+                        <th>Cliente</th>
+                        <th>Fecha OPU</th>
+                        <th>Lugar</th>
+                        <th>Finca</th>
+                        <th>Hora Inicio</th>
+                        <th>Hora Final</th>
+                        <th>Envase</th>
+                        <th>Fecha Transferencia</th>
+                        <th>Creado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summaryData.map((record) => (
+                        <tr
+                          key={record.id}
+                          onClick={() => handleRowClick(record.id)}
+                          style={{ cursor: "pointer" }}
+                          className="table-row-hover"
+                        >
+                          <td>
+                            <span className="badge bg-primary">
+                              {record.id}
+                            </span>
+                          </td>
+                          <td>{record.full_name}</td>
+                          <td>{formatDate(record.fecha_opu)}</td>
+                          <td>
+                            <span className="badge bg-info">
+                              {record.lugar}
+                            </span>
+                          </td>
+                          <td>{record.finca || "-"}</td>
+                          <td>{formatTime(record.hora_inicio)}</td>
+                          <td>{formatTime(record.hora_final)}</td>
+                          <td>{record.envase || "-"}</td>
+                          <td>{formatDate(record.fecha_transferencia)}</td>
+                          <td>{formatDate(record.created_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -216,4 +276,4 @@ const OpusSummary = () => {
   );
 };
 
-export default OpusSummary; 
+export default OpusSummary;

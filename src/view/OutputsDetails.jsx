@@ -99,7 +99,8 @@ const OutputsDetails = () => {
                 <div className="col-md-6">
                   <label className="form-label fw-bold">Fecha</label>
                   <p className="form-control-plaintext">
-                    {new Date(output.created_at).toLocaleDateString()}
+                    {new Date(output.created_at).toLocaleDateString('es-CO', {
+timeZone: 'UTC' })}
                   </p>
                 </div>
               </div>
