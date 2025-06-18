@@ -2,13 +2,13 @@ import axios from './instance';
 
 // Obtener todas las razas
 export const getRaces = async (skip = 0, limit = 100) => {
-  const response = await axios.get(`/races?skip=${skip}&limit=${limit}`);
+  const response = await axios.get(`/races/?skip=${skip}&limit=${limit}`);
   return response.data;
 };
 
 // Crear una nueva raza
 export const createRace = async (raceData) => {
-  const response = await axios.post('/races', raceData);
+  const response = await axios.post('/races/', raceData);
   return response.data;
 };
 

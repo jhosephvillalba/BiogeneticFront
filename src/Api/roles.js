@@ -3,7 +3,7 @@ import axios from './instance';
 // Obtener todos los roles
 export const getRoles = async (skip = 0, limit = 100) => {
   try {
-    const response = await axios.get(`/roles?skip=${skip}&limit=${limit}`);
+    const response = await axios.get(`/roles/?skip=${skip}&limit=${limit}`);
     return response.data;
   } catch (error) {
     console.error("Error obteniendo roles:", error);
@@ -14,7 +14,7 @@ export const getRoles = async (skip = 0, limit = 100) => {
 // Crear un nuevo rol
 export const createRole = async (roleName) => {
   try {
-    const response = await axios.post('/roles', { name: roleName });
+    const response = await axios.post('/roles/', { name: roleName });
     return response.data;
   } catch (error) {
     console.error("Error creando rol:", error);

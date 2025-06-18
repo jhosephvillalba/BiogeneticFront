@@ -2,13 +2,13 @@ import axios from './instance';
 
 // Obtener todos los sexos
 export const getSexes = async (skip = 0, limit = 100) => {
-  const response = await axios.get(`/sexes?skip=${skip}&limit=${limit}`);
+  const response = await axios.get(`/sexes/?skip=${skip}&limit=${limit}`);
   return response.data;
 };
 
 // Crear un nuevo sexo
 export const createSex = async (sexData) => {
-  const response = await axios.post('/sexes', sexData);
+  const response = await axios.post('/sexes/', sexData);
   return response.data;
 };
 

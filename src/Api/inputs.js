@@ -3,7 +3,7 @@ import axios from './instance';
 // Obtener todos los inputs
 export const getInputs = async (skip = 0, limit = 100) => {
   try {
-    const response = await axios.get(`/inputs?skip=${skip}&limit=${limit}`);
+    const response = await axios.get(`/inputs/?skip=${skip}&limit=${limit}`);
     return response.data;
   } catch (error) {
     throw error;
@@ -23,7 +23,7 @@ export const getInputById = async (id) => {
 // Crear un nuevo input
 export const createInput = async (inputData) => {
   try {
-    const response = await axios.post('/inputs', inputData);
+    const response = await axios.post('/inputs/', inputData);
     return response.data;
   } catch (error) {
     throw error;

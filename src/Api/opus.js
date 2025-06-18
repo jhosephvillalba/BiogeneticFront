@@ -39,7 +39,7 @@ export const getOpusByClient = async (clientId, skip = 0, limit = 100) => {
  */
 export const createOpus = async (opusData) => {
   try {
-    const response = await axios.post('/opus', opusData);
+    const response = await axios.post('/opus/', opusData);
     return response.data;
   } catch (error) {
     throw error;
