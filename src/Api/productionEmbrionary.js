@@ -3,12 +3,18 @@ import axios from './instance';
 
  export const getAllProductions = async (filters={}) => {
     try {
-      
       const { query, fecha_inicio, fecha_fin } = filters; 
-      let uri = '/produccion-embrionaria/'
+      let uri = '/produccion-embrionaria/';
+      const params = new URLSearchParams();
 
-      if(query) uri += `?query=${query}`
-      if(fecha_fin && fecha_inicio) uri += `&fecha_inicio=${fecha_inicio}&fecha_fin=${fecha_fin}`; 
+      if(query) params.append('query', query);
+      if(fecha_inicio) params.append('fecha_inicio', fecha_inicio);
+      if(fecha_fin) params.append('fecha_fin', fecha_fin);
+
+      const queryString = params.toString();
+      if(queryString) {
+        uri += `?${queryString}`;
+      }
 
       const response = await axios.get(uri);
       return response.data;

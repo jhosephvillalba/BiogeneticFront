@@ -69,7 +69,7 @@ const App = () => {
         if (isMounted) {
           setLoading(false);
           if (location.pathname !== '/login') {
-            navigate('/login');
+            navigate('/login', { replace: true });
           }
         }
         return;
@@ -87,17 +87,17 @@ const App = () => {
           // Redirigir según el rol cuando estamos en la raíz o en login
           if (location.pathname === '/' || location.pathname === '/login') {
             if (userRole === 'client') {
-              navigate('/reports');
+              navigate('/reports', { replace: true });
             } else if (userRole === 'admin' || userRole === 'user') {
-              navigate('/inventory');
+              navigate('/inventory', { replace: true });
             }
           }
 
           // Proteger rutas según el rol
           if (userRole === 'client' && location.pathname === '/inventory') {
-            navigate('/reports');
+            navigate('/reports', { replace: true });
           } else if ((userRole === 'admin' || userRole === 'user') && location.pathname === '/reports') {
-            navigate('/inventory');
+            navigate('/inventory', { replace: true });
           }
         }
       } catch (error) {
@@ -107,7 +107,7 @@ const App = () => {
   
         if (isMounted) {
           setUser(null);
-          navigate('/login');
+          navigate('/login', { replace: true });
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -133,15 +133,14 @@ const App = () => {
   }
 
   const handleLogout = () => {
-    let options = confirm("¿Desea cerrar sesíon?");
+    let options = confirm("¿Desea cerrar sesión?");
 
     if (options) {
-      // Llamar a la función de logout correcta
       api.auth.logout();
-      // Eliminar datos del usuario
       localStorage.removeItem('userData');
       setUser(null);
       alert("Hasta pronto...");
+      navigate('/login', { replace: true });
       return;
     }
 
@@ -321,7 +320,7 @@ const App = () => {
           </nav>
         )}
 
-        <main className="flex-grow-1 p-4 overflow-auto">
+        <main className="flex-grow-1 overflow-auto">
           <div className="container-fluid">
             <Routes>
               <Route 
@@ -329,10 +328,10 @@ const App = () => {
                 element={!user ? (
                   <Login setUser={setUser} />
                 ) : (
-                  <Navigate to={checkUserRole(user) === 'client' ? "/reports" : "/inventory"} />
+                  <Navigate to={checkUserRole(user) === 'client' ? "/reports" : "/inventory"} replace />
                 )} 
               />
-              <Route path="/" element={<Navigate to="/login" />} />
+              <Route path="/" element={<Navigate to="/login" replace />} />
               <Route element={<ProtectedRoute user={user} />}>
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/profile" element={<ProfileView updateUser={updateUser} />} />

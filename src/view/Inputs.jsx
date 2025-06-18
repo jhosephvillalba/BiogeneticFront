@@ -13,6 +13,8 @@ const Inputs = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [availabilityFilter, setAvailabilityFilter] = useState("all");
+  const [bullFilter, setBullFilter] = useState("");
 
   // State for data
   const [users, setUsers] = useState([]);
@@ -27,7 +29,7 @@ const Inputs = () => {
 
   // State for pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
+  const [itemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
 
   // State for race details
@@ -42,6 +44,9 @@ const Inputs = () => {
   const [editValue, setEditValue] = useState("");
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateError, setUpdateError] = useState(null);
+
+  // Nuevo estado para lista de toros
+  const [availableBulls, setAvailableBulls] = useState([]);
 
   const loadUsers = async (reset = false) => {
     try {
@@ -161,6 +166,25 @@ const Inputs = () => {
     }
   };
 
+  // Función para cargar los toros disponibles
+  const loadAvailableBulls = async () => {
+    try {
+      if (!selectedUser) return;
+      
+      // Obtener los toros únicos de las entradas del cliente
+      const uniqueBulls = [...new Set(bullInputs.map(input => input.bull?.id))]
+        .filter(id => id) // Filtrar IDs nulos o undefined
+        .map(id => {
+          const input = bullInputs.find(input => input.bull?.id === id);
+          return input.bull;
+        });
+
+      setAvailableBulls(uniqueBulls);
+    } catch (error) {
+      console.error("Error al cargar los toros:", error);
+    }
+  };
+
   // Efecto para cargar datos iniciales y cuando cambia la página
   useEffect(() => {
     loadUsers(false);
@@ -174,6 +198,16 @@ const Inputs = () => {
       setBullInputs([]);
     }
   }, [selectedBull?.id]);
+
+  // Efecto para cargar los toros al montar el componente
+  useEffect(() => {
+    loadAvailableBulls();
+  }, []);
+
+  // Efecto para cargar los toros cuando cambian las entradas del cliente
+  useEffect(() => {
+    loadAvailableBulls();
+  }, [bullInputs, selectedUser]);
 
   // Handle search button click
   const handleSearch = (e) => {
@@ -237,53 +271,6 @@ const Inputs = () => {
       setEditValue(value >= 0 ? value : 0);
     }
   };
-
-  // const handleUpdateQuantity = async (input) => {
-  //   try {
-  //     setUpdateLoading(true);
-  //     setUpdateError(null);
-
-  //     const newQty = formatDecimal(editValue);
-  //     console.log("actualizando cantidad a:", editValue); // Debug
-  //     console.log("Actualizando cantidad a:", newQty); // Debug
-  //     // ... validaciones existentes ...
-
-  //     // Llamada real a la API
-  //     const response = await updateInput(input.id, {
-  //       quantity_taken: newQty,
-  //       // incluir otros campos necesarios
-  //     });
-
-  //     // Verificar respuesta exitosa
-  //     if (response.status === 200) {
-  //       const fechaActual = new Date().toISOString();
-
-  //       // console.log({salida: output })
-  //       // // Actualizar estado local con los datos del servidor
-  //       setBullInputs(
-  //         bullInputs.map((item) =>
-  //           item.id === input.id ? { ...item, ...response.data } : item
-  //         )
-  //       );
-
-  //       // Limpiar campos de edición
-  //       setEditingInputId(null);
-
-  //        const output = await createOutput(input.id, {
-  //         quantity_output: formatDecimal(newQty - input.quantity_taken),
-  //         output_date: fechaActual,
-  //         remark: "Registro automatico.",
-  //       });
-
-  //     } else {
-  //       throw new Error(response.message || "Error al actualizar");
-  //     }
-  //   } catch (error) {
-  //     setUpdateError(error.message);
-  //   } finally {
-  //     setUpdateLoading(false);
-  //   }
-  // };
 
   const handleUpdateQuantity = async (input) => {
     try {
@@ -349,6 +336,26 @@ const Inputs = () => {
     setEditingInputId(null);
     setEditValue("");
     setUpdateError(null);
+  };
+
+  // Función para filtrar las entradas
+  const getFilteredInputs = () => {
+    if (!bullInputs) return [];
+    
+    return bullInputs.filter(input => {
+      const received = formatDecimal(parseFloat(input.quantity_received || 0));
+      const used = formatDecimal(parseFloat(input.quantity_taken || 0));
+      const available = received - used;
+      
+      // Filtro por disponibilidad
+      if (availabilityFilter === "available" && available <= 0) return false;
+      if (availabilityFilter === "depleted" && available > 0) return false;
+      
+      // Filtro por toro
+      if (bullFilter && input.bull?.id !== parseInt(bullFilter)) return false;
+      
+      return true;
+    });
   };
 
   return (
@@ -498,27 +505,59 @@ const Inputs = () => {
                       onClick={() => paginate(currentPage - 1)}
                       disabled={currentPage === 1}
                     >
-                      Anterior
+                      <i className="bi bi-chevron-left"></i> Anterior
                     </button>
                   </li>
 
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (number) => (
-                      <li
-                        key={number}
-                        className={`page-item ${
-                          currentPage === number ? "active" : ""
-                        }`}
-                      >
-                        <button
-                          className="page-link"
-                          onClick={() => paginate(number)}
+                  {/* Mostrar números de página con elipsis */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      // Mostrar siempre la primera página, la última y las páginas cercanas a la actual
+                      return (
+                        page === 1 ||
+                        page === totalPages ||
+                        Math.abs(page - currentPage) <= 2
+                      );
+                    })
+                    .map((page, index, array) => {
+                      // Agregar elipsis cuando hay saltos en la secuencia
+                      if (index > 0 && array[index - 1] !== page - 1) {
+                        return (
+                          <React.Fragment key={`ellipsis-${page}`}>
+                            <li className="page-item disabled">
+                              <span className="page-link">...</span>
+                            </li>
+                            <li
+                              className={`page-item ${
+                                currentPage === page ? "active" : ""
+                              }`}
+                            >
+                              <button
+                                className="page-link"
+                                onClick={() => paginate(page)}
+                              >
+                                {page}
+                              </button>
+                            </li>
+                          </React.Fragment>
+                        );
+                      }
+                      return (
+                        <li
+                          key={page}
+                          className={`page-item ${
+                            currentPage === page ? "active" : ""
+                          }`}
                         >
-                          {number}
-                        </button>
-                      </li>
-                    )
-                  )}
+                          <button
+                            className="page-link"
+                            onClick={() => paginate(page)}
+                          >
+                            {page}
+                          </button>
+                        </li>
+                      );
+                    })}
 
                   <li
                     className={`page-item ${
@@ -530,7 +569,7 @@ const Inputs = () => {
                       onClick={() => paginate(currentPage + 1)}
                       disabled={currentPage === totalPages}
                     >
-                      Siguiente
+                      Siguiente <i className="bi bi-chevron-right"></i>
                     </button>
                   </li>
                 </ul>
@@ -553,6 +592,36 @@ const Inputs = () => {
                 <i className="bi bi-list-ul me-2"></i>
                 Entradas Registradas - Cliente: {selectedUser.full_name}
               </h5>
+              <div className="d-flex gap-3">
+                {/* Filtro de Disponibilidad */}
+                <div className="form-group">
+                  <select
+                    className="form-select"
+                    value={availabilityFilter}
+                    onChange={(e) => setAvailabilityFilter(e.target.value)}
+                  >
+                    <option value="all">Todos</option>
+                    <option value="available">Disponibles</option>
+                    <option value="depleted">Agotados</option>
+                  </select>
+                </div>
+                
+                {/* Filtro de Toro */}
+                <div className="form-group">
+                  <select
+                    className="form-select"
+                    value={bullFilter}
+                    onChange={(e) => setBullFilter(e.target.value)}
+                  >
+                    <option value="">Todos los toros</option>
+                    {availableBulls.map((bull) => (
+                      <option key={bull.id} value={bull.id}>
+                        {bull.name} - {bull.register || "Sin registro"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
             <div className="card-body p-0">
               {updateError && (
@@ -576,6 +645,8 @@ const Inputs = () => {
                       <th>ID</th>
                       <th>Toro</th>
                       <th>Fecha</th>
+                      <th>Lote</th>
+                      <th>Escalerilla</th>
                       <th>Recibida</th>
                       <th>Utilizada</th>
                       <th>Disponible</th>
@@ -583,8 +654,8 @@ const Inputs = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {bullInputs.length > 0 ? (
-                      bullInputs.map((input) => {
+                    {getFilteredInputs().length > 0 ? (
+                      getFilteredInputs().map((input) => {
                         const received = formatDecimal(
                           parseFloat(input.quantity_received || 0)
                         );
@@ -613,6 +684,8 @@ const Inputs = () => {
 timeZone: 'UTC' })
                                 : "N/A"}
                             </td>
+                            <td>{input.lote || "N/A"}</td>
+                            <td>{input.escalarilla || "N/A"}</td>
                             <td>{received.toFixed(1)}</td>
                             <td>
                               {editingInputId === input.id ? (
@@ -905,6 +978,8 @@ timeZone: 'UTC' })
                     <tr>
                       <th>ID</th>
                       <th>Fecha</th>
+                      <th>Lote</th>
+                      <th>Canastilla</th>
                       <th>Cantidad Recibida (Unidades)</th>
                       <th>Cantidad Utilizada (Unidades)</th>
                       <th>Disponible (Unidades)</th>
@@ -940,6 +1015,8 @@ timeZone: 'UTC' })
 timeZone: 'UTC' })
                               : "N/A"}
                           </td>
+                          <td>{input.lot || "N/A"}</td>
+                          <td>{input.basket || "N/A"}</td>
                           <td>{received.toFixed(1)}</td>
                           <td>
                             {editingInputId === input.id ? (

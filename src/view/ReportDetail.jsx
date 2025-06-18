@@ -7,17 +7,49 @@ const ReportDetail = ({ opuData }) => {
 
   // Preparar datos para el gráfico
   const chartData = {
-    labels: opuData.registros.map(r => r.donante),
+    labels: ['Registro 1', 'Registro 2', 'Registro 3'], // Etiquetas base para los grupos
     datasets: [
       {
-        label: '% CLIVADOS',
-        data: opuData.registros.map(r => parseInt(r.clivados_percent)),
+        label: 'Registro 1 - % CLIVADOS',
+        data: [parseFloat(opuData.registros[0]?.clivados_percent.replace('%', '') || 0), 0, 0],
         backgroundColor: 'rgba(54, 162, 235, 0.8)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1
       },
       {
-        label: '% EMBRIONES',
-        data: opuData.registros.map(r => parseInt(r.prevision_percent)),
+        label: 'Registro 1 - % EMBRIONES',
+        data: [parseFloat(opuData.registros[0]?.prevision_percent.replace('%', '') || 0), 0, 0],
         backgroundColor: 'rgba(255, 206, 86, 0.8)',
+        borderColor: 'rgba(255, 206, 86, 1)',
+        borderWidth: 1
+      },
+      {
+        label: 'Registro 2 - % CLIVADOS',
+        data: [0, parseFloat(opuData.registros[1]?.clivados_percent.replace('%', '') || 0), 0],
+        backgroundColor: 'rgba(75, 192, 192, 0.8)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1
+      },
+      {
+        label: 'Registro 2 - % EMBRIONES',
+        data: [0, parseFloat(opuData.registros[1]?.prevision_percent.replace('%', '') || 0), 0],
+        backgroundColor: 'rgba(153, 102, 255, 0.8)',
+        borderColor: 'rgba(153, 102, 255, 1)',
+        borderWidth: 1
+      },
+      {
+        label: 'Registro 3 - % CLIVADOS',
+        data: [0, 0, parseFloat(opuData.registros[2]?.clivados_percent.replace('%', '') || 0)],
+        backgroundColor: 'rgba(255, 159, 64, 0.8)',
+        borderColor: 'rgba(255, 159, 64, 1)',
+        borderWidth: 1
+      },
+      {
+        label: 'Registro 3 - % EMBRIONES',
+        data: [0, 0, parseFloat(opuData.registros[2]?.prevision_percent.replace('%', '') || 0)],
+        backgroundColor: 'rgba(255, 99, 132, 0.8)',
+        borderColor: 'rgba(255, 99, 132, 1)',
+        borderWidth: 1
       }
     ]
   };
@@ -25,26 +57,35 @@ const ReportDetail = ({ opuData }) => {
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    aspectRatio: 2,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
     scales: {
       y: {
         beginAtZero: true,
         max: 100,
         title: {
           display: true,
-          text: 'Porcentaje'
+          text: 'Porcentaje (%)',
+          font: {
+            size: 12,
+            weight: 'bold'
+          }
         },
         ticks: {
           font: {
             size: 11
+          },
+          callback: function(value) {
+            return value + '%';
           }
         }
       },
       x: {
-        ticks: {
-          font: {
-            size: 11
-          }
+        stacked: false,
+        grid: {
+          display: false
         }
       }
     },
@@ -55,13 +96,31 @@ const ReportDetail = ({ opuData }) => {
           boxWidth: 20,
           padding: 10,
           font: {
-            size: 12
+            size: 11,
+            weight: 'bold'
           }
         }
       },
       title: {
         display: true,
-        text: 'PRODUCCIÓN POR DONANTES'
+        text: 'COMPARACIÓN DE PORCENTAJES POR REGISTRO',
+        font: {
+          size: 14,
+          weight: 'bold'
+        },
+        padding: {
+          top: 10,
+          bottom: 20
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.dataset.label || '';
+            const value = context.raw || 0;
+            return `${label}: ${value}%`;
+          }
+        }
       }
     }
   };
@@ -187,8 +246,8 @@ const ReportDetail = ({ opuData }) => {
         <div className="card">
           <div className="card-body">
             <div className="row justify-content-center">
-              <div className="col-md-8">
-                <div className="chart-container" style={{ height: '300px', maxWidth: '800px', margin: '0 auto' }}>
+              <div className="col-md-12">
+                <div className="chart-container" style={{ height: '500px', margin: '0 auto' }}>
                   <Bar data={chartData} options={chartOptions} />
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authApi } from "../Api";
+import logo from "../assets/logo.svg";
 
 const Login = ({ setUser }) => {
   const [email, setEmail] = useState("");
@@ -55,50 +56,67 @@ const Login = ({ setUser }) => {
   };
 
   return (
-    <div className="container mt-5">
-      <div className="row justify-content-center">
+    <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+      <div className="row justify-content-center w-100">
         <div className="col-md-6 col-lg-4">
+          <div className="text-center mb-4">
+            <img 
+              src={logo} 
+              alt="Logo" 
+              className="img-fluid mb-4" 
+              style={{ maxHeight: '140px' }}
+            />
+          </div>
+          
           {error && (
-            <div className="alert alert-danger mb-3">{error}</div>
+            <div className="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+              <i className="bi bi-exclamation-triangle-fill me-2"></i>
+              {error}
+              <button type="button" className="btn-close" onClick={() => setError("")}></button>
+            </div>
           )}
           
           {!showForgotPassword ? (
-            <div className="card">
+            <div className="card shadow-lg border-0">
               <div className="card-body">
-                <h2 className="card-title text-center mb-4">Iniciar Sesión</h2>
+                <h2 className="card-title text-center mb-4 fw-bold text-primary">Iniciar Sesión</h2>
                 <form onSubmit={handleLogin}>
-                  <div className="mb-3">
-                    <label htmlFor="email" className="form-label">
+                  <div className="mb-4">
+                    <label htmlFor="email" className="form-label text-muted">
+                      <i className="bi bi-envelope me-2"></i>
                       Correo Electrónico
                     </label>
                     <input
                       type="email"
-                      className="form-control"
+                      className="form-control form-control-lg"
                       id="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       disabled={loading}
+                      placeholder="ejemplo@correo.com"
                     />
                   </div>
-                  <div className="mb-3">
-                    <label htmlFor="password" className="form-label">
+                  <div className="mb-4">
+                    <label htmlFor="password" className="form-label text-muted">
+                      <i className="bi bi-lock me-2"></i>
                       Contraseña
                     </label>
                     <input
                       type="password"
-                      className="form-control"
+                      className="form-control form-control-lg"
                       id="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       disabled={loading}
+                      placeholder="••••••••"
                     />
                   </div>
-                  <div className="d-grid mb-3">
+                  <div className="d-grid mb-4">
                     <button 
                       type="submit" 
-                      className="btn btn-primary"
+                      className="btn btn-primary btn-lg"
                       disabled={loading}
                     >
                       {loading ? (
@@ -107,17 +125,21 @@ const Login = ({ setUser }) => {
                           Autenticando...
                         </>
                       ) : (
-                        'Ingresar'
+                        <>
+                          <i className="bi bi-box-arrow-in-right me-2"></i>
+                          Ingresar
+                        </>
                       )}
                     </button>
                   </div>
                   <div className="text-center">
                     <button
                       type="button"
-                      className="btn btn-link"
+                      className="btn btn-link text-decoration-none"
                       onClick={() => setShowForgotPassword(true)}
                       disabled={loading}
                     >
+                      <i className="bi bi-question-circle me-1"></i>
                       ¿Olvidaste tu contraseña?
                     </button>
                   </div>
@@ -125,44 +147,51 @@ const Login = ({ setUser }) => {
               </div>
             </div>
           ) : (
-            <div className="card">
+            <div className="card shadow-lg border-0">
               <div className="card-body">
-                <h2 className="card-title text-center mb-4">
+                <h2 className="card-title text-center mb-4 fw-bold text-primary">
+                  <i className="bi bi-key me-2"></i>
                   Recuperar Contraseña
                 </h2>
                 {resetSent ? (
-                  <div className="alert alert-success">
+                  <div className="alert alert-success shadow-sm">
+                    <i className="bi bi-check-circle-fill me-2"></i>
                     Se ha enviado un correo a {resetEmail} con instrucciones
                     para restablecer tu contraseña.
                   </div>
                 ) : (
                   <form onSubmit={handlePasswordReset}>
-                    <div className="mb-3">
-                      <p>
+                    <div className="mb-4">
+                      <p className="text-muted">
+                        <i className="bi bi-info-circle me-2"></i>
                         Ingresa tu correo electrónico y te enviaremos
                         instrucciones para restablecer tu contraseña.
                       </p>
-                      <label htmlFor="resetEmail" className="form-label">
+                      <label htmlFor="resetEmail" className="form-label text-muted">
+                        <i className="bi bi-envelope me-2"></i>
                         Correo Electrónico
                       </label>
                       <input
                         type="email"
-                        className="form-control"
+                        className="form-control form-control-lg"
                         id="resetEmail"
                         value={resetEmail}
                         onChange={(e) => setResetEmail(e.target.value)}
                         required
+                        placeholder="ejemplo@correo.com"
                       />
                     </div>
-                    <div className="d-grid gap-2">
-                      <button type="submit" className="btn btn-primary">
+                    <div className="d-grid gap-3">
+                      <button type="submit" className="btn btn-primary btn-lg">
+                        <i className="bi bi-send me-2"></i>
                         Enviar Instrucciones
                       </button>
                       <button
                         type="button"
-                        className="btn btn-outline-secondary"
+                        className="btn btn-outline-secondary btn-lg"
                         onClick={() => setShowForgotPassword(false)}
                       >
+                        <i className="bi bi-arrow-left me-2"></i>
                         Volver al Login
                       </button>
                     </div>

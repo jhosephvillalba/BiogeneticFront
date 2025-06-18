@@ -24,7 +24,11 @@ const Bulls = () => {
 
   // Estados para manejo de clientes
   const [clients, setClients] = useState([]);
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedClient, setSelectedClient] = useState(() => {
+    // Intentar recuperar el cliente del localStorage al iniciar
+    const savedClient = localStorage.getItem('selectedClient');
+    return savedClient ? JSON.parse(savedClient) : null;
+  });
   const [loadingClients, setLoadingClients] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState("");
 
@@ -92,6 +96,8 @@ const Bulls = () => {
 
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
+    // Guardar el cliente seleccionado en localStorage
+    localStorage.setItem('selectedClient', JSON.stringify(client));
     setClientSearchTerm("");
     setClients([]);
 
@@ -143,6 +149,12 @@ const Bulls = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Función para limpiar el cliente seleccionado
+  const clearSelectedClient = () => {
+    setSelectedClient(null);
+    localStorage.removeItem('selectedClient');
   };
 
   // Cargar datos de referencia (razas y sexos)
@@ -539,7 +551,7 @@ const Bulls = () => {
                         </div>
                         <button
                           className="btn btn-outline-secondary btn-sm"
-                          onClick={() => setSelectedClient(null)}
+                          onClick={clearSelectedClient}
                         >
                           <i className="bi bi-x-lg"></i>
                         </button>
