@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 // const API_URL = 'http://44.197.38.121:8000/api';
-const API_URL = 'http://localhost:8000/api';
+// const API_URL = 'http://localhost:8000/api';
+const API_URL = 'http://api.biogenetic.com.co/api';
+
 
 
 const axiosInstance = axios.create({
