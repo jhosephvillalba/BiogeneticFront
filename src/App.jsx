@@ -23,6 +23,7 @@ import Reports from "./view/Reports";
 // import DetailReport from "./view/DetailReport";
 import ReportDetails from "./view/ReportDetails";
 import api from './Api/index.js';
+import BullsByClient from "./view/BullByClient.jsx";
 // import "./App.css";
 
 const App = () => {
@@ -185,9 +186,9 @@ const App = () => {
           {isClient ? (
             // Navegación para clientes
             <nav className="nav flex-column px-3 align-items-center">
-              {/* <Link to="/bulls" className="nav-link text-white">
-                <i className="bi bi-cow me-2"></i> Toros
-              </Link> */}
+              <Link to="/user/inventary" className="nav-link text-white">
+                <i className="bi bi-box-arrow-in-right me-2"></i> Inventario
+              </Link>
               
               <Link to="/reports" className="nav-link text-white">
                 <i className="bi bi-file-text me-2"></i> Informes
@@ -350,6 +351,8 @@ const App = () => {
                 <Route path="/gestion/outputs/:id" element={<OutputsDetails />} />
                 <Route path="/admin/users" element={<Admins />} />
                 <Route path="/admin/users/:id" element={<AdminDetails />} />
+                <Route path="/user/inventary" element={<BullsByClient />} />
+
                 <Route path="/bulls" element={<Bulls />} />
                 <Route path="/bulls/:id/edit" element={<BullEdit />} />
                 <Route path="/embryo-production" element={<EmbryoProduction />} />
