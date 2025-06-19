@@ -15,6 +15,15 @@ const OpusSummary = () => {
     endDate: "",
   });
 
+  const handleDate = (date) => {
+    // Convertimos a objeto Date
+    console.log("-->>>>>>>>>>>>", date);
+    const dateObj = new Date(date);
+    // Sumamos 5 días
+    dateObj.setDate(dateObj.getDate() + 5);
+    // Formateamos nuevamente en formato YYYY-MM-DD
+    return dateObj.toISOString().split("T")[0];
+  };
   const loadSummaryData = async () => {
     try {
       setLoading(true);
@@ -34,7 +43,7 @@ const OpusSummary = () => {
       }
 
       const data = await reportApi.getAllProductions(filters);
-      
+
       const transforData = await Promise.all(
         data.map(async (item) => {
           const fullName = await getUserName(item.cliente_id);
@@ -260,7 +269,7 @@ const OpusSummary = () => {
                           <td>{formatTime(record.hora_inicio)}</td>
                           <td>{formatTime(record.hora_final)}</td>
                           <td>{record.envase || "-"}</td>
-                          <td>{formatDate(record.fecha_transferencia)}</td>
+                          <td>{formatDate(handleDate(record.fecha_opu))}</td>
                           <td>{formatDate(record.created_at)}</td>
                         </tr>
                       ))}

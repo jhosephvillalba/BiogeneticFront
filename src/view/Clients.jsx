@@ -39,7 +39,8 @@ const Clients = () => {
       
       if (filter.searchTerm) {
         // Si hay término de búsqueda, usamos searchUsers
-        response = await usersApi.searchUsers(filter.searchTerm, clientRoleId, skip, limit);
+         response = await usersApi.filterUsers({ role_id: clientRoleId }, skip, limit);
+        // response = await usersApi.searchUsers(filter, skip, limit);
       } else {
         // Si no hay término de búsqueda, filtramos solo por rol
         response = await usersApi.filterUsers({ role_id: clientRoleId }, skip, limit);

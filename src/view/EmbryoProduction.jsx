@@ -53,6 +53,7 @@ const EmbryoProduction = () => {
   const [updateError, setUpdateError] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [outputIdUsed, setOutputIdUsed] = useState(null);
+  const [remarkValue, setRemarkValue] = useState("");
 
   // Estados para manejo de errores y loading
   const [loading, setLoading] = useState(false);
@@ -283,6 +284,7 @@ const EmbryoProduction = () => {
     setEditingInputId(input.id);
     setEditValue(input.quantity_taken?.toString() || "0");
     setUpdateError(null);
+    setRemarkValue("");
   };
 
   const handleCancelEdit = () => {
@@ -333,7 +335,7 @@ const EmbryoProduction = () => {
       const output = await apiOuputs.createOutput(input.id, {
         quantity_output: (newQty - currentTaken).toFixed(1),
         output_date: new Date().toISOString(),
-        remark: "Registro automático desde producción embrionaria",
+        remark: remarkValue || "Sin comentario",
       });
 
       // Guardar el id del output para asociarlo a la producción
@@ -1102,6 +1104,7 @@ const EmbryoProduction = () => {
                       <th>Usada</th>
                       <th>Recibida</th>
                       <th>Utilizar</th>
+                      <th>Comentario</th>
                       <th>Opciones</th>
                     </tr>
                   </thead>
@@ -1142,6 +1145,21 @@ const EmbryoProduction = () => {
                             />
                           ) : (
                             <span>{entry.quantity_taken || 0}</span>
+                          )}
+                        </td>
+                        <td>
+                          {editingInputId === entry.id ? (
+                            <input
+                              type="text"
+                              className="form-control form-control-sm"
+                              value={remarkValue}
+                              onChange={(e) => setRemarkValue(e.target.value)}
+                              maxLength={100}
+                              placeholder="Comentario de la salida"
+                              disabled={updateLoading}
+                            />
+                          ) : (
+                            <span className="text-muted">-</span>
                           )}
                         </td>
                         <td>

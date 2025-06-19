@@ -45,7 +45,7 @@ export const searchUsers = async (filters = {}, skip = 0, limit = 100) => {
     if (role_id) queryParams += `&role_id=${role_id}`;
     
      // Añadir el filtro genérico si existe
-    if (q) queryParams += `&q=${encodeURIComponent(q)}`;
+    if (q) queryParams += `&q=${q}`;
 
     const response = await axios.get(`/users/search?${queryParams}`);
     return response.data;

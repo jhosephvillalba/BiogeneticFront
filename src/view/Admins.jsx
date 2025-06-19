@@ -38,11 +38,13 @@ const Admins = () => {
       let response;
       
       if (filter.searchTerm) {
-        // Si hay término de búsqueda, usamos searchUsers
-        response = await usersApi.searchUsers(filter.searchTerm, adminRoleId, skip, limit);
+        // Si hay término de búsqueda, usamos searchUserss
+        const {  searchTerm } = filter; 
+        // console.log({serach: searchTerm})
+        response = await usersApi.searchUsers({ role_id: adminRoleId, q:searchTerm}, skip, limit);
       } else {
         // Si no hay término de búsqueda, filtramos solo por rol
-        response = await usersApi.filterUsers({ role_id: adminRoleId }, skip, limit);
+        response = await usersApi.searchUsers({ role_id: adminRoleId }, skip, limit);
       }
       
       console.log("Respuesta del API para admins:", response);

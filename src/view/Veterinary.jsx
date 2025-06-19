@@ -39,10 +39,12 @@ const Veterinary = () => {
       
       if (filter.searchTerm) {
         // Si hay término de búsqueda, usamos searchUsers
-        response = await usersApi.searchUsers(filter.searchTerm, userRoleId, skip, limit);
+        const {searchTerm} = filter; 
+
+        response = await usersApi.searchUsers({role_id:userRoleId, q:searchTerm}, skip, limit);
       } else {
         // Si no hay término de búsqueda, filtramos solo por rol
-        response = await usersApi.filterUsers({ role_id: userRoleId }, skip, limit);
+        response = await usersApi.searchUsers({ role_id: userRoleId }, skip, limit);
       }
       
       console.log("Respuesta del API para veterinarios:", response);
