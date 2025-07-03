@@ -657,7 +657,7 @@ const EmbryoProduction = () => {
                 <option value="">Seleccione una producción</option>
                 {embryoProductions.map(prod => (
                   <option key={prod.id} value={prod.id}>
-                    Producción #{prod.id} - {new Date(prod.fecha_opu).toLocaleDateString()}
+                    Producción #{prod.id} - {prod.fecha_opu}
                   </option>
                 ))}
               </select>
