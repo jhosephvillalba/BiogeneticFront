@@ -32,6 +32,7 @@ const App = () => {
   const isLoginPage = location.pathname === "/login";
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
 
   // Función para actualizar el usuario en el estado y localStorage
   const updateUser = (userData) => {
@@ -40,6 +41,11 @@ const App = () => {
     localStorage.setItem('userData', JSON.stringify(userData));
     // Actualizar el estado
     setUser(userData);
+  };
+
+  // Función para alternar la visibilidad del sidebar
+  const toggleSidebar = () => {
+    setSidebarVisible(!sidebarVisible);
   };
 
   // Actualizar cómo detectamos el rol del usuario
@@ -148,11 +154,11 @@ const App = () => {
     alert("Ok sigamos trabajando...");
   };
 
-  console.log("Datos del usuario en render:", user);
+  // console.log("Datos del usuario en render:", user);
 
-  // Actualizar logs de depuración
-  console.log("Roles del usuario:", user?.roles);
-  console.log("Tipo de rol:", checkUserRole(user));
+  // // Actualizar logs de depuración
+  // console.log("Roles del usuario:", user?.roles);
+  // console.log("Tipo de rol:", checkUserRole(user));
 
   // Verificar si el usuario es un cliente
   const userRole = checkUserRole(user);
@@ -164,20 +170,27 @@ const App = () => {
   return (
     <div className="d-flex min-vh-100 min-vw-100">
       {/* Sidebar - Diferente según el rol */}
-      {!isLoginPage && (
+      {!isLoginPage && sidebarVisible && (
         <div
           className="bg-dark text-white d-flex flex-column justify-content-between"
-          style={{ width: "20%", minWidth: "250px", flexShrink: 0 }}
+          style={{ width: "18%", minWidth: "200px", flexShrink: 0, transition: "all 0.3s ease" }}
         >
           {/* Parte superior - Perfil - Común para todos los usuarios */}
           <div className="p-4 text-center">
+            {user?.profile_image_url ? (
             <img
-              src={user?.photo || "https://randomuser.me/api/portraits/men/32.jpg"}
+                src={user.profile_image_url}
               className="rounded-circle mb-3 border border-light"
               width="80"
               height="80"
               alt="Foto de perfil"
+                style={{ objectFit: "cover" }}
             />
+            ) : (
+              <span className="placeholder rounded-circle d-inline-block bg-secondary mb-3 border border-light" style={{ width: 80, height: 80, lineHeight: "80px", textAlign: "center", fontSize: "2rem", color: "#fff" }}>
+                <i className="bi bi-person" />
+              </span>
+            )}
             <h5 className="mb-0">{user?.full_name || user?.name || "Usuario"}</h5>
             <small className="text-muted">{user?.specialty || user?.email || "Usuario"}</small>
           </div>
@@ -312,11 +325,23 @@ const App = () => {
       )}
 
       {/* Contenido principal */}
-      <div className="d-flex flex-column flex-grow-1 overflow-hidden">
+      <div className="d-flex flex-column flex-grow-1 overflow-hidden" style={{ width: sidebarVisible ? "82%" : "100%", transition: "all 0.3s ease" }}>
         {!isLoginPage && (
-          <nav className="navbar navbar-light bg-white shadow-sm">
-            <div className="container-fluid">
+          <nav className="navbar navbar-light bg-white shadow-sm d-flex justify-content-between align-items-center">
+            <div className="d-flex align-items-center">
+              <button
+                className="btn btn-outline-secondary me-3"
+                onClick={toggleSidebar}
+                title={sidebarVisible ? "Ocultar menú" : "Mostrar menú"}
+              >
+                <i className={`bi ${sidebarVisible ? 'bi-chevron-left' : 'bi-chevron-right'}`}></i>
+              </button>
               <span className="navbar-brand mb-0 h1">Biogenetic</span>
+            </div>
+            <div className="d-flex align-items-center">
+              <span className="text-muted me-3">
+                {user?.full_name || user?.name || "Usuario"}
+              </span>
             </div>
           </nav>
         )}

@@ -13,9 +13,9 @@ import {
 import html2pdf from "html2pdf.js";
 
 import { getOpusByProduction } from "../Api/opus";
-import { getProductionById } from "../Api/productionEmbrionary";
+import { getProductionById, getBullsSummaryByProductionId } from "../Api/productionEmbrionary";
 import { getUserById } from "../Api/users";
-import { getOutputById } from "../Api/outputs";
+import { getOutputById, getOutputs } from "../Api/outputs";
 import { getInputById } from "../Api/inputs";
 import { getBull } from "../Api/bulls";
 import { getRaceById } from "../Api/races";
@@ -39,6 +39,7 @@ const ReportDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [muestraInfo, setMuestraInfo] = useState(null);
+  const [resumenToros, setResumenToros] = useState([]);
 
   const handleDate = (date) => {
     // Convertimos a objeto Date
@@ -49,6 +50,8 @@ const ReportDetails = () => {
     // Formateamos nuevamente en formato YYYY-MM-DD
     return dateObj.toISOString().split("T")[0];
   };
+
+  console.log("id", id);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -86,6 +89,20 @@ const ReportDetails = () => {
     };
 
     fetchData();
+  }, [id]);
+
+  useEffect(() => {
+    const fetchResumenToros = async () => {
+      try {
+        const resumen = await getBullsSummaryByProductionId(id);
+        console.log('Resumen toros recibido:', resumen);
+        setResumenToros(resumen);
+      } catch (e) {
+        setResumenToros([]);
+        console.error('Error al cargar resumen de toros:', e);
+      }
+    };
+    fetchResumenToros();
   }, [id]);
 
   const handleExportPDF = () => {
@@ -174,23 +191,28 @@ const ReportDetails = () => {
   const porcentaje_final =
     total_ctv > 0 ? Math.round((total_total / total_ctv) * 100) : 0;
 
-  const donantes = Array.from(new Set(registros.map((r) => r.donante_nombre)));
-  const clivadosData = donantes.map((donante) => {
-    const reg = registros.find((r) => r.donante_nombre === donante);
-    return reg ? parseInt(reg.porcentaje_cliv) : 0;
+  // Etiquetas: una por cada fila
+  const labels = registros.map((r, idx) => r.donante_nombre || `${r.toro_nombre} - ${r.donante_code}`);
+
+  // Dataset de % Clivados (porcentaje_cliv)
+  const clivadosData = registros.map(r =>
+    parseFloat((r.porcentaje_cliv || "0").toString().replace("%", ""))
+  );
+
+  // Dataset de % Total Producción (porcentaje_total_embriones o calculado)
+  const totalData = registros.map(r => {
+    if (r.porcentaje_total_embriones) {
+      return parseFloat((r.porcentaje_total_embriones || "0").toString().replace("%", ""));
+    }
+    // const total = (parseFloat(r.prevision) || 0) + (parseFloat(r.empaque) || 0) + (parseFloat(r.vt_dt) || 0);
+    // const ctv = parseFloat(r.ctv) || 1;
+    // return Math.round((total / ctv) * 100);
   });
-  const embrionesData = donantes.map((donante) => {
-    const reg = registros.find((r) => r.donante_nombre === donante);
-    if (!reg) return 0;
-    const total =
-      (parseFloat(reg.prevision) || 0) +
-      (parseFloat(reg.empaque) || 0) +
-      (parseFloat(reg.vt_dt) || 0);
-    const ctv = parseFloat(reg.ctv) || 1;
-    return Math.round((total / ctv) * 100);
-  });
+
+  console.log("totalData", totalData);
+
   const chartData = {
-    labels: donantes,
+    labels,
     datasets: [
       {
         label: "% Clivados",
@@ -198,16 +220,19 @@ const ReportDetails = () => {
         backgroundColor: "rgba(54, 162, 235, 0.8)",
       },
       {
-        label: "% Embriones",
-        data: embrionesData,
-        backgroundColor: "rgba(255, 206, 86, 0.8)",
+        label: "% Total Producción",
+        data: totalData,
+        backgroundColor: "rgba(44, 44, 160, 0.8)",
       },
     ],
   };
+
+  console.log("chartData", chartData);
+  
   const chartOptions = {
     responsive: true,
-    maintainAspectRatio: false,
-    aspectRatio: 2,
+    maintainAspectRatio: true,
+    aspectRatio: 2.5,
     scales: {
       y: {
         beginAtZero: true,
@@ -244,160 +269,198 @@ const ReportDetails = () => {
     },
   };
 
-  console.log({ data: registros, production: production });
+  // console.log({ data: registros, production: production });
   return (
-    <div className="container-fluid">
-      <button className="btn btn-secondary mb-3" onClick={() => navigate(-1)}>
+    <div className="container-xl py-4" style={{ fontSize: '0.97rem', minHeight: '100vh' }}>
+      <button className="btn btn-secondary mb-3 mt-3" onClick={() => navigate(-1)}>
         <i className="bi bi-arrow-left me-1"></i>
         Volver a la lista
       </button>
 
-      <div className="detailed-report" ref={reportRef}>
-        <div className="card mb-4">
-          <div className="card-body">
-            <h3 className="text-center mb-4">
-              INFORME PRODUCCIÓN DE EMBRIONES BOVINOS OPU/FIV - BIOGENETIC
-              IN-VITRO SAS
+      <div className="mx-auto" style={{ maxWidth: 1600 }} ref={reportRef}>
+        <div className="card mb-4 shadow-sm border-0">
+          <div className="card-body p-4">
+            <h3 className="text-center mb-4" style={{ fontSize: '1.35rem', fontWeight: 600, letterSpacing: '0.5px' }}>
+              INFORME PRODUCCIÓN DE EMBRIONES BOVINOS OPU/FIV - BIOGENETIC IN-VITRO SAS
             </h3>
-            <div className="row">
-              <div className="col-md-12">
-                <table className="table table-bordered">
+            <div className="table-responsive mb-0">
+              <table className="table table-bordered mb-0" style={{ fontSize: '0.98rem' }}>
+                <tbody>
+                  <tr>
+                    <th>CLIENTE</th>
+                    <td>{currentUserReport.full_name}</td>
+                    <th>LUGAR</th>
+                    <td>{production.lugar}</td>
+                    <th>HORA INICIO OPU</th>
+                    <td>{production.hora_inicio}</td>
+                    <th>ENVASE</th>
+                    <td>{production.envase}</td>
+                  </tr>
+                  <tr>
+                    <th>FECHA OPU</th>
+                    <td>{production.fecha_opu}</td>
+                    <th>FINCA</th>
+                    <td>{production.finca}</td>
+                    <th>HORA FINAL OPU</th>
+                    <td>{production.hora_final}</td>
+                    <th>FECHA DE TRANSFERENCIA</th>
+                    <td>{handleDate(production.fecha_opu)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div className="card mb-4 shadow-sm border-0">
+          <div className="card-body p-3">
+            <div className="table-responsive">
+              <table className="table table-bordered mb-0" style={{ fontSize: '0.97rem', minWidth: 900 }}>
+                <thead>
+                  <tr>
+                    <th>N°</th>
+                    <th>DONANTES</th>
+                    <th>RAZA</th>
+                    <th>TOROS</th>
+                    <th colSpan="3" className="text-center">
+                      OOCITOS VIABLES
+                    </th>
+                    <th>VIABLES</th>
+                    <th>OTROS</th>
+                    <th>TOTAL</th>
+                    <th>CIV</th>
+                    <th>CLIVADOS</th>
+                    <th>% CLIV.</th>
+                    <th style={{ backgroundColor: "red", color: "white" }}>
+                      PREVISIÓN
+                    </th>
+                    <th>% PREV</th>
+                    <th style={{ backgroundColor: "blue", color: "white" }}>
+                      EMPAQUE
+                    </th>
+                    <th>% EMP</th>
+                    <th style={{ backgroundColor: "green", color: "white" }}>
+                      VT/DT
+                    </th>
+                    <th>% VT/DT</th>
+                    <th>TOTAL</th>
+                    <th>%</th>
+                  </tr>
+                  <tr>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th>GI</th>
+                    <th>GII</th>
+                    <th>GIII</th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {registros.map((registro, index) => (
+                    <tr key={registro.id}>
+                      <td>{index + 1}</td>
+                      <td>{registro.donante_code}</td>
+                      <td>{registro.race}</td>
+                      <td>{registro.toro_nombre}</td>
+                      <td>{registro.gi}</td>
+                      <td>{registro.gii}</td>
+                      <td>{registro.giii}</td>
+                      <td>{registro.viables}</td>
+                      <td>{registro.otros}</td>
+                      <td>{registro.total_oocitos}</td>
+                      <td>{registro.ctv}</td>
+                      <td>{registro.clivados}</td>
+                      <td>{registro.porcentaje_cliv}</td>
+                      <td>{registro.prevision}</td>
+                      <td>{registro.porcentaje_prevision}</td>
+                      <td>{registro.empaque}</td>
+                      <td>{registro.porcentaje_empaque}</td>
+                      <td>{registro.vt_dt}</td>
+                      <td>{registro.porcentaje_vtdt}</td>
+                      <td>
+                        {registro.empaque + registro.vt_dt + registro.prevision}
+                      </td>
+                      <td>{`${registro.porcentaje_total_embriones}`}</td>
+                    </tr>
+                  ))}
+                  {/* Fila de totales */}
+                  <tr style={{ background: "#f5f5f5", fontWeight: "bold" }}>
+                    <td colSpan="4">Totales</td>
+                    <td>{total_gi}</td>
+                    <td>{total_gii}</td>
+                    <td>{total_giii}</td>
+                    <td>{total_viables}</td>
+                    <td>{total_otros}</td>
+                    <td>{total_total_oocitos}</td>
+                    <td>{total_ctv}</td>
+                    <td>{total_clivados}</td>
+                    <td>{`${Math.round((total_clivados * 100) / total_ctv)}%`}</td>
+                    <td>{total_prevision}</td>
+                    <td>{`${Math.round((total_prevision * 100) / total_ctv)}%`}</td>
+                    <td>{total_empaque}</td>
+                    <td>{`${Math.round((total_empaque * 100) / total_ctv)}%`}</td>
+                    <td>{total_vt_dt}</td>
+                    <td>{`${Math.round((total_vt_dt * 100) / total_ctv)}%`}</td>
+                    <td>{total_total}</td>
+                    <td>{`${Math.round(( total_total * 100) / total_ctv)}%`}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        {console.log('Render resumenToros:', resumenToros)}
+        {resumenToros && resumenToros.length > 0 ? (
+          <div className="card mb-4 shadow-sm border-0" style={{ marginTop: '2.5rem', marginBottom: '3rem' }}>
+            <div className="card-body p-3">
+              <h4 className="mb-3 text-center" style={{ fontSize: '1.15rem', fontWeight: 600, letterSpacing: '0.5px', color: '#222' }}>
+                Resumen de Salidas Agrupadas por Toro
+              </h4>
+              <div className="table-responsive">
+                <table className="table table-bordered table-sm align-middle mb-0" style={{ fontSize: '0.97rem', minWidth: 700 }}>
+                  <thead className="table-light">
+                    <tr>
+                      <th style={{ padding: '10px 18px' }}>Toro</th>
+                      <th style={{ padding: '10px 18px' }}>Raza</th>
+                      <th style={{ padding: '10px 18px' }}>Registro</th>
+                      <th style={{ padding: '10px 18px' }}>Cantidad trabajada</th>
+                      <th style={{ padding: '10px 18px' }}>Total CTV</th>
+                      <th style={{ padding: '10px 18px' }}># Donadoras</th>
+                      <th style={{ padding: '10px 18px' }}>%</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    <tr>
-                      <th>CLIENTE</th>
-                      <td>{currentUserReport.full_name}</td>
-                      <th>LUGAR</th>
-                      <td>{production.lugar}</td>
-                      <th>HORA INICIO OPU</th>
-                      <td>{production.hora_inicio}</td>
-                      <th>ENVASE</th>
-                      <td>{production.envase}</td>
-                    </tr>
-                    <tr>
-                      <th>FECHA OPU</th>
-                      <td>{production.fecha_opu}</td>
-                      <th>FINCA</th>
-                      <td>{production.finca}</td>
-                      <th>HORA FINAL OPU</th>
-                      <td>{production.hora_final}</td>
-                      <th>FECHA DE TRANSFERENCIA</th>
-                      <td>{handleDate(production.fecha_opu)}</td>
-                    </tr>
+                    {resumenToros.map((t, idx) => (
+                      <tr key={t.nombre_toro + idx}>
+                        <td style={{ padding: '8px 18px' }}>{t.nombre_toro}</td>
+                        <td style={{ padding: '8px 18px' }}>{t.raza_toro}</td>
+                        <td style={{ padding: '8px 18px' }}>{t.numero_registro}</td>
+                        <td style={{ padding: '8px 18px', textAlign: 'right' }}>{parseFloat(t.cantidad_semen_trabajada).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style={{ padding: '8px 18px', textAlign: 'right' }}>{parseFloat(t.cantidad_total_ctv).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style={{ padding: '8px 18px', textAlign: 'center' }}>{t.total_donadoras}</td>
+                        <td style={{ padding: '8px 18px', textAlign: 'right' }}>{parseFloat(t.porcentaje).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="table-responsive mb-4">
-          <table className="table table-bordered">
-            <thead>
-              <tr>
-                <th>N°</th>
-                <th>DONANTES</th>
-                <th>RAZA</th>
-                <th>TOROS</th>
-                <th colSpan="3" className="text-center">
-                  OOCITOS VIABLES
-                </th>
-                <th>VIABLES</th>
-                <th>OTROS</th>
-                <th>TOTAL</th>
-                <th>CIV</th>
-                <th>CLIVADOS</th>
-                <th>% CLIV.</th>
-                <th style={{ backgroundColor: "red", color: "white" }}>
-                  PREVISIÓN
-                </th>
-                <th>% PREV</th>
-                <th style={{ backgroundColor: "blue", color: "white" }}>
-                  EMPAQUE
-                </th>
-                <th>% EMP</th>
-                <th style={{ backgroundColor: "green", color: "white" }}>
-                  VT/DT
-                </th>
-                <th>% VT/DT</th>
-                <th>TOTAL</th>
-                <th>%</th>
-              </tr>
-              <tr>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th>GI</th>
-                <th>GII</th>
-                <th>GIII</th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {registros.map((registro, index) => (
-                <tr key={registro.id}>
-                  <td>{index + 1}</td>
-                  <td>{registro.donante_code}</td>
-                  <td>{registro.race}</td>
-                  <td>{registro.toro_nombre}</td>
-                  <td>{registro.gi}</td>
-                  <td>{registro.gii}</td>
-                  <td>{registro.giii}</td>
-                  <td>{registro.viables}</td>
-                  <td>{registro.otros}</td>
-                  <td>{registro.total_oocitos}</td>
-                  <td>{registro.ctv}</td>
-                  <td>{registro.clivados}</td>
-                  <td>{registro.porcentaje_cliv}</td>
-                  <td>{registro.prevision}</td>
-                  <td>{registro.porcentaje_prevision}</td>
-                  <td>{registro.empaque}</td>
-                  <td>{registro.porcentaje_empaque}</td>
-                  <td>{registro.vt_dt}</td>
-                  <td>{registro.porcentaje_vtdt}</td>
-                  <td>
-                    {registro.empaque + registro.vt_dt + registro.prevision}
-                  </td>
-                  <td>{`${Math.round(
-                    (parseFloat(
-                      registro.empaque + registro.vt_dt + registro.prevision
-                    ) /
-                      registro.ctv) *
-                      100
-                  )}%`}</td>
-                </tr>
-              ))}
-              {/* Fila de totales */}
-              <tr style={{ background: "#f5f5f5", fontWeight: "bold" }}>
-                <td colSpan="4">Totales</td>
-                <td>{total_gi}</td>
-                <td>{total_gii}</td>
-                <td>{total_giii}</td>
-                <td>{total_viables}</td>
-                <td>{total_otros}</td>
-                <td>{total_total_oocitos}</td>
-                <td>{total_ctv}</td>
-                <td>{total_clivados}</td>
-                <td></td>
-                <td>{total_prevision}</td>
-                <td></td>
-                <td>{total_empaque}</td>
-                <td></td>
-                <td>{total_vt_dt}</td>
-                <td></td>
-                <td>{total_total}</td>
-                <td>{porcentaje_final + "%"}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        ) : (
+          <div className="alert alert-info mt-4 mb-4">
+            <i className="bi bi-info-circle me-2"></i>
+            No hay datos de toros para mostrar (verifica la consola para más información).
+          </div>
+        )}
 
         {muestraInfo && (
           <div className="alert alert-info mt-3">
@@ -442,16 +505,19 @@ const ReportDetails = () => {
           </div>
         )}
 
-        <div className="row justify-content-center">
-          <div className="col-md-8">
-            <div className="card">
-              <div className="card-body">
+        <div className="card mb-4 shadow-sm border-0" style={{ marginTop: '2.5rem', marginBottom: '2.5rem' }}>
+          <div className="card-body p-3">
+            <div className="d-flex flex-column align-items-center">
+              <div className="table-responsive" style={{ width: '100%' }}>
                 <div
                   className="chart-container"
                   style={{
-                    height: "300px",
-                    maxWidth: "800px",
-                    margin: "0 auto",
+                    height: `${250 * 1.2}px`,
+                    minWidth: '320px',
+                    maxWidth: 900,
+                    background: '#fff',
+                    width: '100%',
+                    margin: '0 auto'
                   }}
                 >
                   <Bar data={chartData} options={chartOptions} />
@@ -460,16 +526,6 @@ const ReportDetails = () => {
             </div>
           </div>
         </div>
-
-        {/* <div className="text-end mt-4 mb-4">
-          <button 
-            className="btn btn-primary"
-            onClick={handleExportPDF}
-          >
-            <i className="bi bi-file-pdf me-2"></i>
-            Exportar como PDF
-          </button>
-        </div> */}
       </div>
     </div>
   );

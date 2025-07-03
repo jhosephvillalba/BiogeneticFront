@@ -131,4 +131,21 @@ export const removeRoleFromUser = async (userId, roleId) => {
     console.error(`Error eliminando rol ${roleId} del usuario ${userId}:`, error);
     throw error;
   }
+};
+
+// Subir foto de perfil (multipart/form-data)
+export const uploadProfilePicture = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await axios.post('/users/profile-picture', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error subiendo foto de perfil:', error);
+    throw error;
+  }
 }; 

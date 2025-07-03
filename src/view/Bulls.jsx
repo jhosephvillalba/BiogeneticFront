@@ -37,11 +37,11 @@ const Bulls = () => {
   const [newBullData, setNewBullData] = useState({
     name: "",
     lote: "",
-    register: "",
+    registration_number: "",
     escalerilla: "",
     race_id: 0,
     sex_id: 0,
-    status: "Active",
+    status: "active",
     description: "",
   });
 
@@ -184,7 +184,7 @@ const Bulls = () => {
       result = result.filter(
         (bull) =>
           bull.name?.toLowerCase().includes(searchTerm) ||
-          bull.register?.toLowerCase().includes(searchTerm)
+          bull.registration_number?.toLowerCase().includes(searchTerm)
       );
     }
 
@@ -337,7 +337,7 @@ const Bulls = () => {
       // Limpiar el formulario y cerrar el modal
       setNewBullData({
         name: "",
-        register: "",
+        registration_number: "",
         race_id: 0,
         sex_id: 0,
         status: "Active",
@@ -727,7 +727,7 @@ const Bulls = () => {
                       >
                         <td className="fw-semibold">#{bull.id}</td>
                         <td>{bull.name || "Sin nombre"}</td>
-                        <td>{bull.registration_number || bull.register || "Sin registro"}</td>
+                        <td>{bull.registration_number || bull.registration_number || "Sin registro"}</td>
                         <td>{bull.lote || "Sin registro"}</td>
                         <td>{bull.escalerilla ||"Sin registro"}</td>
                         <td>{bull.description || "Sin registro"}</td>
@@ -885,12 +885,12 @@ const Bulls = () => {
                     <input
                       type="text"
                       className="form-control"
-                      name="register"
-                      value={newBullData.register}
+                      name="registration_number"
+                      value={newBullData.registration_number}
                       onChange={(e) =>
                         setNewBullData((prev) => ({
                           ...prev,
-                          register: e.target.value,
+                          registration_number: e.target.value,
                         }))
                       }
                     />

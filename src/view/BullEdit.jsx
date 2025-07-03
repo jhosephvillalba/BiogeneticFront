@@ -11,7 +11,7 @@ const BullEdit = () => {
   // Estados
   const [bull, setBull] = useState({
     name: '',
-    register: '',
+    registration_number: '',
     lote:'',
     escalerilla:'',
     description:'',
@@ -36,7 +36,7 @@ const BullEdit = () => {
         const data = await getBull(id);
         setBull({
           name: data.name || '',
-          register: data.register || '',
+          registration_number: data.registration_number || '',
           race_id: data.race_id || '',
           sex_id: data.sex_id || '',
           status: data.status || 'active',
@@ -182,8 +182,8 @@ const BullEdit = () => {
                       <input
                         type="text"
                         className="form-control"
-                        name="register"
-                        value={bull.register}
+                        name="registration_number"
+                        value={bull.registration_number}
                         onChange={handleChange}
                         required
                         placeholder="Ej: REG-12345"

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { usersApi } from "../Api";
-import { getBullsByClient } from "../Api/bulls";
+import { getBullsByClient, getAvailableBullsByClient } from "../Api/bulls";
 import * as opusApi from "../Api/opus";
 import * as productionApi from "../Api/productionEmbrionary";
 import { getRaces } from "../Api/races";
@@ -27,7 +27,7 @@ const EmbryoProduction = () => {
     finca: "",
     hora_inicio: "",
     hora_final: "",
-    output_id: 0,
+    output_ids: [],
     envase: "",
     fecha_transferencia: new Date().toISOString().split("T")[0],
   });
@@ -93,7 +93,7 @@ const EmbryoProduction = () => {
   const loadClientBulls = async (clientId) => {
     setLoadingBulls(true);
     try {
-      const bulls = await getBullsByClient(clientId);
+      const bulls = await getAvailableBullsByClient(clientId);
       setClientBulls(bulls);
 
       // Separar por género si la API lo proporciona
@@ -150,8 +150,8 @@ const EmbryoProduction = () => {
       console.log('Producciones encontradas:', productions);
       setEmbryoProductions(productions);
     } catch (error) {
-      console.error("Error al cargar producciones:", error);
-      setError("Error al cargar las producciones embrionarias");
+      console.warn("No se encontraron datos de producciones embrionarias:", error);
+      setError("No se encontraron datos");
     }
   };
 
@@ -163,7 +163,7 @@ const EmbryoProduction = () => {
       cliente_id: client.id,
     });
     
-    // Primero cargar los toros
+    // Primero cargar los toros disponibles
     await loadClientBulls(client.id);
     
     // Luego cargar las producciones pasando el cliente directamente
@@ -188,32 +188,41 @@ const EmbryoProduction = () => {
   };
 
   // Agregar nueva fila a la tabla
-  const handleAddNewRow = () => {
-    setOpusRows([
-      ...opusRows,
-      {
-        donante_code: "",
-        race: "",
-        toro: "",
-        toro_id: 0,
-        toro_name: "", // ✅ Agregar campo para nombre del toro
-        donante_id: 0,
-        gi: 0,
-        gii: 0,
-        giii: 0,
-        otros: 0,
-        viables: 0,
-        total_oocitos: 0,
-        ctv: 0,
-        clivados: 0,
-        prevision: 0,
-        empaque: 0,
-        vt_dt: 0,
-        total_embriones: "",
-        porcentaje_total_embriones: "",
-        produccion_embrionaria_id: production.id,
-      },
-    ]);
+  const handleAddNewRow = async () => {
+    // Recargar toros disponibles antes de agregar nueva fila
+    if (selectedClient) {
+      await loadClientBulls(selectedClient.id);
+    }
+    
+    setOpusRows((prevRows) => {
+      const maxOrder = prevRows.length > 0 ? Math.max(...prevRows.map(r => r.order || 0)) : 0;
+      return [
+        ...prevRows,
+        {
+          donante_code: "",
+          race: "",
+          toro: "",
+          toro_id: 0,
+          toro_name: "",
+          gi: 0,
+          gii: 0,
+          giii: 0,
+          otros: 0,
+          viables: 0,
+          total_oocitos: 0,
+          ctv: 0,
+          clivados: 0,
+          prevision: 0,
+          empaque: 0,
+          vt_dt: 0,
+          total_embriones: "",
+          porcentaje_total_embriones: "",
+          produccion_embrionaria_id: production?.id,
+          order: maxOrder + 1,
+          isExisting: false,
+        },
+      ];
+    });
   };
 
   // Manejar cambios en las filas
@@ -339,7 +348,17 @@ const EmbryoProduction = () => {
       });
 
       // Guardar el id del output para asociarlo a la producción
-      setOutputIdUsed(output.id);
+      setOutputIdUsed((prev) => {
+        // Permitir múltiples outputs
+        if (!prev) return [output.id];
+        if (Array.isArray(prev)) {
+          if (!prev.includes(output.id)) return [...prev, output.id];
+          return prev;
+        }
+        // Si por alguna razón era un solo id, convertir a array
+        if (prev !== output.id) return [prev, output.id];
+        return [prev];
+      });
       setEditingInputId(null);
       // Mostrar modal de confirmación
       setShowConfirmModal(true);
@@ -355,26 +374,74 @@ const EmbryoProduction = () => {
   const handleSaveProduction = async () => {
     try {
       setLoading(true);
-      // Guardar cada registro OPU
-      const opusPromises = opusRows.map((row) =>
-        opusApi.createOpus({
-          ...row,
-          cliente_id: selectedClient.id,
-          lugar: embryoProductionData.lugar,
-          finca: embryoProductionData.finca,
-          fecha: embryoProductionData.fecha_opu,
-          donante_id: row.toro_id,
-          porcentaje_cliv: `${row.ctv > 0 ? Math.round((row.clivados / row.ctv) * 100) : 0}%`,
-          porcentaje_prevision: `${row.ctv > 0 ? Math.round((row.prevision / row.ctv) * 100) : 0}%`,
-          porcentaje_empaque: `${row.ctv > 0 ? Math.round((row.empaque / row.ctv) * 100) : 0}%`,
-          porcentaje_vtdt: `${row.ctv > 0 ? Math.round((row.vt_dt / row.ctv) * 100) : 0}%`,
-          total_embriones: Math.round(row.empaque + row.vt_dt + row.clivados),
-          porcentaje_total_embriones: `${row.ctv > 0 ? Math.round((row.empaque + row.vt_dt + row.clivados) / row.ctv) : 0}%`,
-        })
-      );
-      await Promise.all(opusPromises);
+      // Crear solo los registros nuevos
+      const createPromises = opusRows
+        .filter(row => !row.isExisting)
+        .map((row, idx) =>
+          opusApi.createOpus({
+            ...row,
+            order: row.order || idx + 1,
+            gi: parseInt(row.gi) || 0,
+            gii: parseInt(row.gii) || 0,
+            giii: parseInt(row.giii) || 0,
+            otros: parseInt(row.otros) || 0,
+            ctv: parseInt(row.ctv) || 0,
+            clivados: parseInt(row.clivados) || 0,
+            prevision: parseInt(row.prevision) || 0,
+            empaque: parseInt(row.empaque) || 0,
+            vt_dt: parseInt(row.vt_dt) || 0,
+            cliente_id: selectedClient.id,
+            lugar: embryoProductionData.lugar,
+            finca: embryoProductionData.finca,
+            fecha: embryoProductionData.fecha_opu,
+            porcentaje_cliv: `${row.ctv > 0 ? Math.round((parseInt(row.clivados) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+            porcentaje_prevision: `${row.ctv > 0 ? Math.round((parseInt(row.prevision) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+            porcentaje_empaque: `${row.ctv > 0 ? Math.round((parseInt(row.empaque) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+            porcentaje_vtdt: `${row.ctv > 0 ? Math.round((parseInt(row.vt_dt) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+            total_embriones: Math.round((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.clivados) || 0)),
+            porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.clivados) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+          })
+        );
+      // Actualizar los registros existentes que hayan cambiado
+      const updatePromises = opusRows
+        .filter(row => row.isExisting && row.original && hasOpusChanged(row, row.original))
+        .map(row =>
+          opusApi.updateOpus(row.id, {
+            ...row,
+            order: row.order,
+            gi: parseInt(row.gi) || 0,
+            gii: parseInt(row.gii) || 0,
+            giii: parseInt(row.giii) || 0,
+            otros: parseInt(row.otros) || 0,
+            ctv: parseInt(row.ctv) || 0,
+            clivados: parseInt(row.clivados) || 0,
+            prevision: parseInt(row.prevision) || 0,
+            empaque: parseInt(row.empaque) || 0,
+            vt_dt: parseInt(row.vt_dt) || 0,
+            cliente_id: selectedClient.id,
+            lugar: embryoProductionData.lugar,
+            finca: embryoProductionData.finca,
+            fecha: embryoProductionData.fecha_opu,
+            porcentaje_cliv: `${row.ctv > 0 ? Math.round((parseInt(row.clivados) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+            porcentaje_prevision: `${row.ctv > 0 ? Math.round((parseInt(row.prevision) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+            porcentaje_empaque: `${row.ctv > 0 ? Math.round((parseInt(row.empaque) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+            porcentaje_vtdt: `${row.ctv > 0 ? Math.round((parseInt(row.vt_dt) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+            total_embriones: Math.round((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.clivados) || 0)),
+            porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.prevision) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+          })
+        );
+      await Promise.all([...createPromises, ...updatePromises]);
       alert("Producción embrionaria guardada correctamente.");
-      setOpusRows([]);
+      // Recargar los opus de la producción actual
+      if (production?.id) {
+        const opusRecords = await opusApi.getOpusByProduction(production.id);
+        setOpusRows(opusRecords.map((r, idx) => ({
+          ...r,
+          order: r.order || idx + 1,
+          isExisting: true,
+          original: { ...r }
+        })));
+      }
       // Abrir modal de unidades utilizadas automáticamente
       handleOpenSemenModal();
     } catch (error) {
@@ -387,14 +454,22 @@ const EmbryoProduction = () => {
     }
   };
 
-  // Guardar output_id en la producción y redirigir
+  // Función para comparar si un registro OPU ha cambiado
+  function hasOpusChanged(row, original) {
+    const keys = [
+      'donante_code','race','toro','toro_id','toro_name','gi','gii','giii','otros','viables','total_oocitos','ctv','clivados','prevision','empaque','vt_dt','total_embriones','porcentaje_total_embriones','order'
+    ];
+    return keys.some(key => row[key] !== original[key]);
+  }
+
+  // Guardar output_ids en la producción y redirigir
   const handleFinalSave = async () => {
     try {
       setLoading(true);
       // Asegurarnos de que todos los campos requeridos estén presentes
       const productionData = {
         ...embryoProductionData,
-        output_id: outputIdUsed,
+        output_ids: Array.isArray(outputIdUsed) ? outputIdUsed : outputIdUsed ? [outputIdUsed] : [],
         cliente_id: selectedClient.id,
         fecha_opu: embryoProductionData.fecha_opu || new Date().toISOString().split("T")[0],
         lugar: embryoProductionData.lugar || "",
@@ -408,7 +483,6 @@ const EmbryoProduction = () => {
       await productionApi.updateProduction(production.id, productionData);
       setShowConfirmModal(false);
       alert("Producción actualizada y salida registrada correctamente.");
-      navigate("/opus-summary");
     } catch (error) {
       alert("Error al actualizar la producción: " + (error.response?.data?.detail || error.message));
     } finally {
@@ -425,10 +499,10 @@ const EmbryoProduction = () => {
 
       {error && (
         <div
-          className="alert alert-danger alert-dismissible fade show"
+          className={`alert ${error === 'No se encontraron datos' ? 'alert-warning' : 'alert-danger'} alert-dismissible fade show`}
           role="alert"
         >
-          <i className="bi bi-exclamation-triangle-fill me-2"></i>
+          <i className={`bi ${error === 'No se encontraron datos' ? 'bi-exclamation-circle-fill' : 'bi-exclamation-triangle-fill'} me-2`}></i>
           {error}
           <button
             type="button"
@@ -548,7 +622,7 @@ const EmbryoProduction = () => {
                       opusCount: opusRecords.length
                     });
                     setProduction(production);
-                    
+                    setOpusRows(opusRecords.map((r, idx) => ({ ...r, order: r.order || idx + 1, isExisting: true, original: { ...r } }))); // Siempre cargar los opus existentes
                     // Cargar los datos de la producción en el formulario
                     setEmbryoProductionData({
                       cliente_id: production.cliente_id,
@@ -557,7 +631,7 @@ const EmbryoProduction = () => {
                       finca: production.finca || "",
                       hora_inicio: production.hora_inicio || "",
                       hora_final: production.hora_final || "",
-                      output_id: production.output_id || 0,
+                      output_ids: production.output_ids || [],
                       envase: production.envase || "",
                       fecha_transferencia: production.fecha_transferencia || new Date().toISOString().split("T")[0],
                     });
@@ -572,10 +646,11 @@ const EmbryoProduction = () => {
                       finca: "",
                       hora_inicio: "",
                       hora_final: "",
-                      output_id: 0,
+                      output_ids: [],
                       envase: "",
                       fecha_transferencia: new Date().toISOString().split("T")[0],
                     });
+                    setOpusRows([]);
                   }
                 }}
               >
@@ -774,10 +849,10 @@ const EmbryoProduction = () => {
                           <th>CIV</th>
                           <th>Clivados</th>
                           <th>% Cliv</th>
-                          <th>Empacados</th>
-                          <th>% Emp</th>
                           <th>Previsión</th>
                           <th>% Prev</th>
+                          <th>Empacados</th>
+                          <th>% Emp</th>
                           <th>VT/DT</th>
                           <th>% VT/DT</th>
                           <th>Acciones</th>
@@ -867,9 +942,9 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.gi}
+                                  value={row.gi === 0 && row.gi !== "" ? "" : row.gi}
                                   onChange={(e) =>
-                                    handleOocyteChange(
+                                    handleRowChange(
                                       index,
                                       "gi",
                                       e.target.value
@@ -881,9 +956,9 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.gii}
+                                  value={row.gii === 0 && row.gii !== "" ? "" : row.gii}
                                   onChange={(e) =>
-                                    handleOocyteChange(
+                                    handleRowChange(
                                       index,
                                       "gii",
                                       e.target.value
@@ -895,9 +970,9 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.giii}
+                                  value={row.giii === 0 && row.giii !== "" ? "" : row.giii}
                                   onChange={(e) =>
-                                    handleOocyteChange(
+                                    handleRowChange(
                                       index,
                                       "giii",
                                       e.target.value
@@ -909,9 +984,9 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.otros}
+                                  value={row.otros === 0 && row.otros !== "" ? "" : row.otros}
                                   onChange={(e) =>
-                                    handleOocyteChange(
+                                    handleRowChange(
                                       index,
                                       "otros",
                                       e.target.value
@@ -925,12 +1000,12 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.ctv}
+                                  value={row.ctv === 0 && row.ctv !== "" ? "" : row.ctv}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
                                       "ctv",
-                                      parseInt(e.target.value) || 0
+                                      e.target.value
                                     )
                                   }
                                 />
@@ -939,12 +1014,12 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.clivados}
+                                  value={row.clivados === 0 && row.clivados !== "" ? "" : row.clivados}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
                                       "clivados",
-                                      parseInt(e.target.value) || 0
+                                      e.target.value
                                     )
                                   }
                                 />
@@ -952,7 +1027,7 @@ const EmbryoProduction = () => {
                               <td>
                                 {row.ctv > 0
                                   ? `${Math.round(
-                                      (row.clivados / row.ctv) * 100
+                                      (parseInt(row.clivados) || 0) / (parseInt(row.ctv) || 1) * 100
                                     )}%`
                                   : "0%"}
                               </td>
@@ -960,33 +1035,12 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.empaque}
-                                  onChange={(e) =>
-                                    handleRowChange(
-                                      index,
-                                      "empaque",
-                                      parseInt(e.target.value) || 0
-                                    )
-                                  }
-                                />
-                              </td>
-                              <td>
-                                {row.ctv > 0
-                                  ? `${Math.round(
-                                      (row.empaque / row.ctv) * 100
-                                    )}%`
-                                  : "0%"}
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  className="form-control form-control-sm"
-                                  value={row.prevision}
+                                  value={row.prevision === 0 && row.prevision !== "" ? "" : row.prevision}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
                                       "prevision",
-                                      parseInt(e.target.value) || 0
+                                      e.target.value
                                     )
                                   }
                                 />
@@ -994,7 +1048,7 @@ const EmbryoProduction = () => {
                               <td>
                                 {row.ctv > 0
                                   ? `${Math.round(
-                                      (row.prevision / row.ctv) * 100
+                                      (parseInt(row.prevision) || 0) / (parseInt(row.ctv) || 1) * 100
                                     )}%`
                                   : "0%"}
                               </td>
@@ -1002,12 +1056,12 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.vt_dt}
+                                  value={row.empaque === 0 && row.empaque !== "" ? "" : row.empaque}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
-                                      "vt_dt",
-                                      parseInt(e.target.value) || 0
+                                      "empaque",
+                                      e.target.value
                                     )
                                   }
                                 />
@@ -1015,7 +1069,29 @@ const EmbryoProduction = () => {
                               <td>
                                 {row.ctv > 0
                                   ? `${Math.round(
-                                      (row.vt_dt / row.ctv) * 100
+                                      (parseInt(row.empaque) || 0) / (parseInt(row.ctv) || 1) * 100
+                                    )}%`
+                                  : "0%"}
+                              </td>
+                              
+                              <td>
+                                <input
+                                  type="number"
+                                  className="form-control form-control-sm"
+                                  value={row.vt_dt === 0 && row.vt_dt !== "" ? "" : row.vt_dt}
+                                  onChange={(e) =>
+                                    handleRowChange(
+                                      index,
+                                      "vt_dt",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td>
+                                {row.ctv > 0
+                                  ? `${Math.round(
+                                      (parseInt(row.vt_dt) || 0) / (parseInt(row.ctv) || 1) * 100
                                     )}%`
                                   : "0%"}
                               </td>
@@ -1100,6 +1176,7 @@ const EmbryoProduction = () => {
                     <tr>
                       <th>Toro</th>
                       <th>N° Registro</th>
+                      <th>Lote</th>
                       <th>Disponible</th>
                       <th>Usada</th>
                       <th>Recibida</th>
@@ -1112,7 +1189,8 @@ const EmbryoProduction = () => {
                     {semenEntries.map((entry, index) => (
                       <tr key={index}>
                         <td>{entry.bull.name}</td>
-                        <td>{entry.bull.register}</td>
+                        <td>{entry.bull.registration_number}</td>
+                        <td>{entry.lote}</td>
                         <td>
                           {editingInputId === entry.id ? (
                             <span className={parseFloat(entry.quantity_received - (parseFloat(editValue) || 0)) <= 0 ? "text-danger fw-bold" : "text-success"}>
@@ -1207,13 +1285,24 @@ const EmbryoProduction = () => {
                   <div className="alert alert-danger mt-2">{updateError}</div>
                 )}
               </div>
-              <div className="modal-footer">
+              <div className="modal-footer d-flex justify-content-between">
                 <button
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setShowSemenModal(false)}
                 >
                   Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  onClick={() => {
+                    setShowSemenModal(false);
+                    navigate("/opus-summary");
+                  }}
+                >
+                  <i className="bi bi-check-circle me-1"></i>
+                  Finalizar trabajo
                 </button>
               </div>
             </div>

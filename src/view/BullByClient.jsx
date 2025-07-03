@@ -1317,7 +1317,7 @@ const BullsByClient = () => {
                             <td>{input.quantity_taken ?? '-'}</td>
                             <td>{input.lote ?? '-'}</td>
                             <td>{input.escalarilla ?? '-'}</td>
-                            <td>{input.bull.register ?? '-'}</td>
+                            <td>{input.bull.registration_number ?? '-'}</td>
                             <td>{inventoryBull?.name ?? '-'}</td>
                             <td>{input.created_at ? new Date(input.created_at).toLocaleDateString('es-CO', { timeZone: 'UTC' }) : '-'}</td>
                           </tr>

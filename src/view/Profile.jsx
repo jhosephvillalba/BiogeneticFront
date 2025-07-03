@@ -18,9 +18,7 @@ const ProfileView = ({ updateUser }) => {
     newPassword: "",
     confirmPassword: ""
   });
-  const [profilePhoto, setProfilePhoto] = useState(
-    "https://randomuser.me/api/portraits/men/32.jpg"
-  );
+  const [profilePhoto, setProfilePhoto] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -52,8 +50,10 @@ const ProfileView = ({ updateUser }) => {
             confirmPassword: ""
           });
           
-          if (userData.photo) {
-            setProfilePhoto(userData.photo);
+          if (userData.profile_image_url) {
+            setProfilePhoto(userData.profile_image_url);
+          } else {
+            setProfilePhoto(null);
           }
           
           setUserLoaded(true);
@@ -83,6 +83,7 @@ const ProfileView = ({ updateUser }) => {
               confirmPassword: ""
             });
             
+            setProfilePhoto(userInfo.profile_image_url || null);
             setUserLoaded(true);
           } catch (error) {
             console.error("Error al obtener datos del usuario:", error);
@@ -212,28 +213,52 @@ const ProfileView = ({ updateUser }) => {
         });
         return;
       }
-
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const newPhoto = reader.result;
-        setProfilePhoto(newPhoto);
-        
-        // Actualizar la foto en localStorage
-        const userData = JSON.parse(localStorage.getItem('userData'));
-        if (userData) {
-          userData.photo = newPhoto;
-          localStorage.setItem('userData', JSON.stringify(userData));
-          
-          // Actualizar el estado global
-          updateUser(userData);
+      try {
+        // Subir la imagen al backend
+        const response = await usersApi.uploadProfilePicture(file);
+        if (response && response.url) {
+          setProfilePhoto(response.url);
+          setProfile(prev => ({
+            ...prev,
+            profile_image_url: response.url
+          }));
+          // Actualizar la url en localStorage
+          const userData = JSON.parse(localStorage.getItem('userData'));
+          if (userData) {
+            userData.profile_image_url = response.url;
+            localStorage.setItem('userData', JSON.stringify(userData));
+            // Actualizar en la base de datos
+            if (usersApi.updateUser) {
+              try {
+                await usersApi.updateUser(userData.id, { profile_image_url: response.url });
+              } catch (err) {
+                setMessage({
+                  type: "danger",
+                  text: "La imagen se subió pero no se pudo actualizar en la base de datos."
+                });
+                setIsEditingPhoto(false);
+                return;
+              }
+            }
+            // Actualizar el estado global
+            updateUser(userData);
+          }
+          setMessage({
+            type: "success",
+            text: "Foto de perfil actualizada correctamente"
+          });
+        } else {
+          setMessage({
+            type: "danger",
+            text: "No se pudo actualizar la foto de perfil."
+          });
         }
-        
+      } catch (error) {
         setMessage({
-          type: "success",
-          text: "Foto de perfil actualizada correctamente"
+          type: "danger",
+          text: "Error al subir la foto de perfil."
         });
-      };
-      reader.readAsDataURL(file);
+      }
     }
     setIsEditingPhoto(false);
   };
@@ -264,12 +289,18 @@ const ProfileView = ({ updateUser }) => {
           <div className="card profile-card shadow-sm mb-4">
             <div className="card-body text-center">
               <div className="profile-photo-container position-relative mb-4">
-                <img
-                  src={profilePhoto}
-                  className="rounded-circle border border-3 border-primary"
-                  style={{ width: "150px", height: "150px", objectFit: "cover" }}
-                  alt="Foto de perfil"
-                />
+                {profilePhoto ? (
+                  <img
+                    src={profilePhoto}
+                    className="rounded-circle border border-3 border-primary"
+                    style={{ width: "150px", height: "150px", objectFit: "cover" }}
+                    alt="Foto de perfil"
+                  />
+                ) : (
+                  <span className="placeholder rounded-circle d-inline-block bg-secondary" style={{ width: "150px", height: "150px", lineHeight: "150px", textAlign: "center", fontSize: "3rem", color: "#fff" }}>
+                    <i className="bi bi-person" />
+                  </span>
+                )}
                 {isEditing && (
                   <button
                     className="btn btn-sm btn-primary rounded-circle position-absolute"

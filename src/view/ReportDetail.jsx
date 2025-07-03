@@ -1,6 +1,25 @@
 import React from "react";
 import { Bar } from "react-chartjs-2";
 import { useNavigate } from "react-router-dom";
+// Registrar componentes de Chart.js
+import {
+  Chart as ChartJS,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+ChartJS.register(
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const ReportDetail = ({ opuData }) => {
   const navigate = useNavigate();
@@ -15,90 +34,41 @@ const ReportDetail = ({ opuData }) => {
     return dateObj.toISOString().split("T")[0];
   };
 
-  // Preparar datos para el gráfico
+  // Validar datos
+  const registros = opuData.registros || [];
+  console.log("registros", registros);
+
+  // Preparar datos para el gráfico (dinámico)
+  const labels = registros.map((_, idx) => `Registro ${idx + 1}`);
+
+  const clivadosData = registros.map(r =>
+    parseFloat((r.clivados_percent || "0").replace("%", ""))
+  );
+  const totalData = registros.map(r =>
+    parseFloat((r.porcentaje_total_embriones || "0").replace("%", ""))
+  );
+
   const chartData = {
-    labels: ["Registro 1", "Registro 2", "Registro 3"], // Etiquetas base para los grupos
+    labels,
     datasets: [
       {
-        label: "Registro 1 - % CLIVADOS",
-        data: [
-          parseFloat(
-            opuData.registros[0]?.clivados_percent.replace("%", "") || 0
-          ),
-          0,
-          0,
-        ],
+        label: "% Clivados",
+        data: clivadosData,
         backgroundColor: "rgba(54, 162, 235, 0.8)",
         borderColor: "rgba(54, 162, 235, 1)",
         borderWidth: 1,
       },
       {
-        label: "Registro 1 - % EMBRIONES",
-        data: [
-          parseFloat(
-            opuData.registros[0]?.prevision_percent.replace("%", "") || 0
-          ),
-          0,
-          0,
-        ],
+        label: "% Total Embriones",
+        data: totalData,
         backgroundColor: "rgba(255, 206, 86, 0.8)",
         borderColor: "rgba(255, 206, 86, 1)",
         borderWidth: 1,
-      },
-      {
-        label: "Registro 2 - % CLIVADOS",
-        data: [
-          0,
-          parseFloat(
-            opuData.registros[1]?.clivados_percent.replace("%", "") || 0
-          ),
-          0,
-        ],
-        backgroundColor: "rgba(75, 192, 192, 0.8)",
-        borderColor: "rgba(75, 192, 192, 1)",
-        borderWidth: 1,
-      },
-      {
-        label: "Registro 2 - % EMBRIONES",
-        data: [
-          0,
-          parseFloat(
-            opuData.registros[1]?.prevision_percent.replace("%", "") || 0
-          ),
-          0,
-        ],
-        backgroundColor: "rgba(153, 102, 255, 0.8)",
-        borderColor: "rgba(153, 102, 255, 1)",
-        borderWidth: 1,
-      },
-      {
-        label: "Registro 3 - % CLIVADOS",
-        data: [
-          0,
-          0,
-          parseFloat(
-            opuData.registros[2]?.clivados_percent.replace("%", "") || 0
-          ),
-        ],
-        backgroundColor: "rgba(255, 159, 64, 0.8)",
-        borderColor: "rgba(255, 159, 64, 1)",
-        borderWidth: 1,
-      },
-      {
-        label: "Registro 3 - % EMBRIONES",
-        data: [
-          0,
-          0,
-          parseFloat(
-            opuData.registros[2]?.prevision_percent.replace("%", "") || 0
-          ),
-        ],
-        backgroundColor: "rgba(255, 99, 132, 0.8)",
-        borderColor: "rgba(255, 99, 132, 1)",
-        borderWidth: 1,
-      },
-    ],
+      }
+    ]
   };
+
+  console.log("chartData", chartData);
 
   const chartOptions = {
     responsive: true,
@@ -268,7 +238,7 @@ const ReportDetail = ({ opuData }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {opuData.registros.map((registro, index) => (
+                  {registros.map((registro, index) => (
                     <tr key={index}>
                       <td>{index + 1}</td>
                       <td>{registro.donante}</td>
@@ -302,7 +272,13 @@ const ReportDetail = ({ opuData }) => {
                   className="chart-container"
                   style={{ height: "500px", margin: "0 auto" }}
                 >
-                  <Bar data={chartData} options={chartOptions} />
+                  {registros.length === 0 ? (
+                    <div className="alert alert-warning text-center">
+                      No hay datos suficientes para mostrar el gráfico.
+                    </div>
+                  ) : (
+                    <Bar data={chartData} options={chartOptions} />
+                  )}
                 </div>
               </div>
             </div>

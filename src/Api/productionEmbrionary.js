@@ -94,6 +94,17 @@ import axios from './instance';
     }
   }
 
+  // Servicio para obtener el resumen de toros por producción embrionaria
+  export const getBullsSummaryByProductionId = async (productionId) => {
+    try {
+      const response = await axios.get(`/produccion-embrionaria/${productionId}/bulls-summary`);
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener el resumen de toros:', error);
+      throw error;
+    }
+  };
+
 
 
 

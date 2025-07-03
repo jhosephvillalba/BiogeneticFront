@@ -8,7 +8,7 @@ const DetailReport = () => {
 
   const handleDate = (date) => {
     // Convertimos a objeto Date
-    console.log("-->>>>>>>>>>>>", date)
+    // console.log("-->>>>>>>>>>>>", date)
     const dateObj = new Date(date);
     // Sumamos 5 días
     dateObj.setDate(dateObj.getDate() + 5);
@@ -279,8 +279,8 @@ const DetailReport = () => {
   );
 
   return (
-    <div className="container-fluid">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+    <div className="container-fluid mt-3">
+      <div className="d-flex justify-content-between align-items-center mb-4 mt-3">
         <h2>
           <i className="bi bi-file-text me-2"></i>
           Detalle de OPU
