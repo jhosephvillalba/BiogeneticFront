@@ -126,7 +126,10 @@ const Bulls = () => {
       console.log("Lista de toros procesada:", bullsList);
 
       setBulls(bullsList);
-      applyLocalFilters(bullsList);
+      // Aplicar filtros locales después de establecer los toros
+      setTimeout(() => {
+        applyLocalFilters(bullsList);
+      }, 0);
     } catch (error) {
       console.error("Error al cargar toros del cliente:", error);
       let errorMessage = "No se pudieron cargar los toros del cliente. ";
@@ -250,6 +253,19 @@ const Bulls = () => {
     loadClientBulls();
   }, [loadClientBulls]);
 
+  // Efecto para manejar la recuperación del cliente del localStorage
+  useEffect(() => {
+    if (selectedClient && selectedClient.id) {
+      console.log("Cliente recuperado del localStorage:", selectedClient);
+      // Asegurar que los filtros se apliquen correctamente
+      if (bulls.length > 0) {
+        setTimeout(() => {
+          applyLocalFilters(bulls);
+        }, 0);
+      }
+    }
+  }, [selectedClient, bulls]);
+
   // Cargar clientes
   const loadClients = useCallback(async () => {
     try {
@@ -317,19 +333,36 @@ const Bulls = () => {
   const handleCreateBull = async (e) => {
     e.preventDefault();
 
-    if (!selectedClient) {
+    console.log("Iniciando creación de toro...");
+    console.log("selectedClient:", selectedClient);
+    console.log("newBullData:", newBullData);
+
+    if (!selectedClient || !selectedClient.id) {
       alert("Por favor seleccione un cliente primero");
+      console.error("No hay cliente seleccionado o el cliente no tiene ID");
+      return;
+    }
+
+    // Validar que los campos requeridos estén completos
+    if (!newBullData.name || !newBullData.race_id || !newBullData.sex_id) {
+      alert("Por favor complete todos los campos requeridos (Nombre, Raza y Sexo)");
       return;
     }
 
     try {
       setLoading(true);
 
-      // Crear el toro para el cliente seleccionado
-      const response = await createBull({
+      const bullDataToSend = {
         ...newBullData,
         user_id: selectedClient.id,
-      });
+      };
+
+      console.log("Datos a enviar:", bullDataToSend);
+
+      // Crear el toro para el cliente seleccionado
+      const response = await createBull(bullDataToSend);
+
+      console.log("Respuesta de creación:", response);
 
       // Actualizar la lista de toros localmente
       setBulls((prev) => [response, ...prev]);
@@ -350,6 +383,7 @@ const Bulls = () => {
       alert("Toro creado exitosamente");
     } catch (error) {
       console.error("Error al crear toro:", error);
+      console.error("Detalles del error:", error.response?.data);
       alert(
         "Error al crear el toro: " +
           (error.response?.data?.detail || error.message)
