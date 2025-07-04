@@ -402,8 +402,8 @@ const EmbryoProduction = () => {
             porcentaje_prevision: `${row.ctv > 0 ? Math.round((parseInt(row.prevision) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
             porcentaje_empaque: `${row.ctv > 0 ? Math.round((parseInt(row.empaque) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
             porcentaje_vtdt: `${row.ctv > 0 ? Math.round((parseInt(row.vt_dt) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-            total_embriones: Math.round((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.prevision) || 0)),
-            porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.prevision) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+            total_embriones: Math.round((parseInt(row.prevision) || 0)),
+            porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.prevision) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
           })
         );
       // Actualizar los registros existentes que hayan cambiado
@@ -430,8 +430,8 @@ const EmbryoProduction = () => {
             porcentaje_prevision: `${row.ctv > 0 ? Math.round((parseInt(row.prevision) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
             porcentaje_empaque: `${row.ctv > 0 ? Math.round((parseInt(row.empaque) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
             porcentaje_vtdt: `${row.ctv > 0 ? Math.round((parseInt(row.vt_dt) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-            total_embriones: Math.round((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.clivados) || 0)),
-            porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.prevision) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+            total_embriones: Math.round((parseInt(row.prevision) || 0)),
+            porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.prevision) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
           })
         );
       await Promise.all([...createPromises, ...updatePromises]);

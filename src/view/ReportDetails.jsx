@@ -187,10 +187,6 @@ const ReportDetails = () => {
     (sum, reg) => sum + (parseInt(reg.vt_dt) || 0),
     0
   );
-  const total_total = total_prevision + total_empaque + total_vt_dt;
-  const porcentaje_final =
-    total_ctv > 0 ? Math.round((total_total / total_ctv) * 100) : 0;
-
   // Etiquetas: una por cada fila
   const labels = registros.map((r, idx) => r.donante_nombre || `${r.toro_nombre} - ${r.donante_code}`);
 
@@ -201,8 +197,8 @@ const ReportDetails = () => {
 
   // Dataset de % Total Producción (porcentaje_total_embriones o calculado)
   const totalData = registros.map(r => {
-    if (r.porcentaje_total_embriones) {
-      return parseFloat((r.porcentaje_total_embriones || "0").toString().replace("%", ""));
+    if (r.porcentaje_prevision) {
+      return parseFloat((r.porcentaje_prevision || "0").toString().replace("%", ""));
     }
     // const total = (parseFloat(r.prevision) || 0) + (parseFloat(r.empaque) || 0) + (parseFloat(r.vt_dt) || 0);
     // const ctv = parseFloat(r.ctv) || 1;
@@ -367,51 +363,51 @@ const ReportDetails = () => {
                 <tbody>
                   {registros.map((registro, index) => (
                     <tr key={registro.id}>
-                      <td>{index + 1}</td>
-                      <td>{registro.donante_code}</td>
-                      <td>{registro.race}</td>
-                      <td>{registro.toro_nombre}</td>
-                      <td>{registro.gi}</td>
-                      <td>{registro.gii}</td>
-                      <td>{registro.giii}</td>
-                      <td>{registro.viables}</td>
-                      <td>{registro.otros}</td>
-                      <td>{registro.total_oocitos}</td>
-                      <td>{registro.ctv}</td>
-                      <td>{registro.clivados}</td>
-                      <td>{registro.porcentaje_cliv}</td>
-                      <td>{registro.prevision}</td>
-                      <td>{registro.porcentaje_prevision}</td>
-                      <td>{registro.empaque}</td>
-                      <td>{registro.porcentaje_empaque}</td>
-                      <td>{registro.vt_dt}</td>
-                      <td>{registro.porcentaje_vtdt}</td>
-                      <td>
-                        {registro.empaque + registro.vt_dt + registro.prevision}
+                      <td className="text-center">{index + 1}</td>
+                      <td className="text-center">{registro.donante_code}</td>
+                      <td className="text-center">{registro.race}</td>
+                      <td className="text-center">{registro.toro_nombre}</td>
+                      <td className="text-center">{registro.gi}</td>
+                      <td className="text-center">{registro.gii}</td>
+                      <td className="text-center">{registro.giii}</td>
+                      <td className="text-center">{registro.viables}</td>
+                      <td className="text-center">{registro.otros}</td>
+                      <td className="text-center">{registro.total_oocitos}</td>
+                      <td className="text-center">{registro.ctv}</td>
+                      <td className="text-center">{registro.clivados}</td>
+                      <td className="text-center">{registro.porcentaje_cliv}</td>
+                      <td className="text-center">{registro.prevision}</td>
+                      <td className="text-center">{registro.porcentaje_prevision}</td>
+                      <td className="text-center">{registro.empaque}</td>
+                      <td className="text-center">{registro.porcentaje_empaque}</td>
+                      <td className="text-center">{registro.vt_dt}</td>
+                      <td className="text-center">{registro.porcentaje_vtdt}</td>
+                      <td className="text-center">
+                        { registro.prevision}
                       </td>
-                      <td>{`${registro.porcentaje_total_embriones}`}</td>
+                      <td className="text-center">{`${registro.porcentaje_total_embriones }`}</td>
                     </tr>
                   ))}
                   {/* Fila de totales */}
                   <tr style={{ background: "#f5f5f5", fontWeight: "bold" }}>
-                    <td colSpan="4">Totales</td>
-                    <td>{total_gi}</td>
-                    <td>{total_gii}</td>
-                    <td>{total_giii}</td>
-                    <td>{total_viables}</td>
-                    <td>{total_otros}</td>
-                    <td>{total_total_oocitos}</td>
-                    <td>{total_ctv}</td>
-                    <td>{total_clivados}</td>
-                    <td>{`${Math.round((total_clivados * 100) / total_ctv)}%`}</td>
-                    <td>{total_prevision}</td>
-                    <td>{`${Math.round((total_prevision * 100) / total_ctv)}%`}</td>
-                    <td>{total_empaque}</td>
-                    <td>{`${Math.round((total_empaque * 100) / total_ctv)}%`}</td>
-                    <td>{total_vt_dt}</td>
-                    <td>{`${Math.round((total_vt_dt * 100) / total_ctv)}%`}</td>
-                    <td>{total_total}</td>
-                    <td>{`${Math.round(( total_total * 100) / total_ctv)}%`}</td>
+                    <td colSpan="4" className="text-center">Totales</td>
+                    <td className="text-center">{total_gi}</td>
+                    <td className="text-center">{total_gii}</td>
+                    <td className="text-center">{total_giii}</td>
+                    <td className="text-center">{total_viables}</td>
+                    <td className="text-center">{total_otros}</td>
+                    <td className="text-center">{total_total_oocitos}</td>
+                    <td className="text-center">{total_ctv}</td>
+                    <td className="text-center">{total_clivados}</td>
+                    <td className="text-center">{`${Math.round((total_clivados * 100) / total_ctv)}%`}</td>
+                    <td className="text-center">{total_prevision}</td>
+                    <td className="text-center">{`${Math.round((total_prevision * 100) / total_ctv)}%`}</td>
+                    <td className="text-center">{total_empaque}</td>
+                    <td className="text-center">{`${Math.round((total_empaque * 100) / total_ctv)}%`}</td>
+                    <td className="text-center">{total_vt_dt}</td>
+                    <td className="text-center">{`${Math.round((total_vt_dt * 100) / total_ctv)}%`}</td>
+                    <td className="text-center">{total_prevision}</td>
+                    <td className="text-center">{`${Math.round(( total_prevision * 100) / total_ctv)}%`}</td>
                   </tr>
                 </tbody>
               </table>
@@ -424,7 +420,7 @@ const ReportDetails = () => {
          {production && production.observacion && production.observacion.trim() !== '' && (
           <div className="card mb-4 shadow-sm border-0">
             <div className="card-body p-4">
-              <h4 className="text-center mb-3" style={{ fontWeight: 600, letterSpacing: '0.5px' }}>Observaciones</h4>
+              <h4 className="text-center mb-3" style={{ fontWeight: 600, letterSpacing: '0.5px', textTransform:"uppercase"}}>Observaciones</h4>
               <div className="mx-auto" style={{ maxWidth: 900 }}>
                 <div className="bg-light rounded-3 p-3" style={{ whiteSpace: 'pre-line', fontSize: '1.05rem', color: '#333' }}>
                   {production.observacion}
@@ -438,8 +434,8 @@ const ReportDetails = () => {
         {resumenToros && resumenToros.length > 0 ? (
           <div className="card mb-4 shadow-sm border-0" style={{ marginTop: '2.5rem', marginBottom: '3rem' }}>
             <div className="card-body p-3">
-              <h4 className="mb-3 text-center" style={{ fontSize: '1.15rem', fontWeight: 600, letterSpacing: '0.5px', color: '#222' }}>
-                Resumen de Salidas Agrupadas por Toro
+              <h4 className="mb-3 text-center" style={{ fontSize: '1.15rem', fontWeight: 600, letterSpacing: '0.5px', color: '#222', textTransform:"uppercase"}}>
+                Resumen de Salidas de semen
               </h4>
               <div className="table-responsive">
                 <table className="table table-bordered table-sm align-middle mb-0" style={{ fontSize: '0.97rem', minWidth: 700 }}>
@@ -458,14 +454,14 @@ const ReportDetails = () => {
                   <tbody>
                     {resumenToros.map((t, idx) => (
                       <tr key={t.nombre_toro + idx}>
-                        <td style={{ padding: '8px 18px' }}>{t.nombre_toro}</td>
-                        <td style={{ padding: '8px 18px' }}>{t.raza_toro}</td>
-                        <td style={{ padding: '8px 18px' }}>{t.numero_registro}</td>
-                        <td style={{ padding: '8px 18px', textAlign: 'right' }}>{parseFloat(t.cantidad_semen_trabajada).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style={{ padding: '8px 18px', textAlign: 'center' }}>{t.total_donadoras}</td>
-                        <td style={{ padding: '8px 18px', textAlign: 'right' }}>{parseFloat(t.cantidad_total_ctv).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style={{ padding: '8px 18px', textAlign: 'center' }}>{t.produccion_total}</td>
-                        <td style={{ padding: '8px 18px', textAlign: 'right' }}>{parseFloat(t.porcentaje).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td>
+                        <td style={{ padding: '8px 18px' }} className="text-center">{t.nombre_toro}</td>
+                        <td style={{ padding: '8px 18px' }} className="text-center">{t.raza_toro}</td>
+                        <td style={{ padding: '8px 18px' }} className="text-center">{t.numero_registro}</td>
+                        <td style={{ padding: '8px 18px' }} className="text-center">{parseFloat(t.cantidad_semen_trabajada).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style={{ padding: '8px 18px' }} className="text-center">{t.total_donadoras}</td>
+                        <td style={{ padding: '8px 18px' }} className="text-center">{parseFloat(t.cantidad_total_ctv).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style={{ padding: '8px 18px' }} className="text-center">{t.produccion_total}</td>
+                        <td style={{ padding: '8px 18px' }} className="text-center">{parseFloat(t.porcentaje).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td>
                       </tr>
                     ))}
                   </tbody>
