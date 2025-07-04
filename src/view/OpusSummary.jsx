@@ -38,8 +38,11 @@ const OpusSummary = () => {
 
       // Agregar fechas solo si ambas están presentes
       if (dateRange.startDate && dateRange.endDate) {
-        filters.fecha_inicio = dateRange.startDate;
-        filters.fecha_fin = dateRange.endDate;
+        // Enviar solo la parte de la fecha en formato UTC (YYYY-MM-DD)
+        const startDateUTC = new Date(dateRange.startDate).toISOString().slice(0, 10);
+        const endDateUTC = new Date(dateRange.endDate).toISOString().slice(0, 10);
+        filters.fecha_inicio = startDateUTC;
+        filters.fecha_fin = endDateUTC;
       }
 
       const data = await reportApi.getAllProductions(filters);

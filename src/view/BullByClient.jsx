@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteBull, createBull, getBullsByClient, getBull } from "../Api/bulls";
+import { deleteBull, createBull, getBull, getBullsWithAvailableSamples} from "../Api/bulls";
 import { racesApi, sexesApi, usersApi } from "../Api";
 import { getInputsByBull } from "../Api/inputs";
 
@@ -120,7 +120,7 @@ const BullsByClient = () => {
 
       console.log("Buscando toros para el cliente:", client);
 
-      const response = await getBullsByClient(client.id);
+      const response = await getBullsWithAvailableSamples(client.id);
       console.log("Respuesta de la API:", response);
 
       let bullsList = [];
@@ -253,7 +253,9 @@ const BullsByClient = () => {
       setLoading(true);
       setError(null);
 
-      const response = await getBullsByClient(selectedClient.id);
+      const response = await getBullsWithAvailableSamples(selectedClient.id);
+      console.log({response:response}); 
+
       setBulls(response || []);
       setPagination((prev) => ({ ...prev, currentPage: 1 })); // Resetear a primera página
     } catch (error) {
@@ -717,16 +719,17 @@ const BullsByClient = () => {
             <table className="table table-hover mb-0">
               <thead className="table-light">
                 <tr>
-                  <th width="5%">ID</th>
-                  <th width="20%">Nombre</th>
-                  <th width="15%">Registro</th>
-                  <th width="15%">Lote</th>
-                  <th width="15%">Escalerilla</th>
-                  <th width="15%">Descripción</th>
-                  <th width="20%">Raza</th>
-                  <th width="15%">Sexo</th>
+                  <th width="10%" style={{fontWeight:"700"}}>ID</th>
+                  <th width="10%" style={{fontWeight:"700"}}>Nombre</th>
+                  <th width="10%" style={{fontWeight:"700"}}>Registro</th>
+                  <th width="10%" style={{fontWeight:"700"}}>Lote</th>
+                  <th width="10%" style={{fontWeight:"700"}}>Escalerilla</th>
+                  <th width="10%" style={{fontWeight:"700"}}>Descripción</th>
+                  <th width="10%" style={{fontWeight:"700"}}>Raza</th>
+                  <th width="10%" style={{fontWeight:"700"}}>Sexo</th>
+                  <th width="20%" style={{fontWeight:"700"}}>Unidades Disponibles</th>
                   {/* <th width="15%">Estado</th> */}
-                  <th width="10%">Acciones</th>
+                  {/* <th width="10%">Acciones</th> */}
                 </tr>
               </thead>
               <tbody>
@@ -790,7 +793,7 @@ const BullsByClient = () => {
                             {bull.status === 'active' ? 'Activo' : 'Inactivo'}
                           </span>
                         </td> */}
-                        <td>
+                        {/* <td>
                           <div className="btn-group">
                             <button
                               className="btn btn-sm btn-outline-primary"
@@ -821,8 +824,13 @@ const BullsByClient = () => {
                               title="Eliminar toro"
                             >
                               <i className="bi"></i>
-                            </button> */}
+                            </button> 
                           </div>
+                        </td> */}
+                        <td className="text-center align-middle">
+                          <span>
+                            {bull.total_available}
+                          </span>
                         </td>
                       </tr>
                     );

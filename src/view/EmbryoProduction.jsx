@@ -30,6 +30,7 @@ const EmbryoProduction = () => {
     output_ids: [],
     envase: "",
     fecha_transferencia: new Date().toISOString().split("T")[0],
+    observacion: "",
   });
 
   // Estados para la tabla editable
@@ -63,6 +64,10 @@ const EmbryoProduction = () => {
   // Nuevos estados para producciones embrionarias
   const [embryoProductions, setEmbryoProductions] = useState([]);
   const [selectedProduction, setSelectedProduction] = useState(null);
+
+  // Estado para el modal de observación
+  const [showObservationModal, setShowObservationModal] = useState(false);
+  const [observationValue, setObservationValue] = useState("");
 
   const handleSelectRow = () => {
     setSelectRow(!selectRow);
@@ -161,11 +166,10 @@ const EmbryoProduction = () => {
     setEmbryoProductionData({
       ...embryoProductionData,
       cliente_id: client.id,
+      observacion: "",
     });
-    
     // Primero cargar los toros disponibles
     await loadClientBulls(client.id);
-    
     // Luego cargar las producciones pasando el cliente directamente
     await loadEmbryoProductions(client);
   };
@@ -398,8 +402,8 @@ const EmbryoProduction = () => {
             porcentaje_prevision: `${row.ctv > 0 ? Math.round((parseInt(row.prevision) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
             porcentaje_empaque: `${row.ctv > 0 ? Math.round((parseInt(row.empaque) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
             porcentaje_vtdt: `${row.ctv > 0 ? Math.round((parseInt(row.vt_dt) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-            total_embriones: Math.round((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.clivados) || 0)),
-            porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.clivados) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+            total_embriones: Math.round((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.prevision) || 0)),
+            porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.empaque) || 0) + (parseInt(row.vt_dt) || 0) + (parseInt(row.prevision) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
           })
         );
       // Actualizar los registros existentes que hayan cambiado
@@ -485,6 +489,40 @@ const EmbryoProduction = () => {
       alert("Producción actualizada y salida registrada correctamente.");
     } catch (error) {
       alert("Error al actualizar la producción: " + (error.response?.data?.detail || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Actualizar datos básicos de la producción
+  const handleUpdateBasicData = async () => {
+    try {
+      setLoading(true);
+      await productionApi.updateProduction(production.id, {
+        ...embryoProductionData,
+        observacion: observationValue,
+      });
+      alert("Datos básicos actualizados correctamente.");
+    } catch (error) {
+      alert("Error al actualizar los datos: " + (error.response?.data?.detail || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Guardar observación
+  const handleSaveObservation = async () => {
+    try {
+      setLoading(true);
+      await productionApi.updateProduction(production.id, {
+        ...embryoProductionData,
+        observacion: observationValue,
+      });
+      setEmbryoProductionData((prev) => ({ ...prev, observacion: observationValue }));
+      setShowObservationModal(false);
+      alert("Observación guardada correctamente.");
+    } catch (error) {
+      alert("Error al guardar la observación: " + (error.response?.data?.detail || error.message));
     } finally {
       setLoading(false);
     }
@@ -634,6 +672,7 @@ const EmbryoProduction = () => {
                       output_ids: production.output_ids || [],
                       envase: production.envase || "",
                       fecha_transferencia: production.fecha_transferencia || new Date().toISOString().split("T")[0],
+                      observacion:production.observacion,
                     });
                   } else {
                     setSelectedProduction(null);
@@ -673,8 +712,28 @@ const EmbryoProduction = () => {
 
           {/* Formulario de producción embrionaria */}
           <form className="card mb-4" onSubmit={handleSubmit}>
-            <div className="card-header">
+            <div className="card-header d-flex justify-content-between align-items-center">
               <h5>Crear Producción Embrionaria</h5>
+              <div className="d-flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleUpdateBasicData}
+                  disabled={production === null || loading}
+                >
+                  <i className="bi bi-pencil-square me-1"></i>
+                  Actualizar datos básicos de la producción
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowObservationModal(true)}
+                  disabled={production === null}
+                >
+                  <i className="bi bi-chat-left-text me-1"></i>
+                  Observación
+                </button>
+              </div>
             </div>
             <div className="card-body">
               <div className="row">
@@ -795,7 +854,20 @@ const EmbryoProduction = () => {
                   </div>
                 </div>
               </div>
-
+              {/* Observación visible si existe */}
+              {embryoProductionData.observacion && (
+                <div className="row mt-3">
+                  <div className="col-12">
+                    <label className="form-label">Observación</label>
+                    <textarea
+                      className="form-control"
+                      value={embryoProductionData.observacion}
+                      readOnly
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              )}
               <button
                 type="submit"
                 className={`${"btn mt-3"} ${
@@ -1344,6 +1416,39 @@ const EmbryoProduction = () => {
                   disabled={loading}
                 >
                   {loading ? "Guardando..." : "Guardar y Finalizar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para observación */}
+      {showObservationModal && (
+        <div className="modal" style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Agregar Observación</h5>
+                <button type="button" className="btn-close" onClick={() => setShowObservationModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <textarea
+                  className="form-control"
+                  rows={4}
+                  value={observationValue}
+                  onChange={(e) => setObservationValue(e.target.value)}
+                  placeholder="Ingrese la observación del proceso..."
+                  maxLength={500}
+                  disabled={loading}
+                />
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowObservationModal(false)}>
+                  Cancelar
+                </button>
+                <button type="button" className="btn btn-primary" onClick={handleSaveObservation} disabled={loading || !observationValue.trim()}>
+                  {loading ? "Guardando..." : "Guardar Observación"}
                 </button>
               </div>
             </div>

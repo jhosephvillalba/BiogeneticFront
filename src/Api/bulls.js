@@ -149,6 +149,16 @@ export const getBullsByClient = async (clientId, skip = 0, limit = 100) => {
   }
 };
 
+export const getBullsWithAvailableSamples = async (clientId, skip = 0, limit = 100) => {
+  try {
+    const response = await axios.get(`/bulls/client/${clientId}/available-samples?skip=${skip}&limit=${limit}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error al obtener toros del cliente:", error);
+    throw error;
+  }
+};
+
 // Obtener toros disponibles (con entradas disponibles) por cliente
 export const getAvailableBullsByClient = async (clientId) => {
   try {

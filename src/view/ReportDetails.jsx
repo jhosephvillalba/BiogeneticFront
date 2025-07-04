@@ -418,6 +418,22 @@ const ReportDetails = () => {
             </div>
           </div>
         </div>
+
+
+         {/* Observaciones de la producción */}
+         {production && production.observacion && production.observacion.trim() !== '' && (
+          <div className="card mb-4 shadow-sm border-0">
+            <div className="card-body p-4">
+              <h4 className="text-center mb-3" style={{ fontWeight: 600, letterSpacing: '0.5px' }}>Observaciones</h4>
+              <div className="mx-auto" style={{ maxWidth: 900 }}>
+                <div className="bg-light rounded-3 p-3" style={{ whiteSpace: 'pre-line', fontSize: '1.05rem', color: '#333' }}>
+                  {production.observacion}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {console.log('Render resumenToros:', resumenToros)}
         {resumenToros && resumenToros.length > 0 ? (
           <div className="card mb-4 shadow-sm border-0" style={{ marginTop: '2.5rem', marginBottom: '3rem' }}>
@@ -433,8 +449,9 @@ const ReportDetails = () => {
                       <th style={{ padding: '10px 18px' }}>Raza</th>
                       <th style={{ padding: '10px 18px' }}>Registro</th>
                       <th style={{ padding: '10px 18px' }}>Cantidad trabajada</th>
-                      <th style={{ padding: '10px 18px' }}>Total CTV</th>
-                      <th style={{ padding: '10px 18px' }}># Donadoras</th>
+                      <th style={{ padding: '10px 18px' }}>#N° Donadontes</th>
+                      <th style={{ padding: '10px 18px' }}>Cultivados</th>
+                      <th style={{ padding: '10px 18px' }}>Producción total</th>
                       <th style={{ padding: '10px 18px' }}>%</th>
                     </tr>
                   </thead>
@@ -445,8 +462,9 @@ const ReportDetails = () => {
                         <td style={{ padding: '8px 18px' }}>{t.raza_toro}</td>
                         <td style={{ padding: '8px 18px' }}>{t.numero_registro}</td>
                         <td style={{ padding: '8px 18px', textAlign: 'right' }}>{parseFloat(t.cantidad_semen_trabajada).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style={{ padding: '8px 18px', textAlign: 'right' }}>{parseFloat(t.cantidad_total_ctv).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td style={{ padding: '8px 18px', textAlign: 'center' }}>{t.total_donadoras}</td>
+                        <td style={{ padding: '8px 18px', textAlign: 'right' }}>{parseFloat(t.cantidad_total_ctv).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style={{ padding: '8px 18px', textAlign: 'center' }}>{t.produccion_total}</td>
                         <td style={{ padding: '8px 18px', textAlign: 'right' }}>{parseFloat(t.porcentaje).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td>
                       </tr>
                     ))}
@@ -526,6 +544,8 @@ const ReportDetails = () => {
             </div>
           </div>
         </div>
+
+       
       </div>
     </div>
   );
