@@ -499,12 +499,7 @@ const EmbryoProduction = () => {
       // Recargar los opus de la producción actual
       if (production?.id) {
         const opusRecords = await opusApi.getOpusByProduction(production.id);
-        setOpusRows(opusRecords.map((r, idx) => ({
-          ...r,
-          order: r.order || idx + 1,
-          isExisting: true,
-          original: { ...r }
-        })));
+        setOpusRows(mapOpusRecords(opusRecords));
       }
       // Abrir modal de unidades utilizadas automáticamente
       handleOpenSemenModal();
@@ -525,6 +520,28 @@ const EmbryoProduction = () => {
     ];
     return keys.some(key => row[key] !== original[key]);
   }
+
+  // Función helper para mapear registros OPU preservando valores 0
+  const mapOpusRecords = (opusRecords) => {
+    return opusRecords.map((r, idx) => ({
+      ...r,
+      order: r.order || idx + 1,
+      isExisting: true,
+      original: { ...r },
+      // Asegurar que los valores numéricos se preserven correctamente, incluyendo 0
+      gi: r.gi !== null && r.gi !== undefined ? r.gi : 0,
+      gii: r.gii !== null && r.gii !== undefined ? r.gii : 0,
+      giii: r.giii !== null && r.giii !== undefined ? r.giii : 0,
+      otros: r.otros !== null && r.otros !== undefined ? r.otros : 0,
+      viables: r.viables !== null && r.viables !== undefined ? r.viables : 0,
+      total_oocitos: r.total_oocitos !== null && r.total_oocitos !== undefined ? r.total_oocitos : 0,
+      ctv: r.ctv !== null && r.ctv !== undefined ? r.ctv : 0,
+      clivados: r.clivados !== null && r.clivados !== undefined ? r.clivados : 0,
+      prevision: r.prevision !== null && r.prevision !== undefined ? r.prevision : 0,
+      empaque: r.empaque !== null && r.empaque !== undefined ? r.empaque : 0,
+      vt_dt: r.vt_dt !== null && r.vt_dt !== undefined ? r.vt_dt : 0,
+    }));
+  };
 
   // Guardar output_ids en la producción y redirigir
   const handleFinalSave = async () => {
@@ -725,12 +742,15 @@ const EmbryoProduction = () => {
                     
                     // Verificar si tiene registros OPU
                     const opusRecords = await opusApi.getOpusByProduction(productionId);
+                    console.log('Registros OPU cargados desde API:', opusRecords);
                     setSelectedProduction({
                       ...production,
                       opusCount: opusRecords.length
                     });
                     setProduction(production);
-                    setOpusRows(opusRecords.map((r, idx) => ({ ...r, order: r.order || idx + 1, isExisting: true, original: { ...r } }))); // Siempre cargar los opus existentes
+                    const mappedRows = mapOpusRecords(opusRecords);
+                    console.log('Registros OPU mapeados:', mappedRows);
+                    setOpusRows(mappedRows);
                     // Cargar los datos de la producción en el formulario
                     setEmbryoProductionData({
                       cliente_id: production.cliente_id,
@@ -1094,7 +1114,7 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.gi === 0 && row.gi !== "" ? "" : row.gi}
+                                  value={row.gi}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
@@ -1108,7 +1128,7 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.gii === 0 && row.gii !== "" ? "" : row.gii}
+                                  value={row.gii}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
@@ -1122,7 +1142,7 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.giii === 0 && row.giii !== "" ? "" : row.giii}
+                                  value={row.giii}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
@@ -1136,7 +1156,7 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.otros === 0 && row.otros !== "" ? "" : row.otros}
+                                  value={row.otros}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
@@ -1152,7 +1172,7 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.ctv === 0 && row.ctv !== "" ? "" : row.ctv}
+                                  value={row.ctv}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
@@ -1166,7 +1186,7 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.clivados === 0 && row.clivados !== "" ? "" : row.clivados}
+                                  value={row.clivados}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
@@ -1187,7 +1207,7 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.prevision === 0 && row.prevision !== "" ? "" : row.prevision}
+                                  value={row.prevision}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
@@ -1208,7 +1228,7 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.empaque === 0 && row.empaque !== "" ? "" : row.empaque}
+                                  value={row.empaque}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,
@@ -1230,7 +1250,7 @@ const EmbryoProduction = () => {
                                 <input
                                   type="number"
                                   className="form-control form-control-sm"
-                                  value={row.vt_dt === 0 && row.vt_dt !== "" ? "" : row.vt_dt}
+                                  value={row.vt_dt}
                                   onChange={(e) =>
                                     handleRowChange(
                                       index,

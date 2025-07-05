@@ -385,7 +385,7 @@ const ReportDetails = () => {
                       <td className="text-center">
                         { registro.prevision}
                       </td>
-                      <td className="text-center">{`${registro.porcentaje_total_embriones }`}</td>
+                      <td className="text-center">{`${Math.round((registro.prevision * 100) / (registro.ctv === 0 ? 1 : registro.ctv ) )}%`}</td>
                     </tr>
                   ))}
                   {/* Fila de totales */}
