@@ -74,6 +74,40 @@ const EmbryoProduction = () => {
     console.log(selectRow);
   };
 
+  // Función para limpiar todos los estados cuando se cambia de cliente
+  const clearAllStates = () => {
+    setSelectedClient(null);
+    setSelectedProduction(null);
+    setProduction(null);
+    setEmbryoProductions([]);
+    setOpusRows([]);
+    setClientBulls([]);
+    setFemaleBulls([]);
+    setMaleBulls([]);
+    setSemenEntries([]);
+    setEmbryoProductionData({
+      cliente_id: 0,
+      fecha_opu: new Date().toISOString().split("T")[0],
+      lugar: "",
+      finca: "",
+      hora_inicio: "",
+      hora_final: "",
+      output_ids: [],
+      envase: "",
+      fecha_transferencia: new Date().toISOString().split("T")[0],
+      observacion: "",
+    });
+    setError(null);
+    setShowSemenModal(false);
+    setShowConfirmModal(false);
+    setShowObservationModal(false);
+    setEditingInputId(null);
+    setEditValue("");
+    setRemarkValue("");
+    setObservationValue("");
+    setOutputIdUsed(null);
+  };
+
   // ✅ Implementar función loadClients
   const loadClients = async (searchTerm = "") => {
     setLoadingClients(true);
@@ -148,11 +182,11 @@ const EmbryoProduction = () => {
     try {
       if (!client) return;
       
-      console.log('Buscando producciones para:', client);
+      console.log('Buscando producciones para cliente:', client.id, client.full_name, client.number_document);
       const productions = await productionApi.getAllProductions({
         query: client.number_document
       });
-      console.log('Producciones encontradas:', productions);
+      console.log('Producciones encontradas para cliente', client.id, ':', productions);
       setEmbryoProductions(productions);
     } catch (error) {
       console.warn("No se encontraron datos de producciones embrionarias:", error);
@@ -162,10 +196,36 @@ const EmbryoProduction = () => {
 
   // Modificar handleSelectClient para incluir la carga de producciones
   const handleSelectClient = async (client) => {
+    // Limpiar estados antes de cargar nuevo cliente
+    setSelectedProduction(null);
+    setProduction(null);
+    setEmbryoProductions([]);
+    setOpusRows([]);
+    setClientBulls([]);
+    setFemaleBulls([]);
+    setMaleBulls([]);
+    setSemenEntries([]);
+    setError(null);
+    setShowSemenModal(false);
+    setShowConfirmModal(false);
+    setShowObservationModal(false);
+    setEditingInputId(null);
+    setEditValue("");
+    setRemarkValue("");
+    setObservationValue("");
+    setOutputIdUsed(null);
+    
     setSelectedClient(client);
     setEmbryoProductionData({
-      ...embryoProductionData,
       cliente_id: client.id,
+      fecha_opu: new Date().toISOString().split("T")[0],
+      lugar: "",
+      finca: "",
+      hora_inicio: "",
+      hora_final: "",
+      output_ids: [],
+      envase: "",
+      fecha_transferencia: new Date().toISOString().split("T")[0],
       observacion: "",
     });
     // Primero cargar los toros disponibles
@@ -653,6 +713,16 @@ const EmbryoProduction = () => {
                   const productionId = parseInt(e.target.value);
                   if (productionId) {
                     const production = embryoProductions.find(p => p.id === productionId);
+                    
+                    // Validar que la producción pertenezca al cliente actual
+                    if (!production || production.cliente_id !== selectedClient?.id) {
+                      console.error('Producción no válida para el cliente actual:', production, 'Cliente actual:', selectedClient?.id);
+                      alert('Error: La producción seleccionada no pertenece al cliente actual');
+                      return;
+                    }
+                    
+                    console.log('Cargando producción:', production.id, 'para cliente:', selectedClient.id);
+                    
                     // Verificar si tiene registros OPU
                     const opusRecords = await opusApi.getOpusByProduction(productionId);
                     setSelectedProduction({
@@ -694,16 +764,26 @@ const EmbryoProduction = () => {
                 }}
               >
                 <option value="">Seleccione una producción</option>
-                {embryoProductions.map(prod => (
-                  <option key={prod.id} value={prod.id}>
-                    Producción #{prod.id} - {prod.fecha_opu}
-                  </option>
-                ))}
+                {embryoProductions
+                  .filter(prod => prod.cliente_id === selectedClient?.id)
+                  .map(prod => (
+                    <option key={prod.id} value={prod.id}>
+                      Producción #{prod.id} - {prod.fecha_opu}
+                    </option>
+                  ))}
               </select>
               {selectedProduction && (
                 <div className="mt-2">
                   <small className="text-muted">
                     Registros OPU asociados: {selectedProduction.opusCount || 0}
+                  </small>
+                </div>
+              )}
+              {embryoProductions.length > 0 && (
+                <div className="mt-2">
+                  <small className="text-info">
+                    <i className="bi bi-info-circle me-1"></i>
+                    {embryoProductions.filter(prod => prod.cliente_id === selectedClient?.id).length} producción(es) encontrada(s) para este cliente
                   </small>
                 </div>
               )}
@@ -1190,7 +1270,7 @@ const EmbryoProduction = () => {
           <div className="d-flex justify-content-between mb-4">
             <button
               className="btn btn-secondary"
-              onClick={() => setSelectedClient(null)}
+              onClick={clearAllStates}
             >
               <i className="bi bi-arrow-left"></i> Volver
             </button>
