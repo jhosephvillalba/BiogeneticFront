@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { deleteBull, createBull, getBull, getBullsWithAvailableSamples} from "../Api/bulls";
 import { racesApi, sexesApi, usersApi } from "../Api";
 import { getInputsByBull } from "../Api/inputs";
+import { authApi } from "../Api";
 
 const BullsByClient = () => {
   const navigate = useNavigate();
@@ -23,15 +24,9 @@ const BullsByClient = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Estados para manejo de clientes
-  const [clients, setClients] = useState([]);
-  const [selectedClient, setSelectedClient] = useState(() => {
-    // Intentar recuperar el cliente del localStorage al iniciar
-    const savedClient = localStorage.getItem('selectedClient');
-    return savedClient ? JSON.parse(savedClient) : null;
-  });
-  const [loadingClients, setLoadingClients] = useState(false);
-  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  // Estado del usuario autenticado
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
 
   // Estado para el modal de nuevo toro
   const [showNewBullModal, setShowNewBullModal] = useState(false);
@@ -73,6 +68,24 @@ const BullsByClient = () => {
   const [loadingInventory, setLoadingInventory] = useState(false);
   const [inventoryBull, setInventoryBull] = useState(null);
 
+  // Cargar usuario autenticado
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      try {
+        setLoadingUser(true);
+        const userData = await authApi.getCurrentUser();
+        setCurrentUser(userData);
+      } catch (error) {
+        console.error("Error al cargar usuario actual:", error);
+        setError("Error al cargar datos del usuario");
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    loadCurrentUser();
+  }, []);
+
   // Función para aplicar filtros locales
   const applyLocalFilters = useCallback(
     (bullsToFilter) => {
@@ -105,69 +118,6 @@ const BullsByClient = () => {
     },
     [filter]
   );
-
-  const handleSelectClient = async (client) => {
-    setSelectedClient(client);
-    // Guardar el cliente seleccionado en localStorage
-    localStorage.setItem('selectedClient', JSON.stringify(client));
-    setClientSearchTerm("");
-    setClients([]);
-
-    // Cargar los toros del cliente seleccionado
-    try {
-      setLoading(true);
-      setError(null);
-
-      console.log("Buscando toros para el cliente:", client);
-
-      const response = await getBullsWithAvailableSamples(client.id);
-      console.log("Respuesta de la API:", response);
-
-      let bullsList = [];
-      if (Array.isArray(response)) {
-        bullsList = response;
-      } else if (response && response.items) {
-        bullsList = response.items;
-      } else if (response && response.results) {
-        bullsList = response.results;
-      } else {
-        console.warn("Formato de respuesta inesperado:", response);
-        bullsList = [];
-      }
-
-      console.log("Lista de toros procesada:", bullsList);
-
-      setBulls(bullsList);
-      applyLocalFilters(bullsList);
-    } catch (error) {
-      console.error("Error al cargar toros del cliente:", error);
-      let errorMessage = "No se pudieron cargar los toros del cliente. ";
-
-      if (error.response?.data?.detail) {
-        const details = Array.isArray(error.response.data.detail)
-          ? error.response.data.detail[0]?.msg
-          : error.response.data.detail;
-        console.error("Detalles del error:", error.response.data);
-        errorMessage += details || JSON.stringify(error.response.data);
-      } else if (error.message) {
-        errorMessage += error.message;
-      } else {
-        errorMessage += "Error desconocido";
-      }
-
-      setError(errorMessage);
-      setBulls([]);
-      setFilteredBulls([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Función para limpiar el cliente seleccionado
-  const clearSelectedClient = () => {
-    setSelectedClient(null);
-    localStorage.removeItem('selectedClient');
-  };
 
   // Cargar datos de referencia (razas y sexos)
   useEffect(() => {
@@ -242,9 +192,9 @@ const BullsByClient = () => {
     );
   }, [filteredBulls, pagination]);
 
-  // Cargar toros del cliente seleccionado
-  const loadClientBulls = useCallback(async () => {
-    if (!selectedClient) {
+  // Cargar toros del usuario autenticado
+  const loadUserBulls = useCallback(async () => {
+    if (!currentUser) {
       setBulls([]);
       return;
     }
@@ -253,64 +203,55 @@ const BullsByClient = () => {
       setLoading(true);
       setError(null);
 
-      const response = await getBullsWithAvailableSamples(selectedClient.id);
-      console.log({response:response}); 
+      console.log("Buscando toros para el usuario:", currentUser);
 
-      setBulls(response || []);
+      const response = await getBullsWithAvailableSamples(currentUser.id);
+      console.log("Respuesta de la API:", response);
+
+      let bullsList = [];
+      if (Array.isArray(response)) {
+        bullsList = response;
+      } else if (response && response.items) {
+        bullsList = response.items;
+      } else if (response && response.results) {
+        bullsList = response.results;
+      } else {
+        console.warn("Formato de respuesta inesperado:", response);
+        bullsList = [];
+      }
+
+      console.log("Lista de toros procesada:", bullsList);
+
+      setBulls(bullsList);
       setPagination((prev) => ({ ...prev, currentPage: 1 })); // Resetear a primera página
     } catch (error) {
-      console.error("Error al cargar toros:", error);
-      setError("Error al cargar los toros del cliente");
+      console.error("Error al cargar toros del usuario:", error);
+      let errorMessage = "No se pudieron cargar los toros. ";
+
+      if (error.response?.data?.detail) {
+        const details = Array.isArray(error.response.data.detail)
+          ? error.response.data.detail[0]?.msg
+          : error.response.data.detail;
+        console.error("Detalles del error:", error.response.data);
+        errorMessage += details || JSON.stringify(error.response.data);
+      } else if (error.message) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += "Error desconocido";
+      }
+
+      setError(errorMessage);
       setBulls([]);
+      setFilteredBulls([]);
     } finally {
       setLoading(false);
     }
-  }, [selectedClient]);
+  }, [currentUser]);
 
-  // Efecto para cargar toros cuando cambia el cliente
+  // Efecto para cargar toros cuando cambia el usuario
   useEffect(() => {
-    loadClientBulls();
-  }, [loadClientBulls]);
-
-  // Cargar clientes
-  const loadClients = useCallback(async () => {
-    try {
-      setLoadingClients(true);
-      setError(null);
-
-      const filters = {
-        role_id: 3, // ID del rol de cliente
-        q: clientSearchTerm,
-      };
-
-      const response = await usersApi.searchUsers(filters, 0, 100);
-      const clientsList = Array.isArray(response)
-        ? response
-        : response.items || [];
-      setClients(clientsList);
-    } catch (error) {
-      console.error("Error al cargar clientes:", error);
-      setError(
-        "No se pudieron cargar los clientes. " +
-          (error.response?.data?.detail || error.message)
-      );
-    } finally {
-      setLoadingClients(false);
-    }
-  }, [clientSearchTerm]);
-
-  // Efecto para cargar clientes cuando cambia el término de búsqueda
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (clientSearchTerm.trim() !== "") {
-        loadClients();
-      } else {
-        setClients([]);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [clientSearchTerm, loadClients]);
+    loadUserBulls();
+  }, [loadUserBulls]);
 
   // Manejar cambio en filtros
   const handleFilterChange = (e) => {
@@ -339,18 +280,18 @@ const BullsByClient = () => {
   const handleCreateBull = async (e) => {
     e.preventDefault();
 
-    if (!selectedClient) {
-      alert("Por favor seleccione un cliente primero");
+    if (!currentUser) {
+      alert("Error: No se pudo identificar al usuario");
       return;
     }
 
     try {
       setLoading(true);
 
-      // Crear el toro para el cliente seleccionado
+      // Crear el toro para el usuario autenticado
       const response = await createBull({
         ...newBullData,
-        user_id: selectedClient.id,
+        user_id: currentUser.id,
       });
 
       // Actualizar la lista de toros localmente
@@ -407,8 +348,8 @@ const BullsByClient = () => {
   const openInputModal = async (bull, e) => {
     e.stopPropagation();
 
-    if (!selectedClient) {
-      alert("Error: Debe seleccionar un cliente primero");
+    if (!currentUser) {
+      alert("Error: No se pudo identificar al usuario");
       return;
     }
 
@@ -448,8 +389,8 @@ const BullsByClient = () => {
       return;
     }
 
-    if (!selectedClient) {
-      alert("Error: No hay un cliente seleccionado");
+    if (!currentUser) {
+      alert("Error: No se pudo identificar al usuario");
       return;
     }
 
@@ -458,7 +399,7 @@ const BullsByClient = () => {
     try {
       const inputData = {
         bull_id: selectedBull.id,
-        user_id: selectedClient.id,
+        user_id: currentUser.id,
         quantity_received: parseFloat(quantityReceived),
         date: new Date().toISOString().split("T")[0],
         escalarilla: selectedBull.escalerilla || "",
@@ -525,383 +466,343 @@ const BullsByClient = () => {
     }
   };
 
+  // Mostrar pantalla de carga mientras se obtiene el usuario
+  if (loadingUser) {
+    return (
+      <div className="container-fluid py-4">
+        <div className="text-center py-5">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Cargando...</span>
+          </div>
+          <p className="mt-2">Cargando datos del usuario...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar error si no se pudo cargar el usuario
+  if (!currentUser) {
+    return (
+      <div className="container-fluid py-4">
+        <div className="alert alert-danger" role="alert">
+          <i className="bi bi-exclamation-triangle-fill me-2"></i>
+          No se pudo cargar la información del usuario. Por favor, inicie sesión nuevamente.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container-fluid py-4 bulls-view">
-      {/* Título y selección de cliente */}
+      {/* Título y información del usuario */}
       <div className="mb-4">
         <h2 className="mb-3">
           <i className="bi bi-database-fill me-2"></i>
           Inventario de semen
         </h2>
 
-        {/* Selección de cliente */}
+        {/* Información del usuario */}
         <div className="card mb-4">
           <div className="card-body">
-            <div className="row align-items-end">
-              {/* <div className="col-md-6">
-                <label className="form-label">Buscar Cliente</label>
-                <div className="input-group">
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Buscar por nombre, documento o email..."
-                    value={clientSearchTerm}
-                    onChange={(e) => setClientSearchTerm(e.target.value)}
-                  />
-                  {loadingClients && (
-                    <span className="input-group-text">
-                      <div
-                        className="spinner-border spinner-border-sm"
-                        role="status"
-                      >
-                        <span className="visually-hidden">Cargando...</span>
-                      </div>
-                    </span>
-                  )}
-                </div>
-                {/* Lista de clientes encontrados
-                {clients.length > 0 && (
-                  <div className="list-group mt-2 shadow-sm">
-                    {clients.map((client) => (
-                      <button
-                        key={client.id}
-                        className="list-group-item list-group-item-action"
-                        onClick={() => handleSelectClient(client)}
-                      >
-                        <div className="d-flex justify-content-between align-items-center">
-                          <div>
-                            <strong>{client.full_name}</strong>
-                            <br />
-                            <small className="text-muted">
-                              Doc: {client.number_document} | {client.email}
-                            </small>
-                          </div>
-                          <i className="bi bi-chevron-right"></i>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div> */}
-              {/* <div className="col-md-6">
-                {selectedClient && (
-                  <div className="card bg-light">
-                    <div className="card-body">
-                      <div className="d-flex justify-content-between align-items-start">
-                        <div>
-                          <h5 className="card-title mb-1">
-                            Cliente Seleccionado
-                          </h5>
-                          <h6 className="mb-2">{selectedClient.full_name}</h6>
-                          <p className="mb-0 small">
-                            <strong>Documento:</strong>{" "}
-                            {selectedClient.number_document}
-                            <br />
-                            <strong>Email:</strong> {selectedClient.email}
-                            <br />
-                            <strong>Teléfono:</strong> {selectedClient.phone}
-                          </p>
-                        </div>
-                        <button
-                          className="btn btn-outline-secondary btn-sm"
-                          onClick={clearSelectedClient}
-                        >
-                          <i className="bi bi-x-lg"></i>
-                        </button>
+            <div className="row align-items-center">
+              <div className="col-md-12">
+                <div className="card bg-light">
+                  <div className="card-body">
+                    <div className="d-flex justify-content-between align-items-start">
+                      <div>
+                        <h5 className="card-title mb-1">
+                          Mi Inventario
+                        </h5>
+                        <h6 className="mb-2">{currentUser.full_name}</h6>
+                        <p className="mb-0 small">
+                          <strong>Documento:</strong>{" "}
+                          {currentUser.number_document}
+                          <br />
+                          <strong>Email:</strong> {currentUser.email}
+                          <br />
+                          <strong>Teléfono:</strong> {currentUser.phone}
+                        </p>
                       </div>
                     </div>
                   </div>
-                )}
-              </div> */}
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Filtros solo visibles si hay un cliente seleccionado */}
-        {selectedClient && (
-          <>
-            <div className="card mb-4">
-              <div className="card-body">
-                <div className="row g-3">
-                  <div className="col-md-3">
-                    <label className="form-label">Búsqueda</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Nombre o registro..."
-                      name="searchQuery"
-                      value={filter.searchQuery}
-                      onChange={handleFilterChange}
-                    />
-                  </div>
+        {/* Filtros */}
+        <div className="card mb-4">
+          <div className="card-body">
+            <div className="row g-3">
+              <div className="col-md-3">
+                <label className="form-label">Búsqueda</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Nombre o registro..."
+                  name="searchQuery"
+                  value={filter.searchQuery}
+                  onChange={handleFilterChange}
+                />
+              </div>
 
-                  <div className="col-md-3">
-                    <label className="form-label">Raza</label>
-                    <select
-                      className="form-select"
-                      name="race"
-                      value={filter.race}
-                      onChange={handleFilterChange}
-                    >
-                      <option value="">Todas las razas</option>
-                      {races.map((race) => (
-                        <option key={race.id} value={race.name}>
-                          {race.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* <div className="col-md-3">
-                    <label className="form-label">Sexo</label>
-                    <select 
-                      className="form-select"
-                      name="sex"
-                      value={filter.sex}
-                      onChange={handleFilterChange}
-                    >
-                      <option value="">Todos los sexos</option>
-                      {sexes.map(sex => (
-                        <option key={sex.id} value={sex.name}>
-                          {sex.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div> */}
-
-                  {/* <div className="col-md-3">
-                    <label className="form-label">Estado</label>
-                    <select 
-                      className="form-select"
-                      name="status"
-                      value={filter.status}
-                      onChange={handleFilterChange}
-                    >
-                      <option value="">Todos los estados</option>
-                      <option value="Activo">Activo</option>
-                      <option value="Inactivo">Inactivo</option>
-                    </select>
-                  </div> */}
-                </div>
-
-                <div className="d-flex justify-content-end mt-3">
-                  <button
-                    className="btn btn-outline-secondary me-2"
-                    onClick={resetFilters}
-                    disabled={loading}
-                  >
-                    <i className="bi bi-x-circle me-2"></i>
-                    Limpiar
-                  </button>
-                </div>
+              <div className="col-md-3">
+                <label className="form-label">Raza</label>
+                <select
+                  className="form-select"
+                  name="race"
+                  value={filter.race}
+                  onChange={handleFilterChange}
+                >
+                  <option value="">Todas las razas</option>
+                  {races.map((race) => (
+                    <option key={race.id} value={race.name}>
+                      {race.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            {/* Botón para agregar nuevo toro */}
-            {/* <div className="d-flex justify-content-end mb-3">
+            <div className="d-flex justify-content-end mt-3">
               <button
-                className="btn btn-success"
-                onClick={() => setShowNewBullModal(true)}
+                className="btn btn-outline-secondary me-2"
+                onClick={resetFilters}
                 disabled={loading}
               >
-                <i className="bi bi-plus-circle me-2"></i>
-                Nuevo Toro
+                <i className="bi bi-x-circle me-2"></i>
+                Limpiar
               </button>
-            </div> */}
-          </>
-        )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Tabla de toros */}
-      {selectedClient && (
-        <>
-          <div className="table-responsive rounded-3 border">
-            <table className="table table-hover mb-0">
-              <thead className="table-light">
-                <tr>
-                  <th width="10%" style={{fontWeight:"700"}}>ID</th>
-                  <th width="10%" style={{fontWeight:"700"}}>Nombre</th>
-                  <th width="10%" style={{fontWeight:"700"}}>Registro</th>
-                  <th width="10%" style={{fontWeight:"700"}}>Lote</th>
-                  <th width="10%" style={{fontWeight:"700"}}>Escalerilla</th>
-                  <th width="10%" style={{fontWeight:"700"}}>Descripción</th>
-                  <th width="10%" style={{fontWeight:"700"}}>Raza</th>
-                  <th width="10%" style={{fontWeight:"700"}}>Sexo</th>
-                  <th width="20%" style={{fontWeight:"700"}}>Unidades Disponibles</th>
-                  {/* <th width="15%">Estado</th> */}
-                  {/* <th width="10%">Acciones</th> */}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="7" className="text-center py-4">
-                      <div
-                        className="spinner-border text-primary"
-                        role="status"
-                      >
-                        <span className="visually-hidden">Cargando...</span>
-                      </div>
-                      <p className="mt-2">Cargando toros...</p>
-                    </td>
-                  </tr>
-                ) : error ? (
-                  <tr>
-                    <td colSpan="7" className="text-center text-danger py-3">
-                      <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                      {error}
-                    </td>
-                  </tr>
-                ) : filteredBulls.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="text-center text-muted py-4">
-                      <i className="bi bi-database me-2"></i>
-                      {filter.searchQuery ||
-                      filter.race ||
-                      filter.sex ||
-                      filter.status
-                        ? "No se encontraron toros con esos criterios"
-                        : "No hay toros registrados para este cliente"}
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedBulls.map((bull) => {
-                    const raceName =
-                      races.find((r) => r.id === bull.race_id)?.name ||
-                      "Desconocida";
-                    const sexName =
-                      sexes.find((s) => s.id === bull.sex_id)?.name ||
-                      "Desconocido";
+      <div className="table-responsive rounded-3 border">
+        <table className="table table-hover mb-0">
+          <thead className="table-light">
+            <tr>
+              <th width="10%" style={{fontWeight:"700"}}>ID</th>
+              <th width="10%" style={{fontWeight:"700"}}>Nombre</th>
+              <th width="10%" style={{fontWeight:"700"}}>Registro</th>
+              <th width="10%" style={{fontWeight:"700"}}>Lote</th>
+              <th width="10%" style={{fontWeight:"700"}}>Escalerilla</th>
+              <th width="10%" style={{fontWeight:"700"}}>Descripción</th>
+              <th width="10%" style={{fontWeight:"700"}}>Raza</th>
+              <th width="10%" style={{fontWeight:"700"}}>Sexo</th>
+              <th width="20%" style={{fontWeight:"700"}}>Unidades Disponibles</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="9" className="text-center py-4">
+                  <div
+                    className="spinner-border text-primary"
+                    role="status"
+                  >
+                    <span className="visually-hidden">Cargando...</span>
+                  </div>
+                  <p className="mt-2">Cargando toros...</p>
+                </td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan="9" className="text-center text-danger py-3">
+                  <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                  {error}
+                </td>
+              </tr>
+            ) : filteredBulls.length === 0 ? (
+              <tr>
+                <td colSpan="9" className="text-center text-muted py-4">
+                  <i className="bi bi-database me-2"></i>
+                  {filter.searchQuery ||
+                  filter.race ||
+                  filter.sex ||
+                  filter.status
+                    ? "No se encontraron toros con esos criterios"
+                    : "No hay toros registrados en tu inventario"}
+                </td>
+              </tr>
+            ) : (
+              paginatedBulls.map((bull) => {
+                const raceName =
+                  races.find((r) => r.id === bull.race_id)?.name ||
+                  "Desconocida";
+                const sexName =
+                  sexes.find((s) => s.id === bull.sex_id)?.name ||
+                  "Desconocido";
 
-                    return (
-                      <tr
-                        key={bull.id}
-                        // onClick={() => navigate(`/bulls/${bull.id}/edit`)}
-                        className="cursor-pointer"
-                      >
-                        <td className="fw-semibold">#{bull.id}</td>
-                        <td>{bull.name || "Sin nombre"}</td>
-                        <td>{bull.registration_number || bull.register || "Sin registro"}</td>
-                        <td>{bull.lote || "Sin registro"}</td>
-                        <td>{bull.escalerilla ||"Sin registro"}</td>
-                        <td>{bull.description || "Sin registro"}</td>
-                        <td>{raceName}</td>
-                        <td>{sexName}</td>
+                return (
+                  <tr
+                    key={bull.id}
+                    className="cursor-pointer"
+                  >
+                    <td className="fw-semibold">#{bull.id}</td>
+                    <td>{bull.name || "Sin nombre"}</td>
+                    <td>{bull.registration_number || bull.register || "Sin registro"}</td>
+                    <td>{bull.lote || "Sin registro"}</td>
+                    <td>{bull.escalerilla ||"Sin registro"}</td>
+                    <td>{bull.description || "Sin registro"}</td>
+                    <td>{raceName}</td>
+                    <td>{sexName}</td>
+                    <td className="text-center align-middle">
+                      <span>
+                        {bull.total_available}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
 
-                        {/* <td>
-                          <span className={`badge ${bull.status === 'active' ? 'bg-success' : 'bg-secondary'}`}>
-                            {bull.status === 'active' ? 'Activo' : 'Inactivo'}
-                          </span>
-                        </td> */}
-                        {/* <td>
-                          <div className="btn-group">
-                            <button
-                              className="btn btn-sm btn-outline-primary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openBullDetailModal(bull.id);
-                              }}
-                              title="Ver detalles"
-                            >
-                              <i className="bi bi-eye"></i>
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-info ms-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openInventoryModal(bull);
-                              }}
-                              title="Ver inventario"
-                            >
-                              <i className="bi bi-box-seam"></i>
-                            </button>
-                            {/* <button
-                              className="btn btn-sm btn-outline-danger ms-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteBull(bull.id);
-                              }}
-                              title="Eliminar toro"
-                            >
-                              <i className="bi"></i>
-                            </button> 
-                          </div>
-                        </td> */}
-                        <td className="text-center align-middle">
-                          <span>
-                            {bull.total_available}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+      {/* Información de paginación y controles */}
+      {filteredBulls.length > 0 && (
+        <div className="d-flex justify-content-between align-items-center mt-3">
+          {/* Información de registros */}
+          <div className="text-muted small">
+            Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} a {Math.min(pagination.currentPage * pagination.itemsPerPage, filteredBulls.length)} de {filteredBulls.length} registros
           </div>
 
           {/* Paginación */}
           {filteredBulls.length > pagination.itemsPerPage && (
-            <div className="d-flex justify-content-center mt-3">
-              <nav aria-label="Paginación de toros">
-                <ul className="pagination">
-                  <li
-                    className={`page-item ${
-                      pagination.currentPage === 1 ? "disabled" : ""
-                    }`}
+            <nav aria-label="Paginación de toros">
+              <ul className="pagination pagination-sm mb-0">
+                {/* Botón Anterior */}
+                <li
+                  className={`page-item ${
+                    pagination.currentPage === 1 ? "disabled" : ""
+                  }`}
+                >
+                  <button
+                    className="page-link"
+                    onClick={() =>
+                      handlePageChange(pagination.currentPage - 1)
+                    }
+                    disabled={pagination.currentPage === 1}
                   >
-                    <button
-                      className="page-link"
-                      onClick={() =>
-                        handlePageChange(pagination.currentPage - 1)
-                      }
-                    >
-                      &laquo;
-                    </button>
-                  </li>
+                    <i className="bi bi-chevron-left"></i>
+                  </button>
+                </li>
 
-                  {Array.from({
-                    length: Math.ceil(
-                      filteredBulls.length / pagination.itemsPerPage
-                    ),
-                  }).map((_, index) => (
-                    <li
-                      key={index}
-                      className={`page-item ${
-                        pagination.currentPage === index + 1 ? "active" : ""
-                      }`}
-                    >
-                      <button
-                        className="page-link"
-                        onClick={() => handlePageChange(index + 1)}
+                {/* Números de página */}
+                {(() => {
+                  const totalPages = Math.ceil(
+                    filteredBulls.length / pagination.itemsPerPage
+                  );
+                  const currentPage = pagination.currentPage;
+                  const pages = [];
+
+                  // Mostrar máximo 5 páginas alrededor de la página actual
+                  let startPage = Math.max(1, currentPage - 2);
+                  let endPage = Math.min(totalPages, currentPage + 2);
+
+                  // Ajustar si estamos cerca del inicio
+                  if (currentPage <= 3) {
+                    endPage = Math.min(5, totalPages);
+                  }
+
+                  // Ajustar si estamos cerca del final
+                  if (currentPage >= totalPages - 2) {
+                    startPage = Math.max(1, totalPages - 4);
+                  }
+
+                  // Agregar primera página si no está incluida
+                  if (startPage > 1) {
+                    pages.push(
+                      <li key={1} className="page-item">
+                        <button
+                          className="page-link"
+                          onClick={() => handlePageChange(1)}
+                        >
+                          1
+                        </button>
+                      </li>
+                    );
+                    if (startPage > 2) {
+                      pages.push(
+                        <li key="ellipsis1" className="page-item disabled">
+                          <span className="page-link">...</span>
+                        </li>
+                      );
+                    }
+                  }
+
+                  // Agregar páginas del rango
+                  for (let i = startPage; i <= endPage; i++) {
+                    pages.push(
+                      <li
+                        key={i}
+                        className={`page-item ${
+                          currentPage === i ? "active" : ""
+                        }`}
                       >
-                        {index + 1}
-                      </button>
-                    </li>
-                  ))}
+                        <button
+                          className="page-link"
+                          onClick={() => handlePageChange(i)}
+                        >
+                          {i}
+                        </button>
+                      </li>
+                    );
+                  }
 
-                  <li
-                    className={`page-item ${
+                  // Agregar última página si no está incluida
+                  if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) {
+                      pages.push(
+                        <li key="ellipsis2" className="page-item disabled">
+                          <span className="page-link">...</span>
+                        </li>
+                      );
+                    }
+                    pages.push(
+                      <li key={totalPages} className="page-item">
+                        <button
+                          className="page-link"
+                          onClick={() => handlePageChange(totalPages)}
+                        >
+                          {totalPages}
+                        </button>
+                      </li>
+                    );
+                  }
+
+                  return pages;
+                })()}
+
+                {/* Botón Siguiente */}
+                <li
+                  className={`page-item ${
+                    pagination.currentPage ===
+                    Math.ceil(filteredBulls.length / pagination.itemsPerPage)
+                      ? "disabled"
+                      : ""
+                  }`}
+                >
+                  <button
+                    className="page-link"
+                    onClick={() =>
+                      handlePageChange(pagination.currentPage + 1)
+                    }
+                    disabled={
                       pagination.currentPage ===
                       Math.ceil(filteredBulls.length / pagination.itemsPerPage)
-                        ? "disabled"
-                        : ""
-                    }`}
+                    }
                   >
-                    <button
-                      className="page-link"
-                      onClick={() =>
-                        handlePageChange(pagination.currentPage + 1)
-                      }
-                    >
-                      &raquo;
-                    </button>
-                  </li>
-                </ul>
-              </nav>
-            </div>
+                    <i className="bi bi-chevron-right"></i>
+                  </button>
+                </li>
+              </ul>
+            </nav>
           )}
-        </>
+        </div>
       )}
 
       {/* Modal para nuevo toro */}
@@ -915,7 +816,7 @@ const BullsByClient = () => {
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
-                  Nuevo Toro para {selectedClient?.full_name}
+                  Nuevo Toro para {currentUser?.full_name}
                 </h5>
                 <button
                   type="button"
@@ -1046,18 +947,6 @@ const BullsByClient = () => {
                       ))}
                     </select>
                   </div>
-                  {/* <div className="mb-3">
-                    <label className="form-label">Estado</label>
-                    <select
-                      className="form-select"
-                      name="status"
-                      value={newBullData.status}
-                      onChange={(e) => setNewBullData(prev => ({ ...prev, status: e.target.value }))}
-                    >
-                      <option value="active">Activo</option>
-                      <option value="inactive">Inactivo</option>
-                    </select>
-                  </div> */}
                 </div>
                 <div className="modal-footer">
                   <button
@@ -1264,7 +1153,6 @@ const BullsByClient = () => {
                     <p><strong>Descripción:</strong> {bullDetail.description}</p>
                     <p><strong>Raza:</strong> {races.find(r => r.id === bullDetail.race_id)?.name || 'Desconocida'}</p>
                     <p><strong>Sexo:</strong> {sexes.find(s => s.id === bullDetail.sex_id)?.name || 'Desconocido'}</p>
-                    {/* Puedes agregar más campos si lo deseas */}
                   </div>
                 ) : (
                   <div className="text-danger">No se pudo cargar la información del toro.</div>

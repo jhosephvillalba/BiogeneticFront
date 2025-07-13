@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import * as reportApi from "../Api/productionEmbrionary";
 import * as userApi from "../Api/users.js";
@@ -15,6 +15,12 @@ const OpusSummary = () => {
     endDate: "",
   });
 
+  // Estado para paginación
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+  });
+
   const handleDate = (date) => {
     // Convertimos a objeto Date
     console.log("-->>>>>>>>>>>>", date);
@@ -24,6 +30,7 @@ const OpusSummary = () => {
     // Formateamos nuevamente en formato YYYY-MM-DD
     return dateObj.toISOString().split("T")[0];
   };
+
   const loadSummaryData = async () => {
     try {
       setLoading(true);
@@ -56,6 +63,8 @@ const OpusSummary = () => {
       console.log({ dataReport: data });
 
       setSummaryData(Array.isArray(transforData) ? transforData : []);
+      // Resetear a primera página cuando se cargan nuevos datos
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
     } catch (error) {
       console.error("Error al cargar datos del resumen:", error);
       setError(
@@ -86,6 +95,20 @@ const OpusSummary = () => {
       ? [dateRange.startDate, dateRange.endDate]
       : []),
   ]);
+
+  // Paginar los resultados
+  const paginatedData = useMemo(() => {
+    const startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
+    return summaryData.slice(
+      startIndex,
+      startIndex + pagination.itemsPerPage
+    );
+  }, [summaryData, pagination]);
+
+  // Manejar cambio de página
+  const handlePageChange = (page) => {
+    setPagination((prev) => ({ ...prev, currentPage: page }));
+  };
 
   const getUserName = async (id) => {
     try {
@@ -232,53 +255,198 @@ const OpusSummary = () => {
                   <p className="mt-2">No se encontraron resultados</p>
                 </div>
               ) : (
-                <div className="table-responsive">
-                  <table className="table table-bordered table-hover">
-                    <thead className="table-light">
-                      <tr>
-                        <th>ID</th>
-                        <th>Cliente</th>
-                        <th>Fecha OPU</th>
-                        <th>Lugar</th>
-                        <th>Finca</th>
-                        <th>Hora Inicio</th>
-                        <th>Hora Final</th>
-                        <th>Envase</th>
-                        <th>Fecha Transferencia</th>
-                        <th>Creado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {summaryData.map((record) => (
-                        <tr
-                          key={record.id}
-                          onClick={() => handleRowClick(record.id)}
-                          style={{ cursor: "pointer" }}
-                          className="table-row-hover"
-                        >
-                          <td>
-                            <span className="badge bg-primary">
-                              {record.id}
-                            </span>
-                          </td>
-                          <td>{record.full_name}</td>
-                          <td>{formatDate(record.fecha_opu)}</td>
-                          <td>
-                            <span className="badge bg-info">
-                              {record.lugar}
-                            </span>
-                          </td>
-                          <td>{record.finca || "-"}</td>
-                          <td>{formatTime(record.hora_inicio)}</td>
-                          <td>{formatTime(record.hora_final)}</td>
-                          <td>{record.envase || "-"}</td>
-                          <td>{formatDate(handleDate(record.fecha_opu))}</td>
-                          <td>{formatDate(record.created_at)}</td>
+                <>
+                  <div className="table-responsive">
+                    <table className="table table-bordered table-hover">
+                      <thead className="table-light">
+                        <tr>
+                          <th>ID</th>
+                          <th>Cliente</th>
+                          <th>Fecha OPU</th>
+                          <th>Lugar</th>
+                          <th>Finca</th>
+                          <th>Hora Inicio</th>
+                          <th>Hora Final</th>
+                          <th>Envase</th>
+                          <th>Fecha Transferencia</th>
+                          <th>Creado</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {paginatedData.map((record) => (
+                          <tr
+                            key={record.id}
+                            onClick={() => handleRowClick(record.id)}
+                            style={{ cursor: "pointer" }}
+                            className="table-row-hover"
+                          >
+                            <td>
+                              <span className="badge bg-primary">
+                                {record.id}
+                              </span>
+                            </td>
+                            <td>{record.full_name}</td>
+                            <td>{formatDate(record.fecha_opu)}</td>
+                            <td>
+                              <span className="badge bg-info">
+                                {record.lugar}
+                              </span>
+                            </td>
+                            <td>{record.finca || "-"}</td>
+                            <td>{formatTime(record.hora_inicio)}</td>
+                            <td>{formatTime(record.hora_final)}</td>
+                            <td>{record.envase || "-"}</td>
+                            <td>{formatDate(handleDate(record.fecha_opu))}</td>
+                            <td>{formatDate(record.created_at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Información de paginación y controles */}
+                  {summaryData.length > 0 && (
+                    <div className="d-flex justify-content-between align-items-center mt-3">
+                      {/* Información de registros */}
+                      <div className="text-muted small">
+                        Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} a {Math.min(pagination.currentPage * pagination.itemsPerPage, summaryData.length)} de {summaryData.length} registros
+                      </div>
+
+                      {/* Paginación */}
+                      {summaryData.length > pagination.itemsPerPage && (
+                        <nav aria-label="Paginación de producciones">
+                          <ul className="pagination pagination-sm mb-0">
+                            {/* Botón Anterior */}
+                            <li
+                              className={`page-item ${
+                                pagination.currentPage === 1 ? "disabled" : ""
+                              }`}
+                            >
+                              <button
+                                className="page-link"
+                                onClick={() =>
+                                  handlePageChange(pagination.currentPage - 1)
+                                }
+                                disabled={pagination.currentPage === 1}
+                              >
+                                <i className="bi bi-chevron-left"></i>
+                              </button>
+                            </li>
+
+                            {/* Números de página */}
+                            {(() => {
+                              const totalPages = Math.ceil(
+                                summaryData.length / pagination.itemsPerPage
+                              );
+                              const currentPage = pagination.currentPage;
+                              const pages = [];
+
+                              // Mostrar máximo 5 páginas alrededor de la página actual
+                              let startPage = Math.max(1, currentPage - 2);
+                              let endPage = Math.min(totalPages, currentPage + 2);
+
+                              // Ajustar si estamos cerca del inicio
+                              if (currentPage <= 3) {
+                                endPage = Math.min(5, totalPages);
+                              }
+
+                              // Ajustar si estamos cerca del final
+                              if (currentPage >= totalPages - 2) {
+                                startPage = Math.max(1, totalPages - 4);
+                              }
+
+                              // Agregar primera página si no está incluida
+                              if (startPage > 1) {
+                                pages.push(
+                                  <li key={1} className="page-item">
+                                    <button
+                                      className="page-link"
+                                      onClick={() => handlePageChange(1)}
+                                    >
+                                      1
+                                    </button>
+                                  </li>
+                                );
+                                if (startPage > 2) {
+                                  pages.push(
+                                    <li key="ellipsis1" className="page-item disabled">
+                                      <span className="page-link">...</span>
+                                    </li>
+                                  );
+                                }
+                              }
+
+                              // Agregar páginas del rango
+                              for (let i = startPage; i <= endPage; i++) {
+                                pages.push(
+                                  <li
+                                    key={i}
+                                    className={`page-item ${
+                                      currentPage === i ? "active" : ""
+                                    }`}
+                                  >
+                                    <button
+                                      className="page-link"
+                                      onClick={() => handlePageChange(i)}
+                                    >
+                                      {i}
+                                    </button>
+                                  </li>
+                                );
+                              }
+
+                              // Agregar última página si no está incluida
+                              if (endPage < totalPages) {
+                                if (endPage < totalPages - 1) {
+                                  pages.push(
+                                    <li key="ellipsis2" className="page-item disabled">
+                                      <span className="page-link">...</span>
+                                    </li>
+                                  );
+                                }
+                                pages.push(
+                                  <li key={totalPages} className="page-item">
+                                    <button
+                                      className="page-link"
+                                      onClick={() => handlePageChange(totalPages)}
+                                    >
+                                      {totalPages}
+                                    </button>
+                                  </li>
+                                );
+                              }
+
+                              return pages;
+                            })()}
+
+                            {/* Botón Siguiente */}
+                            <li
+                              className={`page-item ${
+                                pagination.currentPage ===
+                                Math.ceil(summaryData.length / pagination.itemsPerPage)
+                                  ? "disabled"
+                                  : ""
+                              }`}
+                            >
+                              <button
+                                className="page-link"
+                                onClick={() =>
+                                  handlePageChange(pagination.currentPage + 1)
+                                }
+                                disabled={
+                                  pagination.currentPage ===
+                                  Math.ceil(summaryData.length / pagination.itemsPerPage)
+                                }
+                              >
+                                <i className="bi bi-chevron-right"></i>
+                              </button>
+                            </li>
+                          </ul>
+                        </nav>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
