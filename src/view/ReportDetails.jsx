@@ -445,7 +445,7 @@ const ReportDetails = () => {
                       <th style={{ padding: '10px 18px' }}>Raza</th>
                       <th style={{ padding: '10px 18px' }}>Registro</th>
                       <th style={{ padding: '10px 18px' }}>Cantidad trabajada</th>
-                      <th style={{ padding: '10px 18px' }}>#N° Donadontes</th>
+                      <th style={{ padding: '10px 18px' }}>#N° Donantes</th>
                       <th style={{ padding: '10px 18px' }}>Cultivados</th>
                       <th style={{ padding: '10px 18px' }}>Producción total</th>
                       <th style={{ padding: '10px 18px' }}>%</th>

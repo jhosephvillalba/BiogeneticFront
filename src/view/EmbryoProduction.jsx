@@ -1535,11 +1535,10 @@ const EmbryoProduction = () => {
               <div className="modal-body">
                 <textarea
                   className="form-control"
-                  rows={4}
+                  rows={8}
                   value={observationValue}
                   onChange={(e) => setObservationValue(e.target.value)}
                   placeholder="Ingrese la observación del proceso..."
-                  maxLength={500}
                   disabled={loading}
                 />
               </div>
