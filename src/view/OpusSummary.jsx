@@ -18,7 +18,7 @@ const OpusSummary = () => {
   // Estado para paginación del servidor
   const [pagination, setPagination] = useState({
     currentPage: 1,
-    itemsPerPage: 10,
+    itemsPerPage: 20, // Cambiar a 20 registros por página
     totalItems: 0,
   });
 
@@ -112,7 +112,7 @@ const OpusSummary = () => {
       setPagination(prev => ({
         ...prev,
         currentPage: page,
-        totalItems: totalItems
+        totalItems: totalItems // Usar el total real del servidor
       }));
     } catch (error) {
       console.error("Error al cargar datos del resumen:", error);
