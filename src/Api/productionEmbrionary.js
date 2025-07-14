@@ -21,7 +21,17 @@ import axios from './instance';
         uri += `?${queryString}`;
       }
 
+      console.log('URL de la petición:', uri);
+      console.log('Parámetros enviados:', { skip, limit, filters });
+
       const response = await axios.get(uri);
+      
+      console.log('Respuesta del servidor:', {
+        dataLength: Array.isArray(response.data) ? response.data.length : 'No es array',
+        totalItems: response.data?.total || response.data?.count || 'No disponible',
+        responseType: typeof response.data
+      });
+      
       return response.data;
     } catch (error) {
       console.error('Error al obtener producciones:', error);

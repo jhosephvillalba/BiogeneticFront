@@ -57,7 +57,11 @@ const OpusSummary = () => {
       const skip = (page - 1) * pagination.itemsPerPage;
       const limit = pagination.itemsPerPage;
 
+      console.log('Enviando parámetros de paginación:', { skip, limit, filters });
+
       const response = await reportApi.getAllProductions(filters, skip, limit);
+      
+      console.log('Respuesta completa del servidor:', response);
       
       // Manejar diferentes formatos de respuesta del servidor
       let data = [];
@@ -98,6 +102,17 @@ const OpusSummary = () => {
         totalItems = 0;
       }
 
+      console.log('Datos extraídos:', { dataLength: data.length, totalItems });
+
+      // Verificar si el servidor respetó el límite
+      if (data.length > limit) {
+        console.warn(`El servidor devolvió ${data.length} registros cuando se solicitaron ${limit}. Aplicando paginación local.`);
+        // Aplicar paginación local como respaldo
+        const startIndex = skip;
+        const endIndex = startIndex + limit;
+        data = data.slice(startIndex, endIndex);
+      }
+
       // Obtener nombres de usuarios para cada registro
       const transforData = await Promise.all(
         data.map(async (item) => {
@@ -106,7 +121,7 @@ const OpusSummary = () => {
         })
       );
 
-      console.log({ dataReport: transforData, totalItems });
+      console.log({ dataReport: transforData, totalItems, page, itemsPerPage: pagination.itemsPerPage });
 
       setSummaryData(transforData);
       setPagination(prev => ({
