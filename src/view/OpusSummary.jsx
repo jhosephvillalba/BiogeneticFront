@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import * as reportApi from "../Api/productionEmbrionary";
 import * as userApi from "../Api/users.js";
@@ -15,10 +15,11 @@ const OpusSummary = () => {
     endDate: "",
   });
 
-  // Estado para paginación
+  // Estado para paginación del servidor
   const [pagination, setPagination] = useState({
     currentPage: 1,
     itemsPerPage: 10,
+    totalItems: 0,
   });
 
   const handleDate = (date) => {
@@ -31,7 +32,7 @@ const OpusSummary = () => {
     return dateObj.toISOString().split("T")[0];
   };
 
-  const loadSummaryData = async () => {
+  const loadSummaryData = async (page = 1) => {
     try {
       setLoading(true);
       setError(null);
@@ -52,19 +53,67 @@ const OpusSummary = () => {
         filters.fecha_fin = endDateUTC;
       }
 
-      const data = await reportApi.getAllProductions(filters);
+      // Calcular skip para la paginación
+      const skip = (page - 1) * pagination.itemsPerPage;
+      const limit = pagination.itemsPerPage;
 
+      const response = await reportApi.getAllProductions(filters, skip, limit);
+      
+      // Manejar diferentes formatos de respuesta del servidor
+      let data = [];
+      let totalItems = 0;
+
+      if (response && typeof response === 'object') {
+        // Si la respuesta tiene estructura { items: [], total: number }
+        if (response.items && Array.isArray(response.items)) {
+          data = response.items;
+          totalItems = response.total || response.items.length;
+        }
+        // Si la respuesta tiene estructura { results: [], count: number }
+        else if (response.results && Array.isArray(response.results)) {
+          data = response.results;
+          totalItems = response.count || response.results.length;
+        }
+        // Si la respuesta es directamente un array
+        else if (Array.isArray(response)) {
+          data = response;
+          totalItems = response.length;
+        }
+        // Si la respuesta tiene estructura { data: [], total: number }
+        else if (response.data && Array.isArray(response.data)) {
+          data = response.data;
+          totalItems = response.total || response.data.length;
+        }
+        else {
+          console.warn("Formato de respuesta inesperado:", response);
+          data = [];
+          totalItems = 0;
+        }
+      } else if (Array.isArray(response)) {
+        data = response;
+        totalItems = response.length;
+      } else {
+        console.warn("Formato de respuesta inesperado:", response);
+        data = [];
+        totalItems = 0;
+      }
+
+      // Obtener nombres de usuarios para cada registro
       const transforData = await Promise.all(
         data.map(async (item) => {
           const fullName = await getUserName(item.cliente_id);
           return { full_name: fullName, ...item };
         })
       );
-      console.log({ dataReport: data });
 
-      setSummaryData(Array.isArray(transforData) ? transforData : []);
-      // Resetear a primera página cuando se cargan nuevos datos
-      setPagination(prev => ({ ...prev, currentPage: 1 }));
+      console.log({ dataReport: transforData, totalItems });
+
+      setSummaryData(transforData);
+      setPagination(prev => ({
+        ...prev,
+        currentPage: page,
+        totalItems: totalItems
+      }));
     } catch (error) {
       console.error("Error al cargar datos del resumen:", error);
       setError(
@@ -72,6 +121,10 @@ const OpusSummary = () => {
           (error.response?.data?.detail || error.message)
       );
       setSummaryData([]);
+      setPagination(prev => ({
+        ...prev,
+        totalItems: 0
+      }));
     } finally {
       setLoading(false);
     }
@@ -79,13 +132,13 @@ const OpusSummary = () => {
 
   // Cargar datos iniciales
   useEffect(() => {
-    loadSummaryData();
+    loadSummaryData(1);
   }, []);
 
   // Manejar búsqueda con debounce - solo fechas si ambas están presentes
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      loadSummaryData();
+      loadSummaryData(1); // Siempre volver a la primera página al filtrar
     }, 500); // Esperar 500ms después de que el usuario deje de escribir
 
     return () => clearTimeout(timeoutId);
@@ -96,18 +149,9 @@ const OpusSummary = () => {
       : []),
   ]);
 
-  // Paginar los resultados
-  const paginatedData = useMemo(() => {
-    const startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
-    return summaryData.slice(
-      startIndex,
-      startIndex + pagination.itemsPerPage
-    );
-  }, [summaryData, pagination]);
-
   // Manejar cambio de página
   const handlePageChange = (page) => {
-    setPagination((prev) => ({ ...prev, currentPage: page }));
+    loadSummaryData(page);
   };
 
   const getUserName = async (id) => {
@@ -134,12 +178,17 @@ const OpusSummary = () => {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    loadSummaryData();
+    loadSummaryData(1);
   };
 
   const handleRowClick = (recordId) => {
     navigate(`/reportdetails/${recordId}`);
   };
+
+  // Calcular información de paginación
+  const totalPages = Math.ceil(pagination.totalItems / pagination.itemsPerPage);
+  const startItem = ((pagination.currentPage - 1) * pagination.itemsPerPage) + 1;
+  const endItem = Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems);
 
   return (
     <div className="container-fluid py-4">
@@ -217,7 +266,7 @@ const OpusSummary = () => {
               {error}
               <button
                 className="btn btn-link btn-sm float-end"
-                onClick={() => loadSummaryData()}
+                onClick={() => loadSummaryData(1)}
               >
                 Reintentar
               </button>
@@ -225,7 +274,7 @@ const OpusSummary = () => {
           ) : (
             <>
               <div className="d-flex justify-content-between align-items-center mb-3">
-                <h5 className="mb-0">Resultados ({summaryData.length})</h5>
+                <h5 className="mb-0">Resultados ({pagination.totalItems})</h5>
                 <div>
                   {(dateRange.startDate || dateRange.endDate) &&
                     !(dateRange.startDate && dateRange.endDate) && (
@@ -273,7 +322,7 @@ const OpusSummary = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {paginatedData.map((record) => (
+                        {summaryData.map((record) => (
                           <tr
                             key={record.id}
                             onClick={() => handleRowClick(record.id)}
@@ -305,15 +354,15 @@ const OpusSummary = () => {
                   </div>
 
                   {/* Información de paginación y controles */}
-                  {summaryData.length > 0 && (
+                  {pagination.totalItems > 0 && (
                     <div className="d-flex justify-content-between align-items-center mt-3">
                       {/* Información de registros */}
                       <div className="text-muted small">
-                        Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} a {Math.min(pagination.currentPage * pagination.itemsPerPage, summaryData.length)} de {summaryData.length} registros
+                        Mostrando {startItem} a {endItem} de {pagination.totalItems} registros
                       </div>
 
                       {/* Paginación */}
-                      {summaryData.length > pagination.itemsPerPage && (
+                      {totalPages > 1 && (
                         <nav aria-label="Paginación de producciones">
                           <ul className="pagination pagination-sm mb-0">
                             {/* Botón Anterior */}
@@ -335,9 +384,6 @@ const OpusSummary = () => {
 
                             {/* Números de página */}
                             {(() => {
-                              const totalPages = Math.ceil(
-                                summaryData.length / pagination.itemsPerPage
-                              );
                               const currentPage = pagination.currentPage;
                               const pages = [];
 
@@ -422,8 +468,7 @@ const OpusSummary = () => {
                             {/* Botón Siguiente */}
                             <li
                               className={`page-item ${
-                                pagination.currentPage ===
-                                Math.ceil(summaryData.length / pagination.itemsPerPage)
+                                pagination.currentPage === totalPages
                                   ? "disabled"
                                   : ""
                               }`}
@@ -433,10 +478,7 @@ const OpusSummary = () => {
                                 onClick={() =>
                                   handlePageChange(pagination.currentPage + 1)
                                 }
-                                disabled={
-                                  pagination.currentPage ===
-                                  Math.ceil(summaryData.length / pagination.itemsPerPage)
-                                }
+                                disabled={pagination.currentPage === totalPages}
                               >
                                 <i className="bi bi-chevron-right"></i>
                               </button>

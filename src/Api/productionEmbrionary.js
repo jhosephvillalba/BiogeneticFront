@@ -1,12 +1,17 @@
 import axios from './instance';
 
 
- export const getAllProductions = async (filters={}) => {
+ export const getAllProductions = async (filters={}, skip=0, limit=10) => {
     try {
       const { query, fecha_inicio, fecha_fin } = filters; 
       let uri = '/produccion-embrionaria/';
       const params = new URLSearchParams();
 
+      // Parámetros de paginación
+      params.append('skip', skip);
+      params.append('limit', limit);
+
+      // Parámetros de filtro
       if(query) params.append('query', query);
       if(fecha_inicio) params.append('fecha_inicio', fecha_inicio);
       if(fecha_fin) params.append('fecha_fin', fecha_fin);
