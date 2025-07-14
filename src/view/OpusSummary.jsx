@@ -62,6 +62,9 @@ const OpusSummary = () => {
       const response = await reportApi.getAllProductions(filters, skip, limit);
       
       console.log('Respuesta completa del servidor:', response);
+      console.log('Tipo de respuesta:', typeof response);
+      console.log('¿Es array?', Array.isArray(response));
+      console.log('Propiedades de la respuesta:', response ? Object.keys(response) : 'null/undefined');
       
       // Manejar diferentes formatos de respuesta del servidor
       let data = [];
@@ -72,21 +75,26 @@ const OpusSummary = () => {
         if (response.items && Array.isArray(response.items)) {
           data = response.items;
           totalItems = response.total || response.items.length;
+          console.log('Formato detectado: items/total');
         }
         // Si la respuesta tiene estructura { results: [], count: number }
         else if (response.results && Array.isArray(response.results)) {
           data = response.results;
           totalItems = response.count || response.results.length;
+          console.log('Formato detectado: results/count');
         }
         // Si la respuesta es directamente un array
         else if (Array.isArray(response)) {
           data = response;
-          totalItems = response.length;
+          // Si el servidor no proporciona el total, estimamos basándonos en si devolvió el límite completo
+          totalItems = response.length === limit ? (page * limit) + 1 : (page - 1) * limit + response.length;
+          console.log('Formato detectado: array directo, totalItems estimado:', totalItems);
         }
         // Si la respuesta tiene estructura { data: [], total: number }
         else if (response.data && Array.isArray(response.data)) {
           data = response.data;
           totalItems = response.total || response.data.length;
+          console.log('Formato detectado: data/total');
         }
         else {
           console.warn("Formato de respuesta inesperado:", response);
@@ -95,14 +103,16 @@ const OpusSummary = () => {
         }
       } else if (Array.isArray(response)) {
         data = response;
-        totalItems = response.length;
+        // Si el servidor no proporciona el total, estimamos basándonos en si devolvió el límite completo
+        totalItems = response.length === limit ? (page * limit) + 1 : (page - 1) * limit + response.length;
+        console.log('Formato detectado: array directo (else), totalItems estimado:', totalItems);
       } else {
         console.warn("Formato de respuesta inesperado:", response);
         data = [];
         totalItems = 0;
       }
 
-      console.log('Datos extraídos:', { dataLength: data.length, totalItems });
+      console.log('Datos extraídos:', { dataLength: data.length, totalItems, page, limit });
 
       // Verificar si el servidor respetó el límite
       if (data.length > limit) {
@@ -204,6 +214,15 @@ const OpusSummary = () => {
   const totalPages = Math.ceil(pagination.totalItems / pagination.itemsPerPage);
   const startItem = ((pagination.currentPage - 1) * pagination.itemsPerPage) + 1;
   const endItem = Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems);
+  
+  console.log('Información de paginación:', {
+    totalItems: pagination.totalItems,
+    itemsPerPage: pagination.itemsPerPage,
+    totalPages,
+    currentPage: pagination.currentPage,
+    startItem,
+    endItem
+  });
 
   return (
     <div className="container-fluid py-4">
@@ -369,137 +388,156 @@ const OpusSummary = () => {
                   </div>
 
                   {/* Información de paginación y controles */}
-                  {pagination.totalItems > 0 && (
+                  {summaryData.length > 0 && (
                     <div className="d-flex justify-content-between align-items-center mt-3">
                       {/* Información de registros */}
                       <div className="text-muted small">
-                        Mostrando {startItem} a {endItem} de {pagination.totalItems} registros
+                        Mostrando {startItem} a {endItem} de {pagination.totalItems > 0 ? pagination.totalItems : '?'} registros
+                        {pagination.totalItems === 0 && (
+                          <span className="text-warning ms-2">
+                            <i className="bi bi-exclamation-triangle"></i> Total estimado
+                          </span>
+                        )}
                       </div>
 
-                      {/* Paginación */}
-                      {totalPages > 1 && (
-                        <nav aria-label="Paginación de producciones">
-                          <ul className="pagination pagination-sm mb-0">
-                            {/* Botón Anterior */}
-                            <li
-                              className={`page-item ${
-                                pagination.currentPage === 1 ? "disabled" : ""
-                              }`}
+                      {/* Paginación - mostrar si hay más de una página o si estamos en la primera página con datos */}
+                      {(totalPages > 1 || (pagination.currentPage === 1 && summaryData.length === pagination.itemsPerPage)) && (
+                        <>
+                          {/* Botón para cargar más datos si no tenemos el total exacto */}
+                          {pagination.totalItems === 0 && pagination.currentPage === 1 && summaryData.length === pagination.itemsPerPage && (
+                            <button
+                              className="btn btn-outline-primary btn-sm me-2"
+                              onClick={() => handlePageChange(2)}
+                              disabled={loading}
                             >
-                              <button
-                                className="page-link"
-                                onClick={() =>
-                                  handlePageChange(pagination.currentPage - 1)
-                                }
-                                disabled={pagination.currentPage === 1}
+                              <i className="bi bi-arrow-down"></i> Cargar más
+                            </button>
+                          )}
+                          
+                                                    {/* Paginación normal */}
+                          <nav aria-label="Paginación de producciones">
+                            <ul className="pagination pagination-sm mb-0">
+                              {/* Botón Anterior */}
+                              <li
+                                className={`page-item ${
+                                  pagination.currentPage === 1 ? "disabled" : ""
+                                }`}
                               >
-                                <i className="bi bi-chevron-left"></i>
-                              </button>
-                            </li>
+                                <button
+                                  className="page-link"
+                                  onClick={() =>
+                                    handlePageChange(pagination.currentPage - 1)
+                                  }
+                                  disabled={pagination.currentPage === 1}
+                                >
+                                  <i className="bi bi-chevron-left"></i>
+                                </button>
+                              </li>
 
-                            {/* Números de página */}
-                            {(() => {
-                              const currentPage = pagination.currentPage;
-                              const pages = [];
+                              {/* Números de página */}
+                              {(() => {
+                                const currentPage = pagination.currentPage;
+                                const pages = [];
 
-                              // Mostrar máximo 5 páginas alrededor de la página actual
-                              let startPage = Math.max(1, currentPage - 2);
-                              let endPage = Math.min(totalPages, currentPage + 2);
+                                // Mostrar máximo 5 páginas alrededor de la página actual
+                                let startPage = Math.max(1, currentPage - 2);
+                                let endPage = Math.min(totalPages, currentPage + 2);
 
-                              // Ajustar si estamos cerca del inicio
-                              if (currentPage <= 3) {
-                                endPage = Math.min(5, totalPages);
-                              }
+                                // Ajustar si estamos cerca del inicio
+                                if (currentPage <= 3) {
+                                  endPage = Math.min(5, totalPages);
+                                }
 
-                              // Ajustar si estamos cerca del final
-                              if (currentPage >= totalPages - 2) {
-                                startPage = Math.max(1, totalPages - 4);
-                              }
+                                // Ajustar si estamos cerca del final
+                                if (currentPage >= totalPages - 2) {
+                                  startPage = Math.max(1, totalPages - 4);
+                                }
 
-                              // Agregar primera página si no está incluida
-                              if (startPage > 1) {
-                                pages.push(
-                                  <li key={1} className="page-item">
-                                    <button
-                                      className="page-link"
-                                      onClick={() => handlePageChange(1)}
-                                    >
-                                      1
-                                    </button>
-                                  </li>
-                                );
-                                if (startPage > 2) {
+                                // Agregar primera página si no está incluida
+                                if (startPage > 1) {
                                   pages.push(
-                                    <li key="ellipsis1" className="page-item disabled">
-                                      <span className="page-link">...</span>
+                                    <li key={1} className="page-item">
+                                      <button
+                                        className="page-link"
+                                        onClick={() => handlePageChange(1)}
+                                      >
+                                        1
+                                      </button>
+                                    </li>
+                                  );
+                                  if (startPage > 2) {
+                                    pages.push(
+                                      <li key="ellipsis1" className="page-item disabled">
+                                        <span className="page-link">...</span>
+                                      </li>
+                                    );
+                                  }
+                                }
+
+                                // Agregar páginas del rango
+                                for (let i = startPage; i <= endPage; i++) {
+                                  pages.push(
+                                    <li
+                                      key={i}
+                                      className={`page-item ${
+                                        currentPage === i ? "active" : ""
+                                      }`}
+                                    >
+                                      <button
+                                        className="page-link"
+                                        onClick={() => handlePageChange(i)}
+                                      >
+                                        {i}
+                                      </button>
                                     </li>
                                   );
                                 }
-                              }
 
-                              // Agregar páginas del rango
-                              for (let i = startPage; i <= endPage; i++) {
-                                pages.push(
-                                  <li
-                                    key={i}
-                                    className={`page-item ${
-                                      currentPage === i ? "active" : ""
-                                    }`}
-                                  >
-                                    <button
-                                      className="page-link"
-                                      onClick={() => handlePageChange(i)}
-                                    >
-                                      {i}
-                                    </button>
-                                  </li>
-                                );
-                              }
-
-                              // Agregar última página si no está incluida
-                              if (endPage < totalPages) {
-                                if (endPage < totalPages - 1) {
+                                // Agregar última página si no está incluida
+                                if (endPage < totalPages) {
+                                  if (endPage < totalPages - 1) {
+                                    pages.push(
+                                      <li key="ellipsis2" className="page-item disabled">
+                                        <span className="page-link">...</span>
+                                      </li>
+                                    );
+                                  }
                                   pages.push(
-                                    <li key="ellipsis2" className="page-item disabled">
-                                      <span className="page-link">...</span>
+                                    <li key={totalPages} className="page-item">
+                                      <button
+                                        className="page-link"
+                                        onClick={() => handlePageChange(totalPages)}
+                                      >
+                                        {totalPages}
+                                      </button>
                                     </li>
                                   );
                                 }
-                                pages.push(
-                                  <li key={totalPages} className="page-item">
-                                    <button
-                                      className="page-link"
-                                      onClick={() => handlePageChange(totalPages)}
-                                    >
-                                      {totalPages}
-                                    </button>
-                                  </li>
-                                );
-                              }
 
-                              return pages;
-                            })()}
+                                return pages;
+                              })()}
 
-                            {/* Botón Siguiente */}
-                            <li
-                              className={`page-item ${
-                                pagination.currentPage === totalPages
-                                  ? "disabled"
-                                  : ""
-                              }`}
-                            >
-                              <button
-                                className="page-link"
-                                onClick={() =>
-                                  handlePageChange(pagination.currentPage + 1)
-                                }
-                                disabled={pagination.currentPage === totalPages}
+                              {/* Botón Siguiente */}
+                              <li
+                                className={`page-item ${
+                                  pagination.currentPage === totalPages
+                                    ? "disabled"
+                                    : ""
+                                }`}
                               >
-                                <i className="bi bi-chevron-right"></i>
-                              </button>
-                            </li>
-                          </ul>
-                        </nav>
+                                <button
+                                  className="page-link"
+                                  onClick={() =>
+                                    handlePageChange(pagination.currentPage + 1)
+                                  }
+                                  disabled={pagination.currentPage === totalPages}
+                                >
+                                  <i className="bi bi-chevron-right"></i>
+                                </button>
+                              </li>
+                            </ul>
+                          </nav>
+                        </>
                       )}
                     </div>
                   )}
