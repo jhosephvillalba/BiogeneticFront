@@ -24,6 +24,9 @@ import Reports from "./view/Reports";
 import ReportDetails from "./view/ReportDetails";
 import api from './Api/index.js';
 import BullsByClient from "./view/BullByClient.jsx";
+import TransferReport from "./view/TransferReport.jsx";
+import TransferSummary from "./view/TransferSummary.jsx";
+import TransferReportDetail from "./view/TransferReportDetail.jsx";
 // import "./App.css";
 
 const App = () => {
@@ -249,6 +252,16 @@ const App = () => {
                   </Link>
                 </li>
                 <li>
+                    <Link to="/transfer-report" className="nav-link text-white">
+                      <i className="bi bi-arrow-left-right me-2"></i> Transferencias
+                  </Link>
+                </li>
+                <li>
+                    <Link to="/transfer-summary" className="nav-link text-white">
+                      <i className="bi bi-list-check me-2"></i> Resumen de Transferencias
+                  </Link>
+                </li>
+                <li>
                     <Link to="/opus-summary" className="nav-link text-white">
                       <i className="bi bi-clipboard2-data me-2"></i> Resumen OPUS
                   </Link>
@@ -383,7 +396,9 @@ const App = () => {
                 <Route path="/embryo-production" element={<EmbryoProduction />} />
                 <Route path="/opus-summary" element={<OpusSummary />} />
                 <Route path="/reports" element={<Reports />} />
-                {/* <Route path="/reports/:id" element={<DetailReport />} /> */}
+                <Route path="/transfer-report" element={<TransferReport />} />
+                <Route path="/transfer-summary" element={<TransferSummary />} />
+                <Route path="/transfer-detail/:id" element={<TransferReportDetail />} />
                 <Route path="/reportdetails/:id" element={<ReportDetails />} />
               </Route>
               <Route path="*" element={<p>There's nothing here: 404!</p>} />
