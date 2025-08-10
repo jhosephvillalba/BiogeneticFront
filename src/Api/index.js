@@ -7,6 +7,7 @@ import * as rolesApi from './roles';
 import * as inputsApi from './inputs';
 import * as outputsApi from './outputs';
 import * as opusApi from './opus';
+import * as calendarApi from './calendar';
 
 // No es necesario crear otra instancia de axios aquí,
 // ya que estamos usando la configurada en axios.js
@@ -21,7 +22,8 @@ export {
   rolesApi, 
   inputsApi, 
   outputsApi,
-  opusApi
+  opusApi,
+  calendarApi
 };
 
 // Exportación por defecto (todas las APIs juntas)
@@ -34,7 +36,8 @@ const api = {
   races: racesApi,
   sexes: sexesApi,
   roles: rolesApi,
-  opus: opusApi
+  opus: opusApi,
+  calendar: calendarApi
 };
 
 export default api;

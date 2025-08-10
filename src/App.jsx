@@ -27,7 +27,8 @@ import BullsByClient from "./view/BullByClient.jsx";
 import TransferReport from "./view/TransferReport.jsx";
 import TransferSummary from "./view/TransferSummary.jsx";
 import TransferReportDetail from "./view/TransferReportDetail.jsx";
-// import "./App.css";
+import Calendar from "./view/Calendar.jsx";
+import "./App.css";
 
 const App = () => {
   const location = useLocation();
@@ -69,12 +70,13 @@ const App = () => {
     }
   };
 
+  // Verificar autenticación una sola vez al montar
   useEffect(() => {
     let isMounted = true;
-  
+
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
-  
+
       if (!token) {
         if (isMounted) {
           setLoading(false);
@@ -84,37 +86,19 @@ const App = () => {
         }
         return;
       }
-  
+
       try {
         if (isMounted) setLoading(true);
-  
+
         const userData = await api.auth.getCurrentUser();
-        const userRole = checkUserRole(userData);
-  
         if (isMounted) {
           setUser(userData);
-  
-          // Redirigir según el rol cuando estamos en la raíz o en login
-          if (location.pathname === '/' || location.pathname === '/login') {
-            if (userRole === 'client') {
-              navigate('/reports', { replace: true });
-            } else if (userRole === 'admin' || userRole === 'user') {
-              navigate('/inventory', { replace: true });
-            }
-          }
-
-          // Proteger rutas según el rol
-          if (userRole === 'client' && location.pathname === '/inventory') {
-            navigate('/reports', { replace: true });
-          } else if ((userRole === 'admin' || userRole === 'user') && location.pathname === '/reports') {
-            navigate('/inventory', { replace: true });
-          }
         }
       } catch (error) {
         console.error("Error al verificar autenticación:", error);
         localStorage.removeItem('token');
         localStorage.removeItem('userData');
-  
+
         if (isMounted) {
           setUser(null);
           navigate('/login', { replace: true });
@@ -123,13 +107,33 @@ const App = () => {
         if (isMounted) setLoading(false);
       }
     };
-  
+
     checkAuth();
-  
+
     return () => {
       isMounted = false;
     };
-  }, [navigate, location.pathname]);
+  }, [navigate]);
+
+  // Redirecciones de rol sin bloquear la UI ni recargar entre rutas
+  useEffect(() => {
+    if (!user) return;
+
+    const userRole = checkUserRole(user);
+    if (location.pathname === '/' || location.pathname === '/login') {
+      if (userRole === 'client') {
+        navigate('/reports', { replace: true });
+      } else if (userRole === 'admin' || userRole === 'user') {
+        navigate('/inventory', { replace: true });
+      }
+    }
+
+    if (userRole === 'client' && location.pathname === '/inventory') {
+      navigate('/reports', { replace: true });
+    } else if ((userRole === 'admin' || userRole === 'user') && location.pathname === '/reports') {
+      navigate('/inventory', { replace: true });
+    }
+  }, [user, location.pathname, navigate]);
 
   if (loading) {
     // Muestra una pantalla de carga mientras verificamos la sesión
@@ -174,12 +178,9 @@ const App = () => {
     <div className="d-flex min-vh-100 min-vw-100">
       {/* Sidebar - Diferente según el rol */}
       {!isLoginPage && sidebarVisible && (
-        <div
-          className="bg-dark text-white d-flex flex-column justify-content-between"
-          style={{ width: "18%", minWidth: "200px", flexShrink: 0, transition: "all 0.3s ease" }}
-        >
+        <div className="sidebar d-flex flex-column justify-content-between text-white">
           {/* Parte superior - Perfil - Común para todos los usuarios */}
-          <div className="p-4 text-center">
+          <div className="sidebar-profile text-center">
             {user?.profile_image_url ? (
             <img
                 src={user.profile_image_url}
@@ -201,144 +202,105 @@ const App = () => {
           {/* Navegación - Condicional según el rol */}
           {isClient ? (
             // Navegación para clientes
-            <nav className="nav flex-column px-3 align-items-center">
-              <Link to="/user/inventary" className="nav-link text-white">
-                <i className="bi bi-box-arrow-in-right me-2"></i> Inventario
-              </Link>
-              
-              <Link to="/reports" className="nav-link text-white">
-                <i className="bi bi-file-text me-2"></i> Informes
-              </Link>
-              
-              <Link to="/profile" className="nav-link text-white">
-                <i className="bi bi-person-circle me-2"></i> Mi Perfil
-              </Link>
+            <nav className="sidebar-nav">
+              <div className="sidebar-section">
+                <div className="sidebar-title">Panel</div>
+                <Link to="/user/inventary" className="sidebar-item">
+                  <i className="bi bi-box-arrow-in-right me-2"></i> Inventario
+                </Link>
+                <Link to="/reports" className="sidebar-item">
+                  <i className="bi bi-file-text me-2"></i> Informes
+                </Link>
+              </div>
+              <div className="sidebar-section">
+                <div className="sidebar-title">Cuenta</div>
+                <Link to="/profile" className="sidebar-item">
+                  <i className="bi bi-person-circle me-2"></i> Mi Perfil
+                </Link>
+              </div>
             </nav>
           ) : (
             // Navegación para administradores y otros roles
-          <nav className="nav flex-column px-3 align-items-center">
-            <Link to="/inventory" className="nav-link text-white">
-              <i className="bi bi-house me-2"></i> Inventario
-            </Link>
+            <nav className="sidebar-nav">
+              <div className="sidebar-section">
+                <div className="sidebar-title">Inicio</div>
+                <Link to="/inventory" className="sidebar-item">
+                  <i className="bi bi-house me-2"></i> Inventario
+                </Link>
+              </div>
 
-            <div className="dropdown">
-              <button
-                className="btn dropdown-toggle text-white"
-                type="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                <i className="bi bi-paw me-2"></i> Gestión
-              </button>
-              <ul className="dropdown-menu dropdown-menu-dark">
-                <li>
-                  <Link to="/gestion/inputs" className="nav-link text-white">
-                      <i className="bi bi-box-arrow-in-right me-2"></i> Entradas
-                    </Link>
-                  </li>
-                  {/* <li>
-                    <Link to="/gestion/outputs" className="nav-link text-white">
-                      <i className="bi bi-box-arrow-right me-2"></i> Salidas
-                    </Link>
-                  </li> */}
-                  <li>
-                    <Link to="/bulls" className="nav-link text-white">
-                      <i className="bi bi-database me-2"></i> Toros
-                  </Link>
-                </li>
-                <li>
-                    <Link to="/embryo-production" className="nav-link text-white">
-                      <i className="bi bi-clipboard2-pulse me-2"></i> Producción Embrionaria
-                  </Link>
-                </li>
-                <li>
-                    <Link to="/transfer-report" className="nav-link text-white">
-                      <i className="bi bi-arrow-left-right me-2"></i> Transferencias
-                  </Link>
-                </li>
-                <li>
-                    <Link to="/transfer-summary" className="nav-link text-white">
-                      <i className="bi bi-list-check me-2"></i> Resumen de Transferencias
-                  </Link>
-                </li>
-                <li>
-                    <Link to="/opus-summary" className="nav-link text-white">
-                      <i className="bi bi-clipboard2-data me-2"></i> Resumen OPUS
-                  </Link>
-                </li>
-              </ul>
-            </div>
+              <div className="sidebar-section">
+                <div className="sidebar-title">Gestión</div>
+                <Link to="/gestion/inputs" className="sidebar-item">
+                  <i className="bi bi-box-arrow-in-right me-2"></i> Entradas
+                </Link>
+                <Link to="/bulls" className="sidebar-item">
+                  <i className="bi bi-database me-2"></i> Toros
+                </Link>
+                <Link to="/embryo-production" className="sidebar-item">
+                  <i className="bi bi-clipboard2-pulse me-2"></i> Producción Embrionaria
+                </Link>
+                <Link to="/transfer-report" className="sidebar-item">
+                  <i className="bi bi-arrow-left-right me-2"></i> Transferencias
+                </Link>
+                <Link to="/transfer-summary" className="sidebar-item">
+                  <i className="bi bi-list-check me-2"></i> Resumen de Transferencias
+                </Link>
+                <Link to="/opus-summary" className="sidebar-item">
+                  <i className="bi bi-clipboard2-data me-2"></i> Resumen OPUS
+                </Link>
+                <Link to="/calendar" className="sidebar-item">
+                  <i className="bi bi-calendar-event me-2"></i> Calendario de Actividades
+                </Link>
+              </div>
 
-            <div className="dropdown">
-              <button
-                className="btn dropdown-toggle text-white"
-                type="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                <i className="bi bi-paw me-2"></i> Globales
-              </button>
-              <ul className="dropdown-menu dropdown-menu-dark">
-                <li>
-                  <Link to="/global/race" className="nav-link text-white">
-                    <i className="bi bi-paw me-2"></i> Raza
-                  </Link>
-                </li>
-              </ul>
-            </div>
+              <div className="sidebar-section">
+                <div className="sidebar-title">Globales</div>
+                <Link to="/global/race" className="sidebar-item">
+                  <i className="bi bi-paw me-2"></i> Raza
+                </Link>
+              </div>
 
-            <div className="dropdown">
-              <button
-                className="btn dropdown-toggle text-white"
-                type="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                  <i className="bi bi-people me-2"></i> Usuarios
-              </button>
-              <ul className="dropdown-menu dropdown-menu-dark">
-                <li>
-                    <Link to="/admin/users" className="nav-link text-white">
-                      <i className="bi bi-shield-lock me-2"></i> Admin
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/users/veterinary" className="nav-link text-white">
-                      <i className="bi bi-clipboard-pulse me-2"></i> Veterinarios
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/users/clients" className="nav-link text-white">
-                      <i className="bi bi-person-badge me-2"></i> Clientes
-                  </Link>
-                </li>
-              </ul>
-            </div>
+              <div className="sidebar-section">
+                <div className="sidebar-title">Usuarios</div>
+                <Link to="/admin/users" className="sidebar-item">
+                  <i className="bi bi-shield-lock me-2"></i> Admin
+                </Link>
+                <Link to="/users/veterinary" className="sidebar-item">
+                  <i className="bi bi-clipboard-pulse me-2"></i> Veterinarios
+                </Link>
+                <Link to="/users/clients" className="sidebar-item">
+                  <i className="bi bi-person-badge me-2"></i> Clientes
+                </Link>
+              </div>
 
-            <Link to="/profile" className="nav-link text-white">
-              <i className="bi bi-file-earmark-text me-2"></i> Perfil
-            </Link>
-          </nav>
+              <div className="sidebar-section">
+                <div className="sidebar-title">Cuenta</div>
+                <Link to="/profile" className="sidebar-item">
+                  <i className="bi bi-file-earmark-text me-2"></i> Perfil
+                </Link>
+              </div>
+            </nav>
           )}
 
           {/* Botón de cerrar sesión - Común para todos los usuarios */}
-          <div className="d-flex justify-content-center">
+          <div className="d-flex justify-content-center p-3">
             <button
               type="button"
-              className="btn btn-danger"
+              className="btn btn-outline-light w-100 sidebar-logout"
               onClick={handleLogout}
             >
               Cerrar Sesión
             </button>
           </div>
-          <div className="text-center p-3 small text-white">
+          <div className="text-center p-3 small text-white-50">
             © 2025 Sistema BioGenetic
           </div>
         </div>
       )}
 
       {/* Contenido principal */}
-      <div className="d-flex flex-column flex-grow-1 overflow-hidden" style={{ width: sidebarVisible ? "82%" : "100%", transition: "all 0.3s ease" }}>
+      <div className="d-flex flex-column flex-grow-1 overflow-hidden" style={{ width: sidebarVisible ? "82%" : "100%", transition: "width 0.2s ease" }}>
         {!isLoginPage && (
           <nav className="navbar navbar-light bg-white shadow-sm d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center">
@@ -359,7 +321,7 @@ const App = () => {
           </nav>
         )}
 
-        <main className="flex-grow-1 overflow-auto">
+        <main className="flex-grow-1 overflow-auto route-fade">
           <div className="container-fluid">
             <Routes>
               <Route 
@@ -400,6 +362,7 @@ const App = () => {
                 <Route path="/transfer-summary" element={<TransferSummary />} />
                 <Route path="/transfer-detail/:id" element={<TransferReportDetail />} />
                 <Route path="/reportdetails/:id" element={<ReportDetails />} />
+                <Route path="/calendar" element={<Calendar />} />
               </Route>
               <Route path="*" element={<p>There's nothing here: 404!</p>} />
             </Routes>

@@ -7,6 +7,7 @@ import Outputs from './view/Outputs';
 import Users from './view/Users';
 import EmbryoProduction from './view/EmbryoProduction';
 import OpusSummary from './view/OpusSummary';
+import Calendar from './view/Calendar';
 
 const routes = [
   {
@@ -76,6 +77,14 @@ const routes = [
     name: 'Resumen OPUS',
     icon: 'bi bi-clipboard2-data',
     showInMenu: false,
+    requiredRoles: ['admin']
+  },
+  {
+    path: '/calendar',
+    element: <Calendar />,
+    name: 'Calendario',
+    icon: 'bi bi-calendar-event',
+    showInMenu: true,
     requiredRoles: ['admin']
   }
 ];

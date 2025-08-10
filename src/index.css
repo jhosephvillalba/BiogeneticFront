@@ -2,6 +2,7 @@
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+  font-size: 0.87rem;
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
@@ -22,7 +23,7 @@ a:hover {
   color: #535bf2;
 }
 
-body {
+html, body {
   margin: 0;
   display: flex;
   place-items: center;
@@ -137,7 +138,8 @@ button:focus-visible {
 }
 
 .table-responsive {
-  animation: fadeIn 0.3s ease;
+  /* Desactivado para evitar sensación de recarga al navegar */
+  /* animation: fadeIn 0.15s ease; */
 }
 
 .profile-view {
