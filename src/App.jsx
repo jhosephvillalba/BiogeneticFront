@@ -1,34 +1,37 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import ProfileView from "./view/Profile";
-import BreedManagement from "./view/Races";
-import Login from "./view/Login";
-import Inventory from "./view/Inventary";
-import Clients from "./view/Clients";
-import Veterinary from "./view/Veterinary";
 import { ProtectedRoute } from "./Components/ProtetedRoute";
-import Inputs from "./view/Inputs";
-import InputsDetails from "./view/InputsDetails";
-import Outputs from './view/Outputs';
-import OutputsDetails from './view/OutputsDetails';
-import ClientDetails from "./view/ClientDetails";
-import Admins from "./view/Admins";
-import Bulls from "./view/Bulls";
-import BullEdit from "./view/BullEdit";
-import VeterinaryDetails from "./view/VeterinaryDetails";
-import AdminDetails from "./view/AdminDetails";
-import EmbryoProduction from "./view/EmbryoProduction";
-import OpusSummary from "./view/OpusSummary";
-import Reports from "./view/Reports";
-// import DetailReport from "./view/DetailReport";
-import ReportDetails from "./view/ReportDetails";
 import api from './Api/index.js';
-import BullsByClient from "./view/BullByClient.jsx";
-import TransferReport from "./view/TransferReport.jsx";
-import TransferSummary from "./view/TransferSummary.jsx";
-import TransferReportDetail from "./view/TransferReportDetail.jsx";
-import Calendar from "./view/Calendar.jsx";
+import { AppProvider } from './context/AppContext';
+import LoadingIndicator from './components/LoadingIndicator';
 import "./App.css";
+
+// Importar componentes con lazy loading para mejorar rendimiento
+const ProfileView = lazy(() => import("./view/Profile"));
+const BreedManagement = lazy(() => import("./view/Races"));
+const Login = lazy(() => import("./view/Login"));
+const Inventory = lazy(() => import("./view/Inventary"));
+const Clients = lazy(() => import("./view/Clients"));
+const Veterinary = lazy(() => import("./view/Veterinary"));
+const Inputs = lazy(() => import("./view/Inputs"));
+const InputsDetails = lazy(() => import("./view/InputsDetails"));
+const Outputs = lazy(() => import('./view/Outputs'));
+const OutputsDetails = lazy(() => import('./view/OutputsDetails'));
+const ClientDetails = lazy(() => import("./view/ClientDetails"));
+const Admins = lazy(() => import("./view/Admins"));
+const Bulls = lazy(() => import("./view/Bulls"));
+const BullEdit = lazy(() => import("./view/BullEdit"));
+const VeterinaryDetails = lazy(() => import("./view/VeterinaryDetails"));
+const AdminDetails = lazy(() => import("./view/AdminDetails"));
+const EmbryoProduction = lazy(() => import("./view/EmbryoProduction"));
+const OpusSummary = lazy(() => import("./view/OpusSummary"));
+const Reports = lazy(() => import("./view/Reports"));
+const ReportDetails = lazy(() => import("./view/ReportDetails"));
+const BullsByClient = lazy(() => import("./view/BullByClient.jsx"));
+const TransferReport = lazy(() => import("./view/TransferReport.jsx"));
+const TransferSummary = lazy(() => import("./view/TransferSummary.jsx"));
+const TransferReportDetail = lazy(() => import("./view/TransferReportDetail.jsx"));
+const Calendar = lazy(() => import("./view/Calendar.jsx"));
 
 const App = () => {
   const location = useLocation();
@@ -115,25 +118,20 @@ const App = () => {
     };
   }, [navigate]);
 
-  // Redirecciones de rol sin bloquear la UI ni recargar entre rutas
+  // Redirecciones iniciales por rol (evitar navegar en cada cambio de ruta)
   useEffect(() => {
     if (!user) return;
-
     const userRole = checkUserRole(user);
+
+    // Solo redirigir desde raíz o login al cargar sesión
     if (location.pathname === '/' || location.pathname === '/login') {
       if (userRole === 'client') {
         navigate('/reports', { replace: true });
-      } else if (userRole === 'admin' || userRole === 'user') {
+      } else {
         navigate('/inventory', { replace: true });
       }
     }
-
-    if (userRole === 'client' && location.pathname === '/inventory') {
-      navigate('/reports', { replace: true });
-    } else if ((userRole === 'admin' || userRole === 'user') && location.pathname === '/reports') {
-      navigate('/inventory', { replace: true });
-    }
-  }, [user, location.pathname, navigate]);
+  }, [user, navigate]);
 
   if (loading) {
     // Muestra una pantalla de carga mientras verificamos la sesión
@@ -161,12 +159,6 @@ const App = () => {
     alert("Ok sigamos trabajando...");
   };
 
-  // console.log("Datos del usuario en render:", user);
-
-  // // Actualizar logs de depuración
-  // console.log("Roles del usuario:", user?.roles);
-  // console.log("Tipo de rol:", checkUserRole(user));
-
   // Verificar si el usuario es un cliente
   const userRole = checkUserRole(user);
   const isClient = userRole === 'client';
@@ -174,202 +166,227 @@ const App = () => {
   // const isAdmin = userRole === 'admin';
   // const isVet = userRole === 'user';
 
+  const isActive = (path) => {
+    const p = String(path || '');
+    const cur = location.pathname || '';
+    return cur === p || cur.startsWith(p + '/');
+  };
+
   return (
-    <div className="d-flex min-vh-100 min-vw-100">
-      {/* Sidebar - Diferente según el rol */}
-      {!isLoginPage && sidebarVisible && (
-        <div className="sidebar d-flex flex-column justify-content-between text-white">
-          {/* Parte superior - Perfil - Común para todos los usuarios */}
-          <div className="sidebar-profile text-center">
-            {user?.profile_image_url ? (
-            <img
-                src={user.profile_image_url}
-              className="rounded-circle mb-3 border border-light"
-              width="80"
-              height="80"
-              alt="Foto de perfil"
-                style={{ objectFit: "cover" }}
-            />
+    <AppProvider>
+      <LoadingIndicator />
+      <div className="d-flex min-vh-100 w-100">
+        {/* Sidebar - Diferente según el rol */}
+        {!isLoginPage && sidebarVisible && (
+          <div className="sidebar d-flex flex-column justify-content-between text-white">
+            {/* Parte superior - Perfil - Común para todos los usuarios */}
+            <div className="sidebar-profile text-center">
+              {user?.profile_image_url ? (
+              <img
+                  src={user.profile_image_url}
+                className="rounded-circle mb-3 border border-light"
+                width="80"
+                height="80"
+                alt="Foto de perfil"
+                  style={{ objectFit: "cover" }}
+              />
+              ) : (
+                <span className="placeholder rounded-circle d-inline-block bg-secondary mb-3 border border-light" style={{ width: 80, height: 80, lineHeight: "80px", textAlign: "center", fontSize: "2rem", color: "#fff" }}>
+                  <i className="bi bi-person" />
+                </span>
+              )}
+              <h5 className="mb-0">{user?.full_name || user?.name || "Usuario"}</h5>
+              <small className="text-muted">{user?.specialty || user?.email || "Usuario"}</small>
+            </div>
+
+            {/* Navegación - Condicional según el rol */}
+            {isClient ? (
+              // Navegación para clientes
+              <nav className="sidebar-nav">
+                <div className="sidebar-section">
+                  <div className="sidebar-title">Panel</div>
+                  <Link to="/user/inventary" className={`sidebar-item${isActive('/user/inventary') ? ' active' : ''}`}>
+                    <i className="bi bi-box-arrow-in-right me-2"></i> Inventario
+                  </Link>
+                  <Link to="/reports" className={`sidebar-item${isActive('/reports') ? ' active' : ''}`}>
+                    <i className="bi bi-file-text me-2"></i> Informes
+                  </Link>
+                </div>
+                <div className="sidebar-section">
+                  <div className="sidebar-title">Cuenta</div>
+                  <Link to="/profile" className={`sidebar-item${isActive('/profile') ? ' active' : ''}`}>
+                    <i className="bi bi-person-circle me-2"></i> Mi Perfil
+                  </Link>
+                </div>
+              </nav>
             ) : (
-              <span className="placeholder rounded-circle d-inline-block bg-secondary mb-3 border border-light" style={{ width: 80, height: 80, lineHeight: "80px", textAlign: "center", fontSize: "2rem", color: "#fff" }}>
-                <i className="bi bi-person" />
-              </span>
+              // Navegación para administradores y otros roles
+              <nav className="sidebar-nav">
+                <div className="sidebar-section">
+                  <div className="sidebar-title">Inicio</div>
+                  <Link to="/inventory" className={`sidebar-item${isActive('/inventory') ? ' active' : ''}`}>
+                    <i className="bi bi-house me-2"></i> Inventario
+                  </Link>
+                </div>
+
+                <div className="sidebar-section">
+                  <div className="sidebar-title">Gestión</div>
+                  <Link to="/gestion/inputs" className={`sidebar-item${isActive('/gestion/inputs') ? ' active' : ''}`}>
+                    <i className="bi bi-box-arrow-in-right me-2"></i> Entradas
+                  </Link>
+                  <Link to="/bulls" className={`sidebar-item${isActive('/bulls') ? ' active' : ''}`}>
+                    <i className="bi bi-database me-2"></i> Toros
+                  </Link>
+                  <Link to="/calendar" className={`sidebar-item${isActive('/calendar') ? ' active' : ''}`}>
+                    <i className="bi bi-calendar-event me-2"></i> Calendario de Actividades
+                  </Link>
+                </div>
+
+                <div className="sidebar-section">
+                  <div className="sidebar-title">Producción</div>
+                  <Link to="/embryo-production" className={`sidebar-item${isActive('/embryo-production') ? ' active' : ''}`}>
+                    <i className="bi bi-clipboard2-pulse me-2"></i> Producción Embrionaria
+                  </Link>
+                  <Link to="/opus-summary" className={`sidebar-item${isActive('/opus-summary') ? ' active' : ''}`}>
+                    <i className="bi bi-clipboard2-data me-2"></i> Resumen OPUS
+                  </Link>
+                </div>
+
+                <div className="sidebar-section">
+                  <div className="sidebar-title">Transferencias</div>
+                  <Link to="/transfer-report" className={`sidebar-item${isActive('/transfer-report') ? ' active' : ''}`}>
+                    <i className="bi bi-arrow-left-right me-2"></i> Transferencias
+                  </Link>
+                  <Link to="/transfer-summary" className={`sidebar-item${isActive('/transfer-summary') ? ' active' : ''}`}>
+                    <i className="bi bi-list-check me-2"></i> Resumen de Transferencias
+                  </Link>
+                </div>
+
+                <div className="sidebar-section">
+                  <div className="sidebar-title">Globales</div>
+                  <Link to="/global/race" className={`sidebar-item${isActive('/global/race') ? ' active' : ''}`}>
+                    <i className="bi bi-paw me-2"></i> Raza
+                  </Link>
+                </div>
+
+                <div className="sidebar-section">
+                  <div className="sidebar-title">Usuarios</div>
+                  <Link to="/admin/users" className={`sidebar-item${isActive('/admin/users') ? ' active' : ''}`}>
+                    <i className="bi bi-shield-lock me-2"></i> Admin
+                  </Link>
+                  <Link to="/users/veterinary" className={`sidebar-item${isActive('/users/veterinary') ? ' active' : ''}`}>
+                    <i className="bi bi-clipboard-pulse me-2"></i> Veterinarios
+                  </Link>
+                  <Link to="/users/clients" className={`sidebar-item${isActive('/users/clients') ? ' active' : ''}`}>
+                    <i className="bi bi-person-badge me-2"></i> Clientes
+                  </Link>
+                </div>
+
+                <div className="sidebar-section">
+                  <div className="sidebar-title">Cuenta</div>
+                  <Link to="/profile" className={`sidebar-item${isActive('/profile') ? ' active' : ''}`}>
+                    <i className="bi bi-file-earmark-text me-2"></i> Perfil
+                  </Link>
+                </div>
+              </nav>
             )}
-            <h5 className="mb-0">{user?.full_name || user?.name || "Usuario"}</h5>
-            <small className="text-muted">{user?.specialty || user?.email || "Usuario"}</small>
+
+            {/* Botón de cerrar sesión - Común para todos los usuarios */}
+            <div className="d-flex justify-content-center p-3">
+              <button
+                type="button"
+                className="btn btn-outline-light w-100 sidebar-logout"
+                onClick={handleLogout}
+              >
+                Cerrar Sesión
+              </button>
+            </div>
+            <div className="text-center p-3 small text-white-50">
+              © 2025 Sistema BioGenetic
+            </div>
           </div>
+        )}
 
-          {/* Navegación - Condicional según el rol */}
-          {isClient ? (
-            // Navegación para clientes
-            <nav className="sidebar-nav">
-              <div className="sidebar-section">
-                <div className="sidebar-title">Panel</div>
-                <Link to="/user/inventary" className="sidebar-item">
-                  <i className="bi bi-box-arrow-in-right me-2"></i> Inventario
-                </Link>
-                <Link to="/reports" className="sidebar-item">
-                  <i className="bi bi-file-text me-2"></i> Informes
-                </Link>
+        {/* Contenido principal */}
+        <div className="d-flex flex-column flex-grow-1 overflow-hidden main-content">
+          {!isLoginPage && (
+            <nav className="navbar navbar-light bg-white shadow-sm d-flex justify-content-between align-items-center">
+              <div className="d-flex align-items-center">
+                <button
+                  className="btn btn-outline-secondary me-3"
+                  onClick={toggleSidebar}
+                  title={sidebarVisible ? "Ocultar menú" : "Mostrar menú"}
+                >
+                  <i className={`bi ${sidebarVisible ? 'bi-chevron-left' : 'bi-chevron-right'}`}></i>
+                </button>
+                <span className="navbar-brand mb-0 h1">Biogenetic</span>
               </div>
-              <div className="sidebar-section">
-                <div className="sidebar-title">Cuenta</div>
-                <Link to="/profile" className="sidebar-item">
-                  <i className="bi bi-person-circle me-2"></i> Mi Perfil
-                </Link>
-              </div>
-            </nav>
-          ) : (
-            // Navegación para administradores y otros roles
-            <nav className="sidebar-nav">
-              <div className="sidebar-section">
-                <div className="sidebar-title">Inicio</div>
-                <Link to="/inventory" className="sidebar-item">
-                  <i className="bi bi-house me-2"></i> Inventario
-                </Link>
-              </div>
-
-              <div className="sidebar-section">
-                <div className="sidebar-title">Gestión</div>
-                <Link to="/gestion/inputs" className="sidebar-item">
-                  <i className="bi bi-box-arrow-in-right me-2"></i> Entradas
-                </Link>
-                <Link to="/bulls" className="sidebar-item">
-                  <i className="bi bi-database me-2"></i> Toros
-                </Link>
-                <Link to="/embryo-production" className="sidebar-item">
-                  <i className="bi bi-clipboard2-pulse me-2"></i> Producción Embrionaria
-                </Link>
-                <Link to="/transfer-report" className="sidebar-item">
-                  <i className="bi bi-arrow-left-right me-2"></i> Transferencias
-                </Link>
-                <Link to="/transfer-summary" className="sidebar-item">
-                  <i className="bi bi-list-check me-2"></i> Resumen de Transferencias
-                </Link>
-                <Link to="/opus-summary" className="sidebar-item">
-                  <i className="bi bi-clipboard2-data me-2"></i> Resumen OPUS
-                </Link>
-                <Link to="/calendar" className="sidebar-item">
-                  <i className="bi bi-calendar-event me-2"></i> Calendario de Actividades
-                </Link>
-              </div>
-
-              <div className="sidebar-section">
-                <div className="sidebar-title">Globales</div>
-                <Link to="/global/race" className="sidebar-item">
-                  <i className="bi bi-paw me-2"></i> Raza
-                </Link>
-              </div>
-
-              <div className="sidebar-section">
-                <div className="sidebar-title">Usuarios</div>
-                <Link to="/admin/users" className="sidebar-item">
-                  <i className="bi bi-shield-lock me-2"></i> Admin
-                </Link>
-                <Link to="/users/veterinary" className="sidebar-item">
-                  <i className="bi bi-clipboard-pulse me-2"></i> Veterinarios
-                </Link>
-                <Link to="/users/clients" className="sidebar-item">
-                  <i className="bi bi-person-badge me-2"></i> Clientes
-                </Link>
-              </div>
-
-              <div className="sidebar-section">
-                <div className="sidebar-title">Cuenta</div>
-                <Link to="/profile" className="sidebar-item">
-                  <i className="bi bi-file-earmark-text me-2"></i> Perfil
-                </Link>
+              <div className="d-flex align-items-center">
+                <span className="text-muted me-3">
+                  {user?.full_name || user?.name || "Usuario"}
+                </span>
               </div>
             </nav>
           )}
 
-          {/* Botón de cerrar sesión - Común para todos los usuarios */}
-          <div className="d-flex justify-content-center p-3">
-            <button
-              type="button"
-              className="btn btn-outline-light w-100 sidebar-logout"
-              onClick={handleLogout}
-            >
-              Cerrar Sesión
-            </button>
-          </div>
-          <div className="text-center p-3 small text-white-50">
-            © 2025 Sistema BioGenetic
-          </div>
+          <main className="flex-grow-1 overflow-auto">
+            <div className="container-fluid">
+              <Suspense fallback={
+                <div className="d-flex justify-content-center align-items-center py-5">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Cargando...</span>
+                  </div>
+                </div>
+              }>
+                <Routes>
+                  <Route 
+                    path="/login" 
+                    element={!user ? (
+                      <Login setUser={setUser} />
+                    ) : (
+                      <Navigate to={checkUserRole(user) === 'client' ? "/reports" : "/inventory"} replace />
+                    )} 
+                  />
+                  <Route path="/" element={<Navigate to="/login" replace />} />
+                  <Route element={<ProtectedRoute user={user} />}>
+                    <Route path="/inventory" element={<Inventory />} />
+                    <Route path="/profile" element={<ProfileView updateUser={updateUser} />} />
+                    <Route path="/global/race" element={<BreedManagement />} />
+
+                    <Route path="/users/clients" element={<Clients />} />
+                    <Route path="/users/clients/:id" element={<ClientDetails />} />
+
+                    <Route path="/users/veterinary" element={<Veterinary />} />
+                    <Route path="/users/veterinary/new" element={<VeterinaryDetails />} />
+                    <Route path="/users/veterinary/:id" element={<VeterinaryDetails />} />
+                    
+                    <Route path="/gestion/inputs" element={<Inputs />} />
+                    <Route path="/gestion/inputs/:id" element={<InputsDetails />} />
+                    <Route path="/gestion/outputs" element={<Outputs />} />
+                    <Route path="/gestion/outputs/:id" element={<OutputsDetails />} />
+                    <Route path="/admin/users" element={<Admins />} />
+                    <Route path="/admin/users/:id" element={<AdminDetails />} />
+                    <Route path="/user/inventary" element={<BullsByClient />} />
+
+                    <Route path="/bulls" element={<Bulls />} />
+                    <Route path="/bulls/:id/edit" element={<BullEdit />} />
+                    <Route path="/embryo-production" element={<EmbryoProduction />} />
+                    <Route path="/opus-summary" element={<OpusSummary />} />
+                    <Route path="/reports" element={<Reports />} />
+                    <Route path="/transfer-report" element={<TransferReport />} />
+                    <Route path="/transfer-summary" element={<TransferSummary />} />
+                    <Route path="/transfer-detail/:id" element={<TransferReportDetail />} />
+                    <Route path="/reportdetails/:id" element={<ReportDetails />} />
+                    <Route path="/calendar" element={<Calendar />} />
+                  </Route>
+                  <Route path="*" element={<p>There's nothing here: 404!</p>} />
+                </Routes>
+              </Suspense>
+            </div>
+          </main>
         </div>
-      )}
-
-      {/* Contenido principal */}
-      <div className="d-flex flex-column flex-grow-1 overflow-hidden" style={{ width: sidebarVisible ? "82%" : "100%", transition: "width 0.2s ease" }}>
-        {!isLoginPage && (
-          <nav className="navbar navbar-light bg-white shadow-sm d-flex justify-content-between align-items-center">
-            <div className="d-flex align-items-center">
-              <button
-                className="btn btn-outline-secondary me-3"
-                onClick={toggleSidebar}
-                title={sidebarVisible ? "Ocultar menú" : "Mostrar menú"}
-              >
-                <i className={`bi ${sidebarVisible ? 'bi-chevron-left' : 'bi-chevron-right'}`}></i>
-              </button>
-              <span className="navbar-brand mb-0 h1">Biogenetic</span>
-            </div>
-            <div className="d-flex align-items-center">
-              <span className="text-muted me-3">
-                {user?.full_name || user?.name || "Usuario"}
-              </span>
-            </div>
-          </nav>
-        )}
-
-        <main className="flex-grow-1 overflow-auto route-fade">
-          <div className="container-fluid">
-            <Routes>
-              <Route 
-                path="/login" 
-                element={!user ? (
-                  <Login setUser={setUser} />
-                ) : (
-                  <Navigate to={checkUserRole(user) === 'client' ? "/reports" : "/inventory"} replace />
-                )} 
-              />
-              <Route path="/" element={<Navigate to="/login" replace />} />
-              <Route element={<ProtectedRoute user={user} />}>
-                <Route path="/inventory" element={<Inventory />} />
-                <Route path="/profile" element={<ProfileView updateUser={updateUser} />} />
-                <Route path="/global/race" element={<BreedManagement />} />
-
-                <Route path="/users/clients" element={<Clients />} />
-                <Route path="/users/clients/:id" element={<ClientDetails />} />
-
-                <Route path="/users/veterinary" element={<Veterinary />} />
-                <Route path="/users/veterinary/new" element={<VeterinaryDetails />} />
-                <Route path="/users/veterinary/:id" element={<VeterinaryDetails />} />
-                
-                <Route path="/gestion/inputs" element={<Inputs />} />
-                <Route path="/gestion/inputs/:id" element={<InputsDetails />} />
-                <Route path="/gestion/outputs" element={<Outputs />} />
-                <Route path="/gestion/outputs/:id" element={<OutputsDetails />} />
-                <Route path="/admin/users" element={<Admins />} />
-                <Route path="/admin/users/:id" element={<AdminDetails />} />
-                <Route path="/user/inventary" element={<BullsByClient />} />
-
-                <Route path="/bulls" element={<Bulls />} />
-                <Route path="/bulls/:id/edit" element={<BullEdit />} />
-                <Route path="/embryo-production" element={<EmbryoProduction />} />
-                <Route path="/opus-summary" element={<OpusSummary />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/transfer-report" element={<TransferReport />} />
-                <Route path="/transfer-summary" element={<TransferSummary />} />
-                <Route path="/transfer-detail/:id" element={<TransferReportDetail />} />
-                <Route path="/reportdetails/:id" element={<ReportDetails />} />
-                <Route path="/calendar" element={<Calendar />} />
-              </Route>
-              <Route path="*" element={<p>There's nothing here: 404!</p>} />
-            </Routes>
-          </div>
-        </main>
       </div>
-    </div>
+    </AppProvider>
   );
 };
 

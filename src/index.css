@@ -2,7 +2,7 @@
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  font-size: 0.87rem;
+  font-size: 0.75rem;
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
@@ -25,10 +25,10 @@ a:hover {
 
 html, body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 h1 {

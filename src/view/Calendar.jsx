@@ -365,9 +365,9 @@ const Calendar = () => {
         client_name: newTask.clientName,
         client_id: parseInt(newTask.clientId),
         start_date: newTask.startDate,
-        start_time: newTask.startTime || '09:00',
+        start_time: '09:00',
         end_date: newTask.endDate || newTask.startDate,
-        end_time: newTask.endTime || '17:00',
+        end_time: '17:00',
         veterinarian: newTask.veterinarian,
         location: newTask.location,
         description: newTask.description || '',
@@ -1195,20 +1195,6 @@ const Calendar = () => {
                         />
                       </div>
                     </div>
-                    <div className="col-md-6">
-                      <div className="mb-3">
-                        <label className="form-label">Hora de Inicio</label>
-                        <input
-                          type="time"
-                          className="form-control"
-                          value={newTask.startTime}
-                          onChange={(e) => setNewTask(prev => ({
-                            ...prev,
-                            startTime: e.target.value
-                          }))}
-                        />
-                      </div>
-                    </div>
                   </div>
 
                   <div className="row">
@@ -1222,20 +1208,6 @@ const Calendar = () => {
                           onChange={(e) => setNewTask(prev => ({
                             ...prev,
                             endDate: e.target.value
-                          }))}
-                        />
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <div className="mb-3">
-                        <label className="form-label">Hora de Fin</label>
-                        <input
-                          type="time"
-                          className="form-control"
-                          value={newTask.endTime}
-                          onChange={(e) => setNewTask(prev => ({
-                            ...prev,
-                            endTime: e.target.value
                           }))}
                         />
                       </div>

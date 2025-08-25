@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { usersApi } from "../Api";
 import { getBullsByClient, getAvailableBullsByClient } from "../Api/bulls";
@@ -55,6 +55,7 @@ const EmbryoProduction = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [outputIdUsed, setOutputIdUsed] = useState(null);
   const [remarkValue, setRemarkValue] = useState("");
+  const [saveStatusByEntry, setSaveStatusByEntry] = useState({}); // { [entryId]: { status: 'success'|'error', ts: number } }
 
   // Estados para manejo de errores y loading
   const [loading, setLoading] = useState(false);
@@ -68,6 +69,7 @@ const EmbryoProduction = () => {
   // Estado para el modal de observación
   const [showObservationModal, setShowObservationModal] = useState(false);
   const [observationValue, setObservationValue] = useState("");
+  const observationTextareaRef = useRef(null);
 
   const handleSelectRow = () => {
     setSelectRow(!selectRow);
@@ -176,6 +178,31 @@ const EmbryoProduction = () => {
 
     return () => clearTimeout(timeoutId);
   }, [clientSearchTerm]);
+
+  // Enfocar y mover el cursor al final al abrir el modal de observación
+  useEffect(() => {
+    if (showObservationModal && observationTextareaRef.current) {
+      const el = observationTextareaRef.current;
+      // Ubicar el caret al final
+      const len = el.value.length;
+      el.focus();
+      try {
+        el.setSelectionRange(len, len);
+      } catch (_) {
+        // Ignorar navegadores que no soporten setSelectionRange en textarea
+      }
+      // Asegurar scroll al final
+      try {
+        el.scrollTop = el.scrollHeight;
+        // En algunos navegadores, asegurar después del render
+        setTimeout(() => {
+          el.scrollTop = el.scrollHeight;
+        }, 0);
+      } catch (_) {
+        // Ignorar errores de scroll
+      }
+    }
+  }, [showObservationModal]);
 
   // Nueva función para cargar producciones embrionarias
   const loadEmbryoProductions = async (client) => {
@@ -424,11 +451,27 @@ const EmbryoProduction = () => {
         return [prev];
       });
       setEditingInputId(null);
-      // Mostrar modal de confirmación
-      setShowConfirmModal(true);
+      // Marcar guardado exitoso de forma no intrusiva y limpiar luego
+      setSaveStatusByEntry((prev) => ({ ...prev, [input.id]: { status: 'success', ts: Date.now() } }));
+      setTimeout(() => {
+        setSaveStatusByEntry((prev) => {
+          const copy = { ...prev };
+          delete copy[input.id];
+          return copy;
+        });
+      }, 3000);
     } catch (error) {
       setUpdateError(error.message);
       setSemenEntries((prev) => [...prev]);
+      // Mostrar estado de error no intrusivo
+      setSaveStatusByEntry((prev) => ({ ...prev, [input.id]: { status: 'error', ts: Date.now() } }));
+      setTimeout(() => {
+        setSaveStatusByEntry((prev) => {
+          const copy = { ...prev };
+          delete copy[input.id];
+          return copy;
+        });
+      }, 3000);
     } finally {
       setUpdateLoading(false);
     }
@@ -575,9 +618,9 @@ const EmbryoProduction = () => {
   const handleUpdateBasicData = async () => {
     try {
       setLoading(true);
+      // No sobrescribir observación desde este botón; conservar la bitácora existente
       await productionApi.updateProduction(production.id, {
         ...embryoProductionData,
-        observacion: observationValue,
       });
       alert("Datos básicos actualizados correctamente.");
     } catch (error) {
@@ -591,11 +634,13 @@ const EmbryoProduction = () => {
   const handleSaveObservation = async () => {
     try {
       setLoading(true);
+      // Guardar exactamente lo que el usuario editó (bitácora completa sin timestamp automático)
+      const newLog = observationValue;
       await productionApi.updateProduction(production.id, {
         ...embryoProductionData,
-        observacion: observationValue,
+        observacion: newLog,
       });
-      setEmbryoProductionData((prev) => ({ ...prev, observacion: observationValue }));
+      setEmbryoProductionData((prev) => ({ ...prev, observacion: newLog }));
       setShowObservationModal(false);
       alert("Observación guardada correctamente.");
     } catch (error) {
@@ -827,7 +872,10 @@ const EmbryoProduction = () => {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setShowObservationModal(true)}
+                  onClick={() => {
+                    setObservationValue(embryoProductionData.observacion || '');
+                    setShowObservationModal(true);
+                  }}
                   disabled={production === null}
                 >
                   <i className="bi bi-chat-left-text me-1"></i>
@@ -1435,18 +1483,26 @@ const EmbryoProduction = () => {
                               </button>
                             </div>
                           ) : (
-                            <button
-                              className="btn btn-primary btn-sm"
-                              onClick={() => handleStartEdit(entry)}
-                              disabled={parseFloat(entry.total) <= 0}
-                              title={
-                                parseFloat(entry.total) <= 0
-                                  ? "No hay cantidad disponible"
-                                  : "Editar cantidad utilizada"
-                              }
-                            >
-                              <i className="bi bi-pencil" />
-                            </button>
+                            <div className="d-flex align-items-center gap-2">
+                              <button
+                                className="btn btn-primary btn-sm"
+                                onClick={() => handleStartEdit(entry)}
+                                disabled={parseFloat(entry.total) <= 0}
+                                title={
+                                  parseFloat(entry.total) <= 0
+                                    ? "No hay cantidad disponible"
+                                    : "Editar cantidad utilizada"
+                                }
+                              >
+                                <i className="bi bi-pencil" />
+                              </button>
+                              {saveStatusByEntry[entry.id]?.status === 'success' && (
+                                <span className="badge bg-success">Guardado</span>
+                              )}
+                              {saveStatusByEntry[entry.id]?.status === 'error' && (
+                                <span className="badge bg-danger">Error</span>
+                              )}
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -1482,46 +1538,7 @@ const EmbryoProduction = () => {
         </div>
       )}
 
-      {/* Modal de confirmación final */}
-      {showConfirmModal && (
-        <div
-          className="modal"
-          style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
-        >
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Confirmar y Guardar Producción</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowConfirmModal(false)}
-                ></button>
-              </div>
-              <div className="modal-body">
-                <p>¿Desea guardar los cambios y finalizar la producción embrionaria?</p>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowConfirmModal(false)}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleFinalSave}
-                  disabled={loading}
-                >
-                  {loading ? "Guardando..." : "Guardar y Finalizar"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal de confirmación final eliminado para permitir flujo continuo de múltiples toros */}
 
       {/* Modal para observación */}
       {showObservationModal && (
@@ -1540,6 +1557,7 @@ const EmbryoProduction = () => {
                   onChange={(e) => setObservationValue(e.target.value)}
                   placeholder="Ingrese la observación del proceso..."
                   disabled={loading}
+                  ref={observationTextareaRef}
                 />
               </div>
               <div className="modal-footer">

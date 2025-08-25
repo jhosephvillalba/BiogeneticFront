@@ -19,6 +19,7 @@ import { getOutputById, getOutputs } from "../Api/outputs";
 import { getInputById } from "../Api/inputs";
 import { getBull } from "../Api/bulls";
 import { getRaceById } from "../Api/races";
+import { descargarInformeProduccionPdf } from "../Api/informes";
 
 ChartJS.register(
   CategoryScale,
@@ -40,6 +41,7 @@ const ReportDetails = () => {
   const [error, setError] = useState(null);
   const [muestraInfo, setMuestraInfo] = useState(null);
   const [resumenToros, setResumenToros] = useState([]);
+  const [downloading, setDownloading] = useState(false);
 
   const handleDate = (date) => {
     // Convertimos a objeto Date
@@ -116,6 +118,18 @@ const ReportDetails = () => {
     };
 
     html2pdf().set(opt).from(element).save();
+  };
+
+  const handleDownloadInformePdf = async () => {
+    try {
+      setDownloading(true);
+      await descargarInformeProduccionPdf(id);
+    } catch (e) {
+      console.error('Error descargando informe PDF:', e);
+      setError('No se pudo descargar el informe PDF');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   if (loading) return <div className="container p-4">Cargando informe...</div>;
@@ -268,10 +282,25 @@ const ReportDetails = () => {
   // console.log({ data: registros, production: production });
   return (
     <div className="container-xl py-4" style={{ fontSize: '0.97rem', minHeight: '100vh' }}>
-      <button className="btn btn-secondary mb-3 mt-3" onClick={() => navigate(-1)}>
-        <i className="bi bi-arrow-left me-1"></i>
-        Volver a la lista
-      </button>
+      <div className="d-flex align-items-center mb-3 mt-3 gap-2">
+        <button className="btn btn-secondary" onClick={() => navigate(-1)}>
+          <i className="bi bi-arrow-left me-1"></i>
+          Volver a la lista
+        </button>
+        <button className="btn btn-primary" onClick={handleDownloadInformePdf} disabled={downloading}>
+          {downloading ? (
+            <>
+              <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+              Descargando...
+            </>
+          ) : (
+            <>
+              <i className="bi bi-download me-1"></i>
+              Descargar informe PDF
+            </>
+          )}
+        </button>
+      </div>
 
       <div className="mx-auto" style={{ maxWidth: 1600 }} ref={reportRef}>
         <div className="card mb-4 shadow-sm border-0">

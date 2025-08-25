@@ -24,7 +24,7 @@ export const getAllTransferencias = async (skip = 0, limit = 100, search = null)
 
 // Crear transferencia
 export const createTransferencia = async (data) => {
-  const response = await axios.post('/transferencias/', data);
+  const response = await axios.post('/transferencias', data);
   return response.data;
 };
 

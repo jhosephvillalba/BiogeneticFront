@@ -8,6 +8,7 @@ import * as inputsApi from './inputs';
 import * as outputsApi from './outputs';
 import * as opusApi from './opus';
 import * as calendarApi from './calendar';
+import * as informesApi from './informes';
 
 // No es necesario crear otra instancia de axios aquí,
 // ya que estamos usando la configurada en axios.js
@@ -23,7 +24,8 @@ export {
   inputsApi, 
   outputsApi,
   opusApi,
-  calendarApi
+  calendarApi,
+  informesApi
 };
 
 // Exportación por defecto (todas las APIs juntas)
@@ -37,7 +39,8 @@ const api = {
   sexes: sexesApi,
   roles: rolesApi,
   opus: opusApi,
-  calendar: calendarApi
+  calendar: calendarApi,
+  informes: informesApi
 };
 
 export default api;

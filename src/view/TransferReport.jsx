@@ -22,6 +22,8 @@ const TransferReport = () => {
   const [loadingOpus, setLoadingOpus] = useState(false);
   const [currentTransferId, setCurrentTransferId] = useState(null);
   const [isReportSaved, setIsReportSaved] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
 
   // Estados para los campos editables de cada fila
   const [rowsData, setRowsData] = useState({});
@@ -90,7 +92,7 @@ const TransferReport = () => {
         // Usar getAllProductions con el número de documento del cliente como filtro
         const response = await getAllProductions({
           query: selectedClient.number_document // Filtrar por número de documento del cliente
-        }, 0, 100); // Obtener hasta 100 producciones
+        }, 0, 15); // Obtener inicialmente 15 producciones
 
         // Procesar la respuesta según su formato
         let productionsList = [];
@@ -193,6 +195,7 @@ const TransferReport = () => {
           }));
 
           setTransferRows(savedRows);
+          setCurrentPage(1);
           
           // Inicializar los datos editables con los valores guardados
           const savedRowsData = {};
@@ -234,6 +237,7 @@ const TransferReport = () => {
           });
 
           setTransferRows(rows);
+          setCurrentPage(1);
           
           // Inicializar los datos editables para cada fila
           const initialRowsData = {};
@@ -275,6 +279,7 @@ const TransferReport = () => {
         });
 
         setTransferRows(rows);
+        setCurrentPage(1);
         
         // Inicializar los datos editables para cada fila
         const initialRowsData = {};
@@ -378,6 +383,7 @@ const TransferReport = () => {
       });
 
       setTransferRows(rows);
+      setCurrentPage(1);
       
       // Inicializar los datos editables para cada fila
       const initialRowsData = {};
@@ -413,6 +419,7 @@ const TransferReport = () => {
       }));
 
       setTransferRows(rows);
+      setCurrentPage(1);
       
       // Inicializar los datos editables con los valores guardados
       const initialRowsData = {};
@@ -893,7 +900,9 @@ const TransferReport = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {transferRows.map(row => (
+                  {transferRows
+                    .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                    .map(row => (
                     <tr key={row.id}>
                       <td>{row.rowNumber}</td>
                       <td>{row.donadora}</td>
@@ -966,6 +975,29 @@ const TransferReport = () => {
                   ))}
                 </tbody>
               </table>
+              {/* Paginación */}
+              {transferRows.length > pageSize && (
+                <nav aria-label="Paginación tabla" className="d-flex justify-content-between align-items-center">
+                  <span className="text-muted small">
+                    Mostrando {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, transferRows.length)} de {transferRows.length}
+                  </span>
+                  <ul className="pagination pagination-sm mb-0">
+                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                      <button className="page-link" onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>Anterior</button>
+                    </li>
+                    {Array.from({ length: Math.ceil(transferRows.length / pageSize) }, (_, i) => i + 1)
+                      .slice(Math.max(0, currentPage - 3), currentPage + 2)
+                      .map(page => (
+                        <li key={page} className={`page-item ${page === currentPage ? 'active' : ''}`}>
+                          <button className="page-link" onClick={() => setCurrentPage(page)}>{page}</button>
+                        </li>
+                      ))}
+                    <li className={`page-item ${currentPage >= Math.ceil(transferRows.length / pageSize) ? 'disabled' : ''}`}>
+                      <button className="page-link" onClick={() => setCurrentPage(p => Math.min(Math.ceil(transferRows.length / pageSize), p + 1))}>Siguiente</button>
+                    </li>
+                  </ul>
+                </nav>
+              )}
             </div>
 
             {loadingOpus && (
