@@ -3,7 +3,7 @@ import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-r
 import { ProtectedRoute } from "./Components/ProtetedRoute";
 import api from './Api/index.js';
 import { AppProvider } from './context/AppContext';
-import LoadingIndicator from './components/LoadingIndicator';
+import LoadingIndicator from './Components/LoadingIndicator';
 import "./App.css";
 
 // Importar componentes con lazy loading para mejorar rendimiento
