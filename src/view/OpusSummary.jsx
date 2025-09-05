@@ -22,13 +22,10 @@ const OpusSummary = () => {
     totalItems: 0,
   });
 
-  const handleDate = (date) => {
-    // Convertimos a objeto Date
-    console.log("-->>>>>>>>>>>>", date);
+  const calculateTransferDate = (date) => {
+    if (!date) return null;
     const dateObj = new Date(date);
-    // Sumamos 5 días
-    dateObj.setDate(dateObj.getDate() + 5);
-    // Formateamos nuevamente en formato YYYY-MM-DD
+    dateObj.setDate(dateObj.getDate() + 8); // Sumar 8 días
     return dateObj.toISOString().split("T")[0];
   };
 
@@ -379,7 +376,7 @@ const OpusSummary = () => {
                             <td>{formatTime(record.hora_inicio)}</td>
                             <td>{formatTime(record.hora_final)}</td>
                             <td>{record.envase || "-"}</td>
-                            <td>{formatDate(handleDate(record.fecha_opu))}</td>
+                            <td>{formatDate(calculateTransferDate(record.fecha_opu))}</td>
                             <td>{formatDate(record.created_at)}</td>
                           </tr>
                         ))}

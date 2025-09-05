@@ -43,13 +43,22 @@ const ReportDetails = () => {
   const [resumenToros, setResumenToros] = useState([]);
   const [downloading, setDownloading] = useState(false);
 
-  const handleDate = (date) => {
-    // Convertimos a objeto Date
-    // console.log("-->>>>>>>>>>>>", date);
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    // Aseguramos que la fecha se interprete como UTC para evitar desfases de zona horaria
+    const date = new Date(dateString + 'T00:00:00Z');
+    return date.toLocaleDateString("es-CO", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  };
+
+  const calculateTransferDate = (date) => {
+    if (!date) return null;
     const dateObj = new Date(date);
-    // Sumamos 5 días
-    dateObj.setDate(dateObj.getDate() + 5);
-    // Formateamos nuevamente en formato YYYY-MM-DD
+    dateObj.setDate(dateObj.getDate() + 8); // Sumar 8 días
     return dateObj.toISOString().split("T")[0];
   };
 
@@ -323,13 +332,13 @@ const ReportDetails = () => {
                   </tr>
                   <tr>
                     <th>FECHA OPU</th>
-                    <td>{production.fecha_opu}</td>
+                    <td>{formatDate(production.fecha_opu)}</td>
                     <th>FINCA</th>
                     <td>{production.finca}</td>
                     <th>HORA FINAL OPU</th>
                     <td>{production.hora_final}</td>
                     <th>FECHA DE TRANSFERENCIA</th>
-                    <td>{handleDate(production.fecha_opu)}</td>
+                    <td>{formatDate(calculateTransferDate(production.fecha_opu))}</td>
                   </tr>
                 </tbody>
               </table>

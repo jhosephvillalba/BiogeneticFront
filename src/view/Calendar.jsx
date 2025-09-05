@@ -271,35 +271,34 @@ const Calendar = () => {
     return `${clientName.replace(/\s+/g, '_').toLowerCase()}_task_${existingTasks.length + 1}`;
   };
 
-  // Generar tareas automáticas para una semana
-  const generateWeeklyTasks = (clientName, startDate, veterinarian, location) => {
-    const taskSuffix = generateTaskSuffix(clientName);
-    const start = new Date(startDate);
+  // Generar tareas semanales localmente como fallback
+  const generateWeeklyTasks = (startDate, clientName, veterinarian, location, taskSuffix) => {
+    const start = parseYMDToLocalDate(startDate); // Usar el helper para evitar problemas de TZ
     const tasks = [];
 
-    // Definir las tareas de la semana con colores específicos
-    const weeklyTasks = [
-      { day: 0, name: 'Opus', type: 'opus', color: { background: '#f8d7da', foreground: '#721c24' } },
-      { day: 1, name: 'FIV', type: 'fiv', color: { background: '#d1ecf1', foreground: '#0c5460' } },
-      { day: 2, name: 'CIV', type: 'civ', color: { background: '#e2e3e5', foreground: '#383d41' } },
-      { day: 3, name: 'CIV', type: 'civ', color: { background: '#e2e3e5', foreground: '#383d41' } },
-      { day: 4, name: 'D3', type: 'd3', color: { background: '#fff3cd', foreground: '#856404' } },
-      { day: 5, name: 'D5', type: 'd5', color: { background: '#d4edda', foreground: '#155724' } },
-      { day: 6, name: 'Previsión', type: 'prevision', color: { background: '#cce5ff', foreground: '#004085' } },
-      { day: 7, name: 'Informe', type: 'informe', color: { background: '#f8f9fa', foreground: '#6c757d' } }
+    // Definir las tareas según la nueva lógica
+    const weeklyTasksConfig = [
+      { dayOffset: 0, name: 'OPUS', type: 'opus' },
+      { dayOffset: 1, name: 'Día 0', type: 'd0' },
+      { dayOffset: 2, name: 'Día 1', type: 'd1' },
+      { dayOffset: 3, name: 'Día 2', type: 'd2' },
+      { dayOffset: 4, name: 'Día 3', type: 'd3' },
+      { dayOffset: 5, name: 'Día 4', type: 'd4' },
+      { dayOffset: 6, name: 'Día 5', type: 'd5' },
+      { dayOffset: 7, name: 'Día 6', type: 'd6' },
+      { dayOffset: 8, name: 'Día 7', type: 'd7' },
     ];
 
-    weeklyTasks.forEach((task, index) => {
+    weeklyTasksConfig.forEach((taskConfig, index) => {
       const taskDate = new Date(start);
-      taskDate.setDate(start.getDate() + task.day);
+      taskDate.setDate(start.getDate() + taskConfig.dayOffset);
       
       tasks.push({
-        id: `${taskSuffix}_${index + 1}`,
-        summary: task.name,
-        description: `${task.name} para ${clientName}`,
+        summary: taskConfig.name,
+        description: `${taskConfig.name} para ${clientName}`,
         clientName: clientName,
-        taskName: task.name,
-        taskType: task.type,
+        taskName: taskConfig.name,
+        taskType: taskConfig.type,
         start: {
           date: toLocalYMD(taskDate),
           dateTime: `${toLocalYMD(taskDate)} 09:00`
@@ -312,7 +311,6 @@ const Calendar = () => {
         location: location,
         status: 'pending',
         suffix: taskSuffix,
-        color: task.color
       });
     });
 
@@ -360,59 +358,46 @@ const Calendar = () => {
     try {
       setLoading(true);
       
-      // Preparar datos para la API
-      const taskData = {
-        client_name: newTask.clientName,
-        client_id: parseInt(newTask.clientId),
-        start_date: newTask.startDate,
-        start_time: '09:00',
-        end_date: newTask.endDate || newTask.startDate,
-        end_time: '17:00',
-        veterinarian: newTask.veterinarian,
-        location: newTask.location,
-        description: newTask.description || '',
-        created_by: 1, // TODO: Obtener ID del usuario actual
-        status: 'pending',
-        template_id: parseInt(newTask.templateId) || 1
-      };
+      const taskSuffix = generateTaskSuffix(newTask.clientName);
+      const tasksToCreate = generateWeeklyTasks(
+        newTask.startDate,
+        newTask.clientName,
+        newTask.veterinarian,
+        newTask.location,
+        taskSuffix
+      );
 
-      // Crear tareas semanales usando el nuevo servicio
-      console.log('Enviando datos al servicio:', taskData);
-      
-      // Verificar que el template existe
-      const selectedTemplate = templates.find(t => t.id === parseInt(newTask.templateId));
-      if (!selectedTemplate) {
-        throw new Error('El template seleccionado no existe. Por favor, seleccione otro template.');
-      }
-      
-      const createdTasks = await calendarServices.createWeeklyTasks(taskData);
-      console.log('Respuesta del servicio:', createdTasks);
-      
-      // Actualizar el estado con las nuevas tareas
-      let tasksArray = [];
-      
-      if (Array.isArray(createdTasks)) {
-        tasksArray = createdTasks;
-      } else if (createdTasks && Array.isArray(createdTasks.data)) {
-        tasksArray = createdTasks.data;
-      } else if (createdTasks && createdTasks.tasks) {
-        tasksArray = Array.isArray(createdTasks.tasks) ? createdTasks.tasks : [];
-      } else if (createdTasks && typeof createdTasks === 'object') {
-        // Si es un objeto con propiedades de tarea
-        tasksArray = [createdTasks];
-      }
+      const creationPromises = tasksToCreate.map(task => {
+        const taskData = {
+          client_id: parseInt(newTask.clientId),
+          client_name: task.clientName,
+          task_name: task.taskName,
+          task_type: task.taskType,
+          summary: task.summary,
+          description: task.description,
+          start_date: task.start.date,
+          start_time: '09:00',
+          end_date: task.end.date,
+          end_time: '17:00',
+          veterinarian: task.veterinarian,
+          location: task.location,
+          status: 'pending',
+          suffix: task.suffix,
+          created_by: 1, // TODO: ID de usuario
+        };
+        return calendarServices.createTask(taskData);
+      });
 
-      const normalizedNewTasks = normalizeTasksArray(tasksArray);
+      const createdTasksResponses = await Promise.all(creationPromises);
+      const createdTasks = createdTasksResponses.map(res => res.data || res);
+
+      const normalizedNewTasks = normalizeTasksArray(createdTasks);
       
       if (normalizedNewTasks.length > 0) {
         setTasks(prev => [...prev, ...normalizedNewTasks]);
         setFilteredTasks(prev => [...prev, ...normalizedNewTasks]);
       } else {
-        console.warn('No se recibieron tareas del servicio, creando localmente');
-        // Crear tareas localmente como fallback
-        const localTasks = generateWeeklyTasks(newTask.clientName, newTask.startDate, newTask.veterinarian, newTask.location);
-        setTasks(prev => [...prev, ...localTasks]);
-        setFilteredTasks(prev => [...prev, ...localTasks]);
+        console.warn('La API no devolvió tareas creadas, pero la operación pudo haber sido exitosa.');
       }
 
       // Limpiar formulario
