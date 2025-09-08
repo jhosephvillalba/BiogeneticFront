@@ -120,6 +120,37 @@ import axios from './instance';
     }
   };
 
+  /**
+   * Obtiene todas las producciones embrionarias de un cliente específico por su ID
+   * GET /produccion-embrionaria/cliente/{cliente_id}
+   */
+  export const getProductionsByClientId = async (clienteId, skip = 0, limit = 100) => {
+    try {
+      const params = new URLSearchParams();
+      params.append('skip', skip);
+      params.append('limit', limit);
+      
+      const queryString = params.toString();
+      const uri = `/produccion-embrionaria/cliente/${clienteId}?${queryString}`;
+      
+      console.log('URL de la petición:', uri);
+      console.log('Parámetros enviados:', { clienteId, skip, limit });
+      
+      const response = await axios.get(uri);
+      
+      console.log('Respuesta del servidor:', {
+        dataLength: Array.isArray(response.data) ? response.data.length : 'No es array',
+        clienteId: clienteId,
+        responseType: typeof response.data
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener producciones por cliente ID:', error);
+      throw error;
+    }
+  };
+
 
 
 
@@ -129,6 +160,9 @@ import productionEmbryonaryService from './productionEmbrionary.js';
 
 // Obtener todas las producciones (Admin)
 const productions = await productionEmbryonaryService.getAllProductions();
+
+// Obtener producciones por cliente ID
+const clientProductions = await productionEmbryonaryService.getProductionsByClientId(123, 0, 50);
 
 // Crear nueva producción
 const newProduction = await productionEmbryonaryService.createProduction({

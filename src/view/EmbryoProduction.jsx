@@ -65,6 +65,14 @@ const EmbryoProduction = () => {
   // Nuevos estados para producciones embrionarias
   const [embryoProductions, setEmbryoProductions] = useState([]);
   const [selectedProduction, setSelectedProduction] = useState(null);
+  
+  // Estados para paginación
+  const [pagination, setPagination] = useState({
+    skip: 0,
+    limit: 20,
+    hasMore: true,
+    loadingMore: false
+  });
 
   // Estado para el modal de observación
   const [showObservationModal, setShowObservationModal] = useState(false);
@@ -108,6 +116,13 @@ const EmbryoProduction = () => {
     setRemarkValue("");
     setObservationValue("");
     setOutputIdUsed(null);
+    // Resetear paginación
+    setPagination({
+      skip: 0,
+      limit: 20,
+      hasMore: true,
+      loadingMore: false
+    });
   };
 
   // ✅ Implementar función loadClients
@@ -204,20 +219,55 @@ const EmbryoProduction = () => {
     }
   }, [showObservationModal]);
 
-  // Nueva función para cargar producciones embrionarias
-  const loadEmbryoProductions = async (client) => {
+  // Nueva función para cargar producciones embrionarias con paginación
+  const loadEmbryoProductions = async (client, resetPagination = true) => {
     try {
       if (!client) return;
       
-      console.log('Buscando producciones para cliente:', client.id, client.full_name, client.number_document);
-      const productions = await productionApi.getAllProductions({
-        query: client.number_document
-      });
+      // Si es reset, limpiar las producciones existentes
+      if (resetPagination) {
+        setEmbryoProductions([]);
+        setPagination({
+          skip: 0,
+          limit: 20,
+          hasMore: true,
+          loadingMore: false
+        });
+      }
+      
+      const currentSkip = resetPagination ? 0 : pagination.skip;
+      
+      console.log('Buscando producciones para cliente:', client.id, 'skip:', currentSkip);
+      const productions = await productionApi.getProductionsByClientId(
+        client.id, 
+        currentSkip, 
+        pagination.limit
+      );
+      
       console.log('Producciones encontradas para cliente', client.id, ':', productions);
-      setEmbryoProductions(productions);
+      
+      if (resetPagination) {
+        setEmbryoProductions(productions);
+      } else {
+        setEmbryoProductions(prev => [...prev, ...productions]);
+      }
+      
+      // Actualizar estado de paginación
+      setPagination(prev => ({
+        ...prev,
+        skip: currentSkip + productions.length,
+        hasMore: productions.length === pagination.limit,
+        loadingMore: false
+      }));
+      
     } catch (error) {
       console.warn("No se encontraron datos de producciones embrionarias:", error);
       setError("No se encontraron datos");
+      setPagination(prev => ({
+        ...prev,
+        loadingMore: false,
+        hasMore: false
+      }));
     }
   };
 
@@ -257,8 +307,8 @@ const EmbryoProduction = () => {
     });
     // Primero cargar los toros disponibles
     await loadClientBulls(client.id);
-    // Luego cargar las producciones pasando el cliente directamente
-    await loadEmbryoProductions(client);
+    // Luego cargar las producciones pasando el cliente directamente (reset paginación)
+    await loadEmbryoProductions(client, true);
   };
 
   const handleSubmit = (e) => {
@@ -279,17 +329,15 @@ const EmbryoProduction = () => {
   };
 
   // Agregar nueva fila a la tabla
-  const handleAddNewRow = async () => {
+ const handleAddNewRow = async () => {
     // Recargar toros disponibles antes de agregar nueva fila
     if (selectedClient) {
       await loadClientBulls(selectedClient.id);
     }
-    
+   
     setOpusRows((prevRows) => {
       const maxOrder = prevRows.length > 0 ? Math.max(...prevRows.map(r => r.order || 0)) : 0;
-      return [
-        ...prevRows,
-        {
+      const newRow = {
           donante_code: "",
           race: "",
           toro: "",
@@ -311,8 +359,8 @@ const EmbryoProduction = () => {
           produccion_embrionaria_id: production?.id,
           order: maxOrder + 1,
           isExisting: false,
-        },
-      ];
+        };
+      return [...prevRows, newRow];
     });
   };
 
@@ -436,6 +484,7 @@ const EmbryoProduction = () => {
         quantity_output: (newQty - currentTaken).toFixed(1),
         output_date: new Date().toISOString(),
         remark: remarkValue || "Sin comentario",
+        produccion_embrionaria_id: production?.id, // Relacionar con la producción embrionaria actual
       });
 
       // Guardar el id del output para asociarlo a la producción
@@ -462,7 +511,6 @@ const EmbryoProduction = () => {
       }, 3000);
     } catch (error) {
       setUpdateError(error.message);
-      setSemenEntries((prev) => [...prev]);
       // Mostrar estado de error no intrusivo
       setSaveStatusByEntry((prev) => ({ ...prev, [input.id]: { status: 'error', ts: Date.now() } }));
       setTimeout(() => {
@@ -481,69 +529,95 @@ const EmbryoProduction = () => {
   const handleSaveProduction = async () => {
     try {
       setLoading(true);
+      
       // Crear solo los registros nuevos
-      const createPromises = opusRows
-        .filter(row => !row.isExisting)
-        .map((row, idx) =>
-          opusApi.createOpus({
-            ...row,
-            order: row.order || idx + 1,
-            gi: parseInt(row.gi) || 0,
-            gii: parseInt(row.gii) || 0,
-            giii: parseInt(row.giii) || 0,
-            otros: parseInt(row.otros) || 0,
-            ctv: parseInt(row.ctv) || 0,
-            clivados: parseInt(row.clivados) || 0,
-            prevision: parseInt(row.prevision) || 0,
-            empaque: parseInt(row.empaque) || 0,
-            vt_dt: parseInt(row.vt_dt) || 0,
-            cliente_id: selectedClient.id,
-            lugar: embryoProductionData.lugar,
-            finca: embryoProductionData.finca,
-            fecha: embryoProductionData.fecha_opu,
-            porcentaje_cliv: `${row.ctv > 0 ? Math.round((parseInt(row.clivados) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-            porcentaje_prevision: `${row.ctv > 0 ? Math.round((parseInt(row.prevision) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-            porcentaje_empaque: `${row.ctv > 0 ? Math.round((parseInt(row.empaque) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-            porcentaje_vtdt: `${row.ctv > 0 ? Math.round((parseInt(row.vt_dt) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-            total_embriones: Math.round((parseInt(row.prevision) || 0)),
-            porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.prevision) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-          })
-        );
+      const newRows = opusRows.filter(row => !row.isExisting);
+      const createPromises = newRows.map((row, idx) =>
+        opusApi.createOpus({
+          ...row,
+          order: row.order || idx + 1,
+          gi: parseInt(row.gi) || 0,
+          gii: parseInt(row.gii) || 0,
+          giii: parseInt(row.giii) || 0,
+          otros: parseInt(row.otros) || 0,
+          ctv: parseInt(row.ctv) || 0,
+          clivados: parseInt(row.clivados) || 0,
+          prevision: parseInt(row.prevision) || 0,
+          empaque: parseInt(row.empaque) || 0,
+          vt_dt: parseInt(row.vt_dt) || 0,
+          cliente_id: selectedClient.id,
+          lugar: embryoProductionData.lugar,
+          finca: embryoProductionData.finca,
+          fecha: embryoProductionData.fecha_opu,
+          porcentaje_cliv: `${row.ctv > 0 ? Math.round((parseInt(row.clivados) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+          porcentaje_prevision: `${row.ctv > 0 ? Math.round((parseInt(row.prevision) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+          porcentaje_empaque: `${row.ctv > 0 ? Math.round((parseInt(row.empaque) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+          porcentaje_vtdt: `${row.ctv > 0 ? Math.round((parseInt(row.vt_dt) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+          total_embriones: Math.round((parseInt(row.prevision) || 0)),
+          porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.prevision) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+        })
+        .catch(error => {
+          console.error("Error al crear registro OPU:", error);
+          throw error; // Re-lanzar el error para que se maneje en el catch principal
+        })
+      );
+      
       // Actualizar los registros existentes que hayan cambiado
-      const updatePromises = opusRows
-        .filter(row => row.isExisting && row.original && hasOpusChanged(row, row.original))
-        .map(row =>
-          opusApi.updateOpus(row.id, {
-            ...row,
-            order: row.order,
-            gi: parseInt(row.gi) || 0,
-            gii: parseInt(row.gii) || 0,
-            giii: parseInt(row.giii) || 0,
-            otros: parseInt(row.otros) || 0,
-            ctv: parseInt(row.ctv) || 0,
-            clivados: parseInt(row.clivados) || 0,
-            prevision: parseInt(row.prevision) || 0,
-            empaque: parseInt(row.empaque) || 0,
-            vt_dt: parseInt(row.vt_dt) || 0,
-            cliente_id: selectedClient.id,
-            lugar: embryoProductionData.lugar,
-            finca: embryoProductionData.finca,
-            fecha: embryoProductionData.fecha_opu,
-            porcentaje_cliv: `${row.ctv > 0 ? Math.round((parseInt(row.clivados) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-            porcentaje_prevision: `${row.ctv > 0 ? Math.round((parseInt(row.prevision) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-            porcentaje_empaque: `${row.ctv > 0 ? Math.round((parseInt(row.empaque) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-            porcentaje_vtdt: `${row.ctv > 0 ? Math.round((parseInt(row.vt_dt) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-            total_embriones: Math.round((parseInt(row.prevision) || 0)),
-            porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.prevision) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
-          })
-        );
-      await Promise.all([...createPromises, ...updatePromises]);
+      const existingRows = opusRows.filter(row => row.isExisting && row.original && hasOpusChanged(row, row.original));
+      const updatePromises = existingRows.map(row =>
+        opusApi.updateOpus(row.id, {
+          ...row,
+          order: row.order,
+          gi: parseInt(row.gi) || 0,
+          gii: parseInt(row.gii) || 0,
+          giii: parseInt(row.giii) || 0,
+          otros: parseInt(row.otros) || 0,
+          ctv: parseInt(row.ctv) || 0,
+          clivados: parseInt(row.clivados) || 0,
+          prevision: parseInt(row.prevision) || 0,
+          empaque: parseInt(row.empaque) || 0,
+          vt_dt: parseInt(row.vt_dt) || 0,
+          cliente_id: selectedClient.id,
+          lugar: embryoProductionData.lugar,
+          finca: embryoProductionData.finca,
+          fecha: embryoProductionData.fecha_opu,
+          porcentaje_cliv: `${row.ctv > 0 ? Math.round((parseInt(row.clivados) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+          porcentaje_prevision: `${row.ctv > 0 ? Math.round((parseInt(row.prevision) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+          porcentaje_empaque: `${row.ctv > 0 ? Math.round((parseInt(row.empaque) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+          porcentaje_vtdt: `${row.ctv > 0 ? Math.round((parseInt(row.vt_dt) || 0) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+          total_embriones: Math.round((parseInt(row.prevision) || 0)),
+          porcentaje_total_embriones: `${row.ctv > 0 ? Math.round(((parseInt(row.prevision) || 0)) / (parseInt(row.ctv) || 1) * 100) : 0}%`,
+        })
+        .catch(error => {
+          console.error("Error al actualizar registro OPU:", error);
+          throw error; // Re-lanzar el error para que se maneje en el catch principal
+        })
+      );
+      
+      // Ejecutar todas las operaciones
+      const results = await Promise.all([...createPromises, ...updatePromises]);
+      
+      // Actualizar el estado local con los registros creados (que ahora tienen IDs)
+      const createdRecords = results.slice(0, newRows.length);
+      const updatedOpusRows = opusRows.map((row, index) => {
+        if (!row.isExisting) {
+          // Encontrar el registro creado correspondiente
+          const createdRecord = createdRecords[index];
+          if (createdRecord) {
+            return {
+              ...row,
+              id: createdRecord.id,
+              isExisting: true,
+              original: { ...createdRecord }
+            };
+          }
+        }
+        return row;
+      });
+      
+      setOpusRows(updatedOpusRows);
       alert("Producción embrionaria guardada correctamente.");
-      // Recargar los opus de la producción actual
-      if (production?.id) {
-        const opusRecords = await opusApi.getOpusByProduction(production.id);
-        setOpusRows(mapOpusRecords(opusRecords));
-      }
+      
       // Abrir modal de unidades utilizadas automáticamente
       handleOpenSemenModal();
     } catch (error) {
@@ -564,15 +638,25 @@ const EmbryoProduction = () => {
     return keys.some(key => row[key] !== original[key]);
   }
 
+  // Función para cargar más producciones (scroll infinito)
+  const loadMoreProductions = async () => {
+    if (!selectedClient || !pagination.hasMore || pagination.loadingMore) return;
+    
+    setPagination(prev => ({ ...prev, loadingMore: true }));
+    await loadEmbryoProductions(selectedClient, false);
+  };
+
   // Función helper para mapear registros OPU preservando valores 0
-  const mapOpusRecords = (opusRecords) => {
-    return opusRecords.map((r, idx) => ({
-      ...r,
-      order: r.order || idx + 1,
-      isExisting: true,
-      original: { ...r },
-      // Asegurar que los valores numéricos se preserven correctamente, incluyendo 0
-      gi: r.gi !== null && r.gi !== undefined ? r.gi : 0,
+ const mapOpusRecords = (opusRecords) => {
+    return opusRecords.map((r, idx) => {
+     const order = r.order !== null && r.order !== undefined ? r.order : idx + 1;
+      return {
+       ...r,
+       order: order,
+       isExisting: true,
+       original: { ...r },
+       // Asegurar que los valores numéricos se preserven correctamente, incluyendo 0
+       gi: r.gi !== null && r.gi !== undefined ? r.gi : 0,
       gii: r.gii !== null && r.gii !== undefined ? r.gii : 0,
       giii: r.giii !== null && r.giii !== undefined ? r.giii : 0,
       otros: r.otros !== null && r.otros !== undefined ? r.otros : 0,
@@ -583,8 +667,10 @@ const EmbryoProduction = () => {
       prevision: r.prevision !== null && r.prevision !== undefined ? r.prevision : 0,
       empaque: r.empaque !== null && r.empaque !== undefined ? r.empaque : 0,
       vt_dt: r.vt_dt !== null && r.vt_dt !== undefined ? r.vt_dt : 0,
-    }));
-  };
+    };
+
+  })};
+
 
   // Guardar output_ids en la producción y redirigir
   const handleFinalSave = async () => {
@@ -762,7 +848,7 @@ const EmbryoProduction = () => {
             )}
           </div>
 
-          {/* Nuevo selector de producciones embrionarias */}
+          {/* Selector de producciones embrionarias con scroll infinito */}
           <div className="card mb-4">
             <div className="card-header">
               <h5>Producciones Embrionarias</h5>
@@ -807,7 +893,7 @@ const EmbryoProduction = () => {
                       output_ids: production.output_ids || [],
                       envase: production.envase || "",
                       fecha_transferencia: production.fecha_transferencia || new Date().toISOString().split("T")[0],
-                      observacion:production.observacion,
+                      observacion: production.observacion,
                     });
                   } else {
                     setSelectedProduction(null);
@@ -827,16 +913,36 @@ const EmbryoProduction = () => {
                     setOpusRows([]);
                   }
                 }}
+                onScroll={(e) => {
+                  const { scrollTop, scrollHeight, clientHeight } = e.target;
+                  // Cargar más cuando esté cerca del final (80% del scroll)
+                  if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+                    loadMoreProductions();
+                  }
+                }}
+                style={{ maxHeight: "200px" }}
+                size="8"
               >
                 <option value="">Seleccione una producción</option>
                 {embryoProductions
                   .filter(prod => prod.cliente_id === selectedClient?.id)
                   .map(prod => (
                     <option key={prod.id} value={prod.id}>
-                      Producción #{prod.id} - {prod.fecha_opu}
+                      Producción #{prod.id} - {prod.fecha_opu} - {prod.lugar || 'Sin lugar'} ({prod.total_opus || 0} OPU)
                     </option>
                   ))}
+                {pagination.loadingMore && (
+                  <option disabled>
+                    Cargando más producciones...
+                  </option>
+                )}
+                {!pagination.hasMore && embryoProductions.length > 0 && (
+                  <option disabled>
+                    --- No hay más producciones disponibles ---
+                  </option>
+                )}
               </select>
+              
               {selectedProduction && (
                 <div className="mt-2">
                   <small className="text-muted">
@@ -844,11 +950,27 @@ const EmbryoProduction = () => {
                   </small>
                 </div>
               )}
+              
               {embryoProductions.length > 0 && (
                 <div className="mt-2">
                   <small className="text-info">
                     <i className="bi bi-info-circle me-1"></i>
-                    {embryoProductions.filter(prod => prod.cliente_id === selectedClient?.id).length} producción(es) encontrada(s) para este cliente
+                    {embryoProductions.filter(prod => prod.cliente_id === selectedClient?.id).length} producción(es) cargada(s) para este cliente
+                    {pagination.hasMore && (
+                      <span className="ms-2">
+                        <i className="bi bi-arrow-down-circle me-1"></i>
+                        Desplácese hacia abajo para cargar más
+                      </span>
+                    )}
+                  </small>
+                </div>
+              )}
+              
+              {embryoProductions.length === 0 && !pagination.loadingMore && (
+                <div className="mt-2">
+                  <small className="text-muted">
+                    <i className="bi bi-exclamation-circle me-1"></i>
+                    No se encontraron producciones para este cliente
                   </small>
                 </div>
               )}
@@ -1293,7 +1415,6 @@ const EmbryoProduction = () => {
                                     )}%`
                                   : "0%"}
                               </td>
-                              
                               <td>
                                 <input
                                   type="number"
@@ -1575,5 +1696,6 @@ const EmbryoProduction = () => {
     </div>
   );
 };
+
 
 export default EmbryoProduction;
