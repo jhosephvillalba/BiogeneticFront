@@ -388,7 +388,7 @@ const BreedManagement = () => {
       </div>
 
       {/* Estilos personalizados */}
-      <style jsx>{`
+      <style>{`
         .breed-management {
           background-color: #f8f9fa;
         }

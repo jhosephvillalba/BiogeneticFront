@@ -200,7 +200,7 @@ const Reports = () => {
                     </tr>
                   ) : (    
                     filteredOpus.map((opus, index) => (
-                      <tr key={index}>
+                      <tr key={report.id || `report-${index}`}>
                         <td>{opus.id}</td>
                         <td>{opus.fecha}</td>
                         <td>{opus.envase}</td>

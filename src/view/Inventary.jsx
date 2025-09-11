@@ -314,8 +314,8 @@ timeZone: 'UTC'
           >
             <i className={`bi bi-arrow-clockwise ${loading ? 'd-none' : ''}`}></i>
             {loading ? (
-              <span className="spinner-border spinner-border-sm" role="status"></span>
-            ) : 'Actualizar'}
+              <span key="loading-spinner" className="spinner-border spinner-border-sm" role="status"></span>
+            ) : <span key="refresh-text">Actualizar</span>}
           </button>
         </div>
       </div>
@@ -455,7 +455,7 @@ timeZone: 'UTC'
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
+                  <tr key="loading-row">
                     <td colSpan="9" className="text-center py-4">
                       <div className="spinner-border text-primary" role="status">
                         <span className="visually-hidden">Cargando...</span>
@@ -464,23 +464,23 @@ timeZone: 'UTC'
                     </td>
                   </tr>
                 ) : error ? (
-                  <tr>
+                  <tr key="error-row">
                     <td colSpan="9" className="text-center text-danger py-3">
                       <i className="bi bi-exclamation-triangle-fill me-2"></i>
                       {typeof error === 'string' ? error : 'Error al cargar los datos'}
                     </td>
                   </tr>
                 ) : entries.length === 0 ? (
-                  <tr>
+                  <tr key="no-data-row">
                     <td colSpan="9" className="text-center text-muted py-4">
                       <i className="bi bi-database-exclamation me-2"></i>
                       No se encontraron entradas con los filtros aplicados
                     </td>
                   </tr>
                 ) : (
-                  entries.map(entry => (
+                  entries.map((entry, index) => (
                     <tr 
-                      key={entry.id} 
+                      key={entry.id || `entry-${index}`} 
                       onClick={() => handleRowClick(entry.input_id)}
                       className="cursor-pointer"
                     >
@@ -576,7 +576,7 @@ timeZone: 'UTC'
       </div>
 
       {/* Estilos personalizados */}
-      <style jsx>{`
+      <style>{`
         .inventory-view {
           background-color: #f8fafc;
         }

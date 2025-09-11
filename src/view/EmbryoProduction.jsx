@@ -1215,7 +1215,7 @@ const EmbryoProduction = () => {
                           </tr>
                         ) : (
                           opusRows.map((row, index) => (
-                            <tr key={index}>
+                            <tr key={row.id || `opus-row-${index}`}>
                               <td>
                                 <input
                                   type="text"
@@ -1528,7 +1528,7 @@ const EmbryoProduction = () => {
                   </thead>
                   <tbody>
                     {semenEntries.map((entry, index) => (
-                      <tr key={index}>
+                      <tr key={entry.id || `semen-entry-${index}`}>
                         <td>{entry.bull.name}</td>
                         <td>{entry.bull.registration_number}</td>
                         <td>{entry.lote}</td>

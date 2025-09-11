@@ -77,7 +77,7 @@ const Login = ({ setUser }) => {
           )}
           
           {!showForgotPassword ? (
-            <div className="card shadow-lg border-0">
+            <div key="login-form" className="card shadow-lg border-0">
               <div className="card-body">
                 <h2 className="card-title text-center mb-4 fw-bold text-primary">Iniciar Sesión</h2>
                 <form onSubmit={handleLogin}>
@@ -120,15 +120,15 @@ const Login = ({ setUser }) => {
                       disabled={loading}
                     >
                       {loading ? (
-                        <>
+                        <React.Fragment key="loading-state">
                           <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                           Autenticando...
-                        </>
+                        </React.Fragment>
                       ) : (
-                        <>
+                        <React.Fragment key="normal-state">
                           <i className="bi bi-box-arrow-in-right me-2"></i>
                           Ingresar
-                        </>
+                        </React.Fragment>
                       )}
                     </button>
                   </div>
@@ -147,7 +147,7 @@ const Login = ({ setUser }) => {
               </div>
             </div>
           ) : (
-            <div className="card shadow-lg border-0">
+            <div key="forgot-password-form" className="card shadow-lg border-0">
               <div className="card-body">
                 <h2 className="card-title text-center mb-4 fw-bold text-primary">
                   <i className="bi bi-key me-2"></i>

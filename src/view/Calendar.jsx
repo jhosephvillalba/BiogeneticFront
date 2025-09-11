@@ -832,7 +832,7 @@ const Calendar = () => {
             
             return (
               <div
-                key={index}
+                key={`day-${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`}
                 className={`calendar-day ${
                   !isCurrentMonth ? 'other-month' : ''
                 } ${isToday ? 'today' : ''}`}

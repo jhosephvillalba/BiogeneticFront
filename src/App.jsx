@@ -178,11 +178,12 @@ const App = () => {
       <div className="d-flex min-vh-100 w-100">
         {/* Sidebar - Diferente según el rol */}
         {!isLoginPage && sidebarVisible && (
-          <div className="sidebar d-flex flex-column justify-content-between text-white">
+          <div key="main-sidebar" className="sidebar d-flex flex-column justify-content-between text-white">
             {/* Parte superior - Perfil - Común para todos los usuarios */}
             <div className="sidebar-profile text-center">
               {user?.profile_image_url ? (
               <img
+                  key="user-avatar"
                   src={user.profile_image_url}
                 className="rounded-circle mb-3 border border-light"
                 width="80"
@@ -191,7 +192,7 @@ const App = () => {
                   style={{ objectFit: "cover" }}
               />
               ) : (
-                <span className="placeholder rounded-circle d-inline-block bg-secondary mb-3 border border-light" style={{ width: 80, height: 80, lineHeight: "80px", textAlign: "center", fontSize: "2rem", color: "#fff" }}>
+                <span key="default-avatar" className="placeholder rounded-circle d-inline-block bg-secondary mb-3 border border-light" style={{ width: 80, height: 80, lineHeight: "80px", textAlign: "center", fontSize: "2rem", color: "#fff" }}>
                   <i className="bi bi-person" />
                 </span>
               )}
@@ -202,7 +203,7 @@ const App = () => {
             {/* Navegación - Condicional según el rol */}
             {isClient ? (
               // Navegación para clientes
-              <nav className="sidebar-nav">
+              <nav key="client-nav" className="sidebar-nav">
                 <div className="sidebar-section">
                   <div className="sidebar-title">Panel</div>
                   <Link to="/user/inventary" className={`sidebar-item${isActive('/user/inventary') ? ' active' : ''}`}>
@@ -221,7 +222,7 @@ const App = () => {
               </nav>
             ) : (
               // Navegación para administradores y otros roles
-              <nav className="sidebar-nav">
+              <nav key="admin-nav" className="sidebar-nav">
                 <div className="sidebar-section">
                   <div className="sidebar-title">Inicio</div>
                   <Link to="/inventory" className={`sidebar-item${isActive('/inventory') ? ' active' : ''}`}>
@@ -308,9 +309,9 @@ const App = () => {
         )}
 
         {/* Contenido principal */}
-        <div className="d-flex flex-column flex-grow-1 overflow-hidden main-content">
+        <div key="main-content" className="d-flex flex-column flex-grow-1 overflow-hidden main-content">
           {!isLoginPage && (
-            <nav className="navbar navbar-light bg-white shadow-sm d-flex justify-content-between align-items-center">
+            <nav key="top-navbar" className="navbar navbar-light bg-white shadow-sm d-flex justify-content-between align-items-center">
               <div className="d-flex align-items-center">
                 <button
                   className="btn btn-outline-secondary me-3"

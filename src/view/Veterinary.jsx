@@ -121,9 +121,9 @@ const Veterinary = () => {
                 disabled={loading}
               >
                 {loading ? (
-                  <span className="spinner-border spinner-border-sm" role="status"></span>
+                  <span key="loading-spinner" className="spinner-border spinner-border-sm" role="status"></span>
                 ) : (
-                  <i className="bi bi-arrow-clockwise"></i>
+                  <i key="refresh-icon" className="bi bi-arrow-clockwise"></i>
                 )}
               </button>
             </div>
@@ -153,7 +153,7 @@ const Veterinary = () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
+              <tr key="loading-row">
                 <td colSpan="4" className="text-center py-4">
                   <div className="spinner-border text-primary" role="status">
                     <span className="visually-hidden">Cargando...</span>
@@ -162,14 +162,14 @@ const Veterinary = () => {
                 </td>
               </tr>
             ) : error ? (
-              <tr>
+              <tr key="error-row">
                 <td colSpan="4" className="text-center text-danger py-3">
                   <i className="bi bi-exclamation-triangle-fill me-2"></i>
                   {error}
                 </td>
               </tr>
             ) : veterinarians.length === 0 ? (
-              <tr>
+              <tr key="no-data-row">
                 <td colSpan="4" className="text-center text-muted py-4">
                   <i className="bi bi-people me-2"></i>
                   {filter.searchTerm ? 
@@ -243,7 +243,7 @@ const Veterinary = () => {
       )}
 
       {/* Estilos personalizados */}
-      <style jsx>{`
+      <style>{`
         .veterinary-view {
           background-color: #f8fafc;
         }

@@ -838,7 +838,7 @@ const Bulls = () => {
                     ),
                   }).map((_, index) => (
                     <li
-                      key={index}
+                      key={bull.id || `bull-${index}`}
                       className={`page-item ${
                         pagination.currentPage === index + 1 ? "active" : ""
                       }`}
