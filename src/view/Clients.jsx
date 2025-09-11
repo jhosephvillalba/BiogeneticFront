@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../Api';
 
@@ -74,9 +74,62 @@ const Clients = () => {
   };
 
   // Manejar click en fila
-  const handleRowClick = (id) => {
+  const handleRowClick = useCallback((id) => {
     navigate(`/users/clients/${id}`);
-  };
+  }, [navigate]);
+
+  // Memoizar el contenido de la tabla
+  const tableContent = useMemo(() => {
+    if (loading) {
+      return (
+        <tr key="loading-row">
+          <td colSpan="4" className="text-center py-4">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Cargando...</span>
+            </div>
+            <p className="mt-2">Buscando clientes...</p>
+          </td>
+        </tr>
+      );
+    }
+
+    if (error) {
+      return (
+        <tr key="error-row">
+          <td colSpan="4" className="text-center text-danger py-3">
+            <i className="bi bi-exclamation-triangle-fill me-2"></i>
+            {error}
+          </td>
+        </tr>
+      );
+    }
+
+    if (clients.length === 0) {
+      return (
+        <tr key="no-data-row">
+          <td colSpan="4" className="text-center text-muted py-4">
+            <i className="bi bi-people me-2"></i>
+            {filter.searchTerm ? 
+              'No se encontraron clientes con ese criterio' : 
+              'No hay clientes registrados'}
+          </td>
+        </tr>
+      );
+    }
+
+    return clients.map(client => (
+      <tr 
+        key={client.id}
+        onClick={() => handleRowClick(client.id)}
+        className="cursor-pointer"
+      >
+        <td className="fw-semibold">#{client.id}</td>
+        <td>{client.number_document || 'Sin documento'}</td>
+        <td>{client.full_name || 'Sin nombre'}</td>
+        <td>{client.email || 'Sin correo'}</td>
+      </tr>
+    ));
+  }, [loading, error, clients, filter.searchTerm, handleRowClick]);
 
   // Manejar click en botón nuevo
   const handleNewClient = () => {
@@ -152,45 +205,7 @@ const Clients = () => {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr key="loading-row">
-                <td colSpan="4" className="text-center py-4">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Cargando...</span>
-                  </div>
-                  <p className="mt-2">Buscando clientes...</p>
-                </td>
-              </tr>
-            ) : error ? (
-              <tr key="error-row">
-                <td colSpan="4" className="text-center text-danger py-3">
-                  <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                  {error}
-                </td>
-              </tr>
-            ) : clients.length === 0 ? (
-              <tr key="no-data-row">
-                <td colSpan="4" className="text-center text-muted py-4">
-                  <i className="bi bi-people me-2"></i>
-                  {filter.searchTerm ? 
-                    'No se encontraron clientes con ese criterio' : 
-                    'No hay clientes registrados'}
-                </td>
-              </tr>
-            ) : (
-              clients.map(client => (
-                <tr 
-                  key={client.id}
-                  onClick={() => handleRowClick(client.id)}
-                  className="cursor-pointer"
-                >
-                  <td className="fw-semibold">#{client.id}</td>
-                  <td>{client.number_document || 'Sin documento'}</td>
-                  <td>{client.full_name || 'Sin nombre'}</td>
-                  <td>{client.email || 'Sin correo'}</td>
-                </tr>
-              ))
-            )}
+            {tableContent}
           </tbody>
         </table>
       </div>

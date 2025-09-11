@@ -4,6 +4,7 @@ import { ProtectedRoute } from "./Components/ProtetedRoute";
 import api from './Api/index.js';
 import { AppProvider } from './context/AppContext';
 import LoadingIndicator from './Components/LoadingIndicator';
+import ErrorBoundary from './Components/ErrorBoundary';
 import "./App.css";
 
 // Importar componentes con lazy loading para mejorar rendimiento
@@ -173,9 +174,10 @@ const App = () => {
   };
 
   return (
-    <AppProvider>
-      <LoadingIndicator />
-      <div className="d-flex min-vh-100 w-100">
+    <ErrorBoundary>
+      <AppProvider>
+        <LoadingIndicator />
+        <div className="d-flex min-vh-100 w-100">
         {/* Sidebar - Diferente según el rol */}
         {!isLoginPage && sidebarVisible && (
           <div key="main-sidebar" className="sidebar d-flex flex-column justify-content-between text-white">
@@ -387,7 +389,8 @@ const App = () => {
           </main>
         </div>
       </div>
-    </AppProvider>
+      </AppProvider>
+    </ErrorBoundary>
   );
 };
 
