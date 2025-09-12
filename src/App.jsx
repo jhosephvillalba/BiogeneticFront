@@ -58,18 +58,26 @@ const App = () => {
 
   // Actualizar cómo detectamos el rol del usuario
   const checkUserRole = (user) => {
+    console.log("checkUserRole - user:", user);
+    console.log("checkUserRole - user.roles:", user?.roles);
+    
     if (!user || !user.roles || !Array.isArray(user.roles)) {
+      console.log("checkUserRole - returning unknown (no roles)");
       return 'unknown';
     }
     
     // Buscar roles por prioridad (admin > user > client)
     if (user.roles.some(role => role.id === 1 || role.name === 'Admin')) {
+      console.log("checkUserRole - returning admin");
       return 'admin';
     } else if (user.roles.some(role => role.id === 2 || role.name === 'User')) {
+      console.log("checkUserRole - returning user");
       return 'user';
     } else if (user.roles.some(role => role.id === 3 || role.name === 'Client')) {
+      console.log("checkUserRole - returning client");
       return 'client';
     } else {
+      console.log("checkUserRole - returning unknown (no matching role)");
       return 'unknown';
     }
   };
@@ -95,6 +103,7 @@ const App = () => {
         if (isMounted) setLoading(true);
 
         const userData = await api.auth.getCurrentUser();
+        console.log("App.jsx - userData from API:", userData);
         if (isMounted) {
           setUser(userData);
         }
@@ -204,21 +213,21 @@ const App = () => {
 
             {/* Navegación - Condicional según el rol */}
             {isClient ? (
-              // Navegación para clientes
+              // Navegación para clientes - Solo: Historial de Producciones, Toros, Perfil
               <nav key="client-nav" className="sidebar-nav">
                 <div className="sidebar-section">
                   <div className="sidebar-title">Panel</div>
-                  <Link to="/user/inventary" className={`sidebar-item${isActive('/user/inventary') ? ' active' : ''}`}>
-                    <i className="bi bi-box-arrow-in-right me-2"></i> Inventario
-                  </Link>
                   <Link to="/reports" className={`sidebar-item${isActive('/reports') ? ' active' : ''}`}>
-                    <i className="bi bi-file-text me-2"></i> Informes
+                    <i className="bi bi-clipboard2-pulse me-2"></i> Historial de Producciones
+                  </Link>
+                  <Link to="/user/inventary" className={`sidebar-item${isActive('/user/inventary') ? ' active' : ''}`}>
+                    <i className="bi bi-database me-2"></i> Toros
                   </Link>
                 </div>
                 <div className="sidebar-section">
                   <div className="sidebar-title">Cuenta</div>
                   <Link to="/profile" className={`sidebar-item${isActive('/profile') ? ' active' : ''}`}>
-                    <i className="bi bi-person-circle me-2"></i> Mi Perfil
+                    <i className="bi bi-person-circle me-2"></i> Perfil
                   </Link>
                 </div>
               </nav>
@@ -344,11 +353,7 @@ const App = () => {
                 <Routes>
                   <Route 
                     path="/login" 
-                    element={!user ? (
-                      <Login setUser={setUser} />
-                    ) : (
-                      <Navigate to={checkUserRole(user) === 'client' ? "/reports" : "/inventory"} replace />
-                    )} 
+                    element={<Login setUser={setUser} />} 
                   />
                   <Route path="/" element={<Navigate to="/login" replace />} />
                   <Route element={<ProtectedRoute user={user} />}>

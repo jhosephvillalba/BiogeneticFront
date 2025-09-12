@@ -21,8 +21,12 @@ const Login = ({ setUser }) => {
     try {
       const authResponse = await authApi.login({ email, password });
       
+      // Obtener el perfil completo del usuario después del login
+      const userProfile = await authApi.getCurrentUser();
+      
       setUser({
         token: authResponse.access_token,
+        ...userProfile
       });
 
       navigate("/inventory");
@@ -118,17 +122,18 @@ const Login = ({ setUser }) => {
                       type="submit" 
                       className="btn btn-primary btn-lg"
                       disabled={loading}
+                      key="login-button"
                     >
                       {loading ? (
-                        <React.Fragment key="loading-state">
+                        <span key="loading-content">
                           <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                           Autenticando...
-                        </React.Fragment>
+                        </span>
                       ) : (
-                        <React.Fragment key="normal-state">
+                        <span key="normal-content">
                           <i className="bi bi-box-arrow-in-right me-2"></i>
                           Ingresar
-                        </React.Fragment>
+                        </span>
                       )}
                     </button>
                   </div>
