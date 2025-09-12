@@ -196,11 +196,11 @@ const Reports = () => {
                 <tbody>
                   {filteredOpus.length === 0 ? (
                     <tr>
-                      <td colSpan="8" className="text-center">No hay registros disponibles</td>
+                      <td colSpan="9" className="text-center">No hay registros disponibles</td>
                     </tr>
                   ) : (    
                     filteredOpus.map((opus, index) => (
-                      <tr key={report.id || `report-${index}`}>
+                      <tr key={opus.id || `opus-${index}`}>
                         <td>{opus.id}</td>
                         <td>{opus.fecha}</td>
                         <td>{opus.envase}</td>
