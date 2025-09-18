@@ -15,6 +15,7 @@ const BullPerformance = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [usingMockData, setUsingMockData] = useState(false);
+  const [summaryStats, setSummaryStats] = useState(null);
 
   // Estado para búsqueda de clientes
   const [clientSearchTerm, setClientSearchTerm] = useState("");
@@ -22,11 +23,30 @@ const BullPerformance = () => {
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
 
+  // Función para normalizar datos de la API
+  const normalizeApiData = (rawData) => {
+    if (!rawData) return [];
+    
+    return rawData.map((item, index) => ({
+      id: item.id || `bull-${index}`,
+      nombre: item.toro || 'Sin nombre',
+      raza: item.raza || 'N/A',
+      lote: item.lote || 'N/A',
+      registro: item.registro || 'N/A',
+      donantes_fertilizadas: Number(item.donantes_fertilizadas || 0),
+      oocitos_civ: Number(item.ovocitos_civ || 0),
+      porcentaje_produccion: Number(item.porcentaje_produccion || 0),
+      client_id: item.client_id || null,
+      client_name: item.client_name || 'Cliente desconocido'
+    }));
+  };
+
   // Paginación
   const [pagination, setPagination] = useState({
     currentPage: 1,
-    itemsPerPage: 10,
-    totalItems: 0
+    itemsPerPage: 15,
+    totalItems: 0,
+    hasMore: true
   });
 
   // Datos de ejemplo para el desarrollo (simulando datos de la API)
@@ -64,6 +84,186 @@ const BullPerformance = () => {
       donantes_fertilizadas: 890,
       oocitos_civ: 11200,
       porcentaje_produccion: 35,
+      client_id: 1,
+      client_name: "Cliente Ejemplo 1"
+    },
+    {
+      id: 4,
+      nombre: "RAYO",
+      raza: "BR",
+      lote: "L004",
+      registro: "667788 ICA209GH13",
+      donantes_fertilizadas: 720,
+      oocitos_civ: 9500,
+      porcentaje_produccion: 45,
+      client_id: 3,
+      client_name: "Cliente Ejemplo 3"
+    },
+    {
+      id: 5,
+      nombre: "ESTRELLA",
+      raza: "AB",
+      lote: "L005",
+      registro: "778899 ICA209GH14",
+      donantes_fertilizadas: 680,
+      oocitos_civ: 8800,
+      porcentaje_produccion: 38,
+      client_id: 2,
+      client_name: "Cliente Ejemplo 2"
+    },
+    {
+      id: 6,
+      nombre: "TRUENO",
+      raza: "BR",
+      lote: "L006",
+      registro: "889900 ICA209GH15",
+      donantes_fertilizadas: 920,
+      oocitos_civ: 11500,
+      porcentaje_produccion: 41,
+      client_id: 1,
+      client_name: "Cliente Ejemplo 1"
+    },
+    {
+      id: 7,
+      nombre: "VIENTO",
+      raza: "AB",
+      lote: "L007",
+      registro: "990011 ICA209GH16",
+      donantes_fertilizadas: 580,
+      oocitos_civ: 7800,
+      porcentaje_produccion: 33,
+      client_id: 3,
+      client_name: "Cliente Ejemplo 3"
+    },
+    {
+      id: 8,
+      nombre: "SOL",
+      raza: "BR",
+      lote: "L008",
+      registro: "001122 ICA209GH17",
+      donantes_fertilizadas: 850,
+      oocitos_civ: 10200,
+      porcentaje_produccion: 39,
+      client_id: 2,
+      client_name: "Cliente Ejemplo 2"
+    },
+    {
+      id: 9,
+      nombre: "LUNA",
+      raza: "AB",
+      lote: "L009",
+      registro: "112233 ICA209GH18",
+      donantes_fertilizadas: 740,
+      oocitos_civ: 9200,
+      porcentaje_produccion: 44,
+      client_id: 1,
+      client_name: "Cliente Ejemplo 1"
+    },
+    {
+      id: 10,
+      nombre: "MAR",
+      raza: "BR",
+      lote: "L010",
+      registro: "223344 ICA209GH19",
+      donantes_fertilizadas: 690,
+      oocitos_civ: 8600,
+      porcentaje_produccion: 36,
+      client_id: 3,
+      client_name: "Cliente Ejemplo 3"
+    },
+    {
+      id: 11,
+      nombre: "MONTAÑA",
+      raza: "AB",
+      lote: "L011",
+      registro: "334455 ICA209GH20",
+      donantes_fertilizadas: 810,
+      oocitos_civ: 9800,
+      porcentaje_produccion: 42,
+      client_id: 2,
+      client_name: "Cliente Ejemplo 2"
+    },
+    {
+      id: 12,
+      nombre: "RIO",
+      raza: "BR",
+      lote: "L012",
+      registro: "445566 ICA209GH21",
+      donantes_fertilizadas: 760,
+      oocitos_civ: 9400,
+      porcentaje_produccion: 40,
+      client_id: 1,
+      client_name: "Cliente Ejemplo 1"
+    },
+    {
+      id: 13,
+      nombre: "VOLCAN",
+      raza: "AB",
+      lote: "L013",
+      registro: "556677 ICA209GH22",
+      donantes_fertilizadas: 820,
+      oocitos_civ: 10100,
+      porcentaje_produccion: 43,
+      client_id: 2,
+      client_name: "Cliente Ejemplo 2"
+    },
+    {
+      id: 14,
+      nombre: "CASCADA",
+      raza: "BR",
+      lote: "L014",
+      registro: "667788 ICA209GH23",
+      donantes_fertilizadas: 730,
+      oocitos_civ: 8900,
+      porcentaje_produccion: 37,
+      client_id: 3,
+      client_name: "Cliente Ejemplo 3"
+    },
+    {
+      id: 15,
+      nombre: "BOSQUE",
+      raza: "AB",
+      lote: "L015",
+      registro: "778899 ICA209GH24",
+      donantes_fertilizadas: 680,
+      oocitos_civ: 8200,
+      porcentaje_produccion: 35,
+      client_id: 1,
+      client_name: "Cliente Ejemplo 1"
+    },
+    {
+      id: 16,
+      nombre: "DESIERTO",
+      raza: "BR",
+      lote: "L016",
+      registro: "889900 ICA209GH25",
+      donantes_fertilizadas: 790,
+      oocitos_civ: 9600,
+      porcentaje_produccion: 41,
+      client_id: 2,
+      client_name: "Cliente Ejemplo 2"
+    },
+    {
+      id: 17,
+      nombre: "GLACIAR",
+      raza: "AB",
+      lote: "L017",
+      registro: "990011 ICA209GH26",
+      donantes_fertilizadas: 710,
+      oocitos_civ: 8800,
+      porcentaje_produccion: 38,
+      client_id: 3,
+      client_name: "Cliente Ejemplo 3"
+    },
+    {
+      id: 18,
+      nombre: "OCEANO",
+      raza: "BR",
+      lote: "L018",
+      registro: "001122 ICA209GH27",
+      donantes_fertilizadas: 860,
+      oocitos_civ: 10300,
+      porcentaje_produccion: 44,
       client_id: 1,
       client_name: "Cliente Ejemplo 1"
     }
@@ -119,6 +319,8 @@ const BullPerformance = () => {
       // Agregar filtro de cliente si está seleccionado
       if (selectedClient && selectedClient.id) {
         apiFilters.client_id = selectedClient.id;
+      } else if (filters.client_id) {
+        apiFilters.client_id = filters.client_id;
       }
 
       // Agregar filtro de búsqueda general si existe
@@ -127,8 +329,18 @@ const BullPerformance = () => {
       }
 
       console.log("Cargando datos con filtros:", apiFilters);
+      console.log("URL que se enviará:", `/bull-performance/?${new URLSearchParams(apiFilters).toString()}`);
       const response = await getBullPerformanceData(apiFilters);
       console.log("Respuesta de la API:", response);
+      
+      // Log detallado de la estructura de datos
+      if (response && response.data) {
+        console.log("Estructura de datos:", {
+          isArray: Array.isArray(response.data),
+          length: Array.isArray(response.data) ? response.data.length : 'N/A',
+          firstItem: Array.isArray(response.data) && response.data.length > 0 ? response.data[0] : 'No items'
+        });
+      }
       
       // Manejar la respuesta de la API
       if (response) {
@@ -139,16 +351,16 @@ const BullPerformance = () => {
 
         if (Array.isArray(response)) {
           // Si la respuesta es directamente un array
-          data = response;
+          data = normalizeApiData(response);
           total = response.length;
         } else if (response.data && Array.isArray(response.data)) {
-          // Si la respuesta tiene estructura { data: [], total: number, page: number }
-          data = response.data;
-          total = response.total || response.data.length;
+          // Si la respuesta tiene estructura { data: [], total_records: number, page: number, page_size: number }
+          data = normalizeApiData(response.data);
+          total = response.total_records || response.data.length;
           currentPage = response.page || pagination.currentPage;
         } else if (response.items && Array.isArray(response.items)) {
           // Si la respuesta tiene estructura { items: [], total: number }
-          data = response.items;
+          data = normalizeApiData(response.items);
           total = response.total || response.items.length;
         } else {
           console.warn("Formato de respuesta inesperado:", response);
@@ -160,8 +372,10 @@ const BullPerformance = () => {
         setPagination(prev => ({
           ...prev,
           totalItems: total,
-          currentPage: currentPage
+          currentPage: currentPage,
+          hasMore: data.length === pagination.itemsPerPage // Si recibimos menos de 15, no hay más páginas
         }));
+        setSummaryStats(response.summary || null);
         setUsingMockData(false);
       } else {
         // Si no hay respuesta, usar datos mock
@@ -170,7 +384,8 @@ const BullPerformance = () => {
         setPagination(prev => ({
           ...prev,
           totalItems: mockData.length,
-          currentPage: 1
+          currentPage: 1,
+          hasMore: false // En modo mock, no hay más páginas
         }));
         setUsingMockData(true);
       }
@@ -200,7 +415,8 @@ const BullPerformance = () => {
       setPagination(prev => ({
         ...prev,
         totalItems: mockData.length,
-        currentPage: 1
+        currentPage: 1,
+        hasMore: false // En modo mock, no hay más páginas
       }));
       setUsingMockData(true);
     } finally {
@@ -216,7 +432,6 @@ const BullPerformance = () => {
   // Recargar datos cuando cambien los filtros
   useEffect(() => {
     if (selectedClient || filters.query) {
-      // Solo recargar si hay filtros aplicados
       const timer = setTimeout(() => {
         loadPerformanceData();
       }, 500); // Debounce para evitar muchas llamadas
@@ -230,22 +445,16 @@ const BullPerformance = () => {
     loadPerformanceData();
   }, [pagination.currentPage]);
 
-  // Los datos ya vienen filtrados desde la API, no necesitamos filtrar localmente
+  // Los datos ya vienen paginados desde la API
   const filteredData = useMemo(() => {
     return [...performanceData];
   }, [performanceData]);
-
-  // Paginar los resultados filtrados
-  const paginatedData = useMemo(() => {
-    const startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
-    return filteredData.slice(startIndex, startIndex + pagination.itemsPerPage);
-  }, [filteredData, pagination]);
 
   // Manejar cambio en filtros
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    setPagination(prev => ({ ...prev, currentPage: 1, hasMore: true }));
   };
 
   // Limpiar filtros
@@ -256,7 +465,11 @@ const BullPerformance = () => {
     });
     setSelectedClient(null);
     setClientSearchTerm("");
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    setPagination(prev => ({ 
+      ...prev, 
+      currentPage: 1,
+      hasMore: true
+    }));
   };
 
   // Manejar cambio de página
@@ -294,6 +507,52 @@ const BullPerformance = () => {
           </div>
         )}
       </div>
+
+      {/* Panel de Estadísticas */}
+      {summaryStats && !usingMockData && (
+        <div className="row mb-4">
+          <div className="col-md-2">
+            <div className="card bg-primary text-white">
+              <div className="card-body text-center">
+                <h5 className="card-title">{summaryStats.total_toros}</h5>
+                <p className="card-text">Total Toros</p>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-2">
+            <div className="card bg-success text-white">
+              <div className="card-body text-center">
+                <h5 className="card-title">{summaryStats.total_donantes_fertilizadas.toLocaleString()}</h5>
+                <p className="card-text">Donantes Fertilizadas</p>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-2">
+            <div className="card bg-info text-white">
+              <div className="card-body text-center">
+                <h5 className="card-title">{summaryStats.total_ovocitos_civ.toLocaleString()}</h5>
+                <p className="card-text">Ovocitos al CIV</p>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="card bg-warning text-dark">
+              <div className="card-body text-center">
+                <h5 className="card-title">{summaryStats.promedio_porcentaje_produccion.toFixed(2)}%</h5>
+                <p className="card-text">Promedio Producción</p>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="card bg-secondary text-white">
+              <div className="card-body text-center">
+                <h5 className="card-title">{summaryStats.promedio_donantes_por_toro.toFixed(1)}</h5>
+                <p className="card-text">Promedio Donantes/Toro</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="card mb-4">
@@ -396,8 +655,8 @@ const BullPerformance = () => {
             <tr>
               <th width="15%">Nombre</th>
               <th width="10%">Raza</th>
-              <th width="10%">Lote</th>
               <th width="20%">Registro</th>
+              <th width="10%">Lote</th>
               <th width="15%"># Donantes Fertilizadas</th>
               <th width="15%"># Oocitos al CIV</th>
               <th width="10%">% Producción</th>
@@ -421,7 +680,7 @@ const BullPerformance = () => {
                   {error}
                 </td>
               </tr>
-            ) : paginatedData.length === 0 ? (
+            ) : filteredData.length === 0 ? (
               <tr>
                 <td colSpan="8" className="text-center text-muted py-4">
                   <i className="bi bi-graph-up me-2"></i>
@@ -432,17 +691,17 @@ const BullPerformance = () => {
                 </td>
               </tr>
             ) : (
-              paginatedData.map((item) => (
+              filteredData.map((item) => (
                 <tr key={item.id}>
                   <td className="fw-semibold">{item.nombre}</td>
                   <td>{item.raza}</td>
-                  <td>{item.lote}</td>
                   <td>{item.registro}</td>
+                  <td>{item.lote}</td>
                   <td>{item.donantes_fertilizadas.toLocaleString()}</td>
                   <td>{item.oocitos_civ.toLocaleString()}</td>
                   <td>
-                    <span className={`badge ${item.porcentaje_produccion >= 40 ? 'bg-success' : item.porcentaje_produccion >= 30 ? 'bg-warning' : 'bg-danger'}`}>
-                      {item.porcentaje_produccion}%
+                    <span className={`badge ${(item.porcentaje_produccion || 0) >= 40 ? 'bg-success' : (item.porcentaje_produccion || 0) >= 30 ? 'bg-warning' : 'bg-danger'}`}>
+                      {item.porcentaje_produccion || 0}%
                     </span>
                   </td>
                   <td>
@@ -461,7 +720,7 @@ const BullPerformance = () => {
       </div>
 
       {/* Paginación */}
-      {filteredData.length > pagination.itemsPerPage && (
+      {pagination.totalItems > 0 && (
         <div className="d-flex justify-content-center mt-3">
           <nav aria-label="Paginación de rendimiento">
             <ul className="pagination">
@@ -471,33 +730,35 @@ const BullPerformance = () => {
                   onClick={() => handlePageChange(pagination.currentPage - 1)}
                   disabled={pagination.currentPage === 1}
                 >
-                  &laquo;
+                  <i className="bi bi-chevron-left"></i> Anterior
                 </button>
               </li>
 
-              {Array.from({
-                length: Math.ceil(filteredData.length / pagination.itemsPerPage),
-              }).map((_, index) => (
-                <li
-                  key={`page-${index}`}
-                  className={`page-item ${pagination.currentPage === index + 1 ? "active" : ""}`}
-                >
+              {/* Mostrar números de página solo si hay más de una página */}
+              {pagination.currentPage > 1 && (
+                <li className="page-item">
                   <button
                     className="page-link"
-                    onClick={() => handlePageChange(index + 1)}
+                    onClick={() => handlePageChange(pagination.currentPage - 1)}
                   >
-                    {index + 1}
+                    {pagination.currentPage - 1}
                   </button>
                 </li>
-              ))}
+              )}
 
-              <li className={`page-item ${pagination.currentPage === Math.ceil(filteredData.length / pagination.itemsPerPage) ? "disabled" : ""}`}>
+              <li className="page-item active">
+                <button className="page-link">
+                  {pagination.currentPage}
+                </button>
+              </li>
+
+              <li className={`page-item ${!pagination.hasMore ? "disabled" : ""}`}>
                 <button
                   className="page-link"
                   onClick={() => handlePageChange(pagination.currentPage + 1)}
-                  disabled={pagination.currentPage === Math.ceil(filteredData.length / pagination.itemsPerPage)}
+                  disabled={!pagination.hasMore}
                 >
-                  &raquo;
+                  Siguiente <i className="bi bi-chevron-right"></i>
                 </button>
               </li>
             </ul>
@@ -506,10 +767,11 @@ const BullPerformance = () => {
       )}
 
       {/* Resumen de resultados */}
-      {filteredData.length > 0 && (
-        <div className="mt-3 text-muted">
+      {pagination.totalItems > 0 && (
+        <div className="mt-3 text-muted text-center">
           <small>
-            Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, filteredData.length)} de {filteredData.length} registros
+            Página {pagination.currentPage} - Mostrando {filteredData.length} registros
+            {!pagination.hasMore && " (última página)"}
           </small>
         </div>
       )}
