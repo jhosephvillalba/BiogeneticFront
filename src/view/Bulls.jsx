@@ -836,9 +836,13 @@ const Bulls = () => {
                     length: Math.ceil(
                       filteredBulls.length / pagination.itemsPerPage
                     ),
+                  // Esta sección genera los botones de paginación para la tabla de toros.
+                  // Crea un array con la cantidad de páginas necesarias según la cantidad de toros filtrados
+                  // y el número de elementos por página (pagination.itemsPerPage).
+                  // Luego, para cada página, renderiza un botón numerado que permite navegar entre las páginas de la tabla.
                   }).map((_, index) => (
                     <li
-                      key={bull.id || `bull-${index}`}
+                      key={`bull-page-${index}`}
                       className={`page-item ${
                         pagination.currentPage === index + 1 ? "active" : ""
                       }`}

@@ -174,7 +174,7 @@ const TransferSummary = () => {
                   </thead>
                   <tbody>
                     {selectedTransferencia.reportes.map((reporte, index) => (
-                      <tr key={transfer.id || `transfer-summary-${index}`}>
+                      <tr key={reporte.id || `reporte-summary-${index}`}>
                         <td>{index + 1}</td>
                         <td>{reporte.donadora}</td>
                         <td>{reporte.raza_donadora}</td>

@@ -61,6 +61,9 @@ export const changeInputStatus = async (id, statusName) => {
   }
 };
 
+// Alias para compatibilidad
+export const updateInputStatus = changeInputStatus;
+
 // Filtrar inputs por criterios
 export const filterInputs = async (filters = {}, skip = 0, limit = 100) => {
   try {

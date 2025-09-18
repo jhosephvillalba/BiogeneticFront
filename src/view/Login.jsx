@@ -3,6 +3,24 @@ import { useNavigate } from "react-router-dom";
 import { authApi } from "../Api";
 import logo from "../assets/logo.svg";
 
+// Función para detectar el rol del usuario
+const checkUserRole = (user) => {
+  if (!user || !user.roles || !Array.isArray(user.roles)) {
+    return 'unknown';
+  }
+  
+  // Buscar roles por prioridad (admin > user > client)
+  if (user.roles.some(role => role.id === 1 || role.name === 'Admin')) {
+    return 'admin';
+  } else if (user.roles.some(role => role.id === 2 || role.name === 'User')) {
+    return 'user';
+  } else if (user.roles.some(role => role.id === 3 || role.name === 'Client')) {
+    return 'client';
+  } else {
+    return 'unknown';
+  }
+};
+
 const Login = ({ setUser }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +47,13 @@ const Login = ({ setUser }) => {
         ...userProfile
       });
 
-      navigate("/inventory");
+      // Redirigir según el rol del usuario
+      const userRole = checkUserRole(userProfile);
+      if (userRole === 'client') {
+        navigate("/reports");
+      } else {
+        navigate("/inventory");
+      }
     } catch (error) {
       console.error("Error de autenticación:", error);
       setError("No se encontraron sus datos...");

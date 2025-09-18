@@ -376,7 +376,7 @@ const DetailReport = () => {
                 </thead>
                 <tbody>
                   {opuData.registros.map((registro, index) => (
-                    <tr key={reporte.id || `reporte-${index}`}>
+                    <tr key={registro.id || `registro-${index}`}>
                       <td>{index + 1}</td>
                       <td>{registro.donante}</td>
                       <td>{registro.raza}</td>
