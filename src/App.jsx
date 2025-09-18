@@ -33,6 +33,7 @@ const TransferReport = lazy(() => import("./view/TransferReport.jsx"));
 const TransferSummary = lazy(() => import("./view/TransferSummary.jsx"));
 const TransferReportDetail = lazy(() => import("./view/TransferReportDetail.jsx"));
 const Calendar = lazy(() => import("./view/Calendar.jsx"));
+const BullPerformance = lazy(() => import("./view/BullPerformance.jsx"));
 
 const App = () => {
   const location = useLocation();
@@ -262,6 +263,9 @@ const App = () => {
                   <Link to="/opus-summary" className={`sidebar-item${isActive('/opus-summary') ? ' active' : ''}`}>
                     <i className="bi bi-clipboard2-data me-2"></i> Resumen OPUS
                   </Link>
+                  <Link to="/bull-performance" className={`sidebar-item${isActive('/bull-performance') ? ' active' : ''}`}>
+                    <i className="bi bi-graph-up me-2"></i> Bull Performance
+                  </Link>
                 </div>
 
                 <div className="sidebar-section">
@@ -386,6 +390,7 @@ const App = () => {
                     <Route path="/transfer-detail/:id" element={<TransferReportDetail />} />
                     <Route path="/reportdetails/:id" element={<ReportDetails />} />
                     <Route path="/calendar" element={<Calendar />} />
+                    <Route path="/bull-performance" element={<BullPerformance />} />
                   </Route>
                   <Route path="*" element={<p>There's nothing here: 404!</p>} />
                 </Routes>
