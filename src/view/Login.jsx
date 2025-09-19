@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authApi } from "../Api";
 import logo from "../assets/logo.svg";
+import fondoLogin from "../assets/fondo_login.jpg";
 
 // Función para detectar el rol del usuario
 const checkUserRole = (user) => {
@@ -84,20 +85,41 @@ const Login = ({ setUser }) => {
   };
 
   return (
-    <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
-      <div className="row justify-content-center w-100">
-        <div className="col-md-6 col-lg-4">
-          <div className="text-center mb-4">
-            <img 
-              src={logo} 
-              alt="Logo" 
-              className="img-fluid mb-4" 
-              style={{ maxHeight: '140px' }}
-            />
-          </div>
+    <div 
+      className="min-vh-100 d-flex align-items-center justify-content-center"
+      style={{
+        backgroundImage: `url(${fondoLogin})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+        margin: 0,
+        padding: 0,
+        width: '100vw',
+        height: '100vh',
+        position: 'fixed',
+        top: 0,
+        left: 0
+      }}
+    >
+      <div className="row justify-content-center w-100" style={{ margin: 0, padding: 0 }}>
+        <div className="col-md-5 col-lg-3" style={{ padding: 0 }}>
+          {/* Overlay semi-transparente para mejorar la legibilidad */}
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(1.5px)',
+              zIndex: 1
+            }}
+          ></div>
           
           {error && (
-            <div className="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+            <div className="alert alert-danger alert-dismissible fade show shadow-sm" role="alert" style={{ position: 'relative', zIndex: 2, marginBottom: '1rem' }}>
               <i className="bi bi-exclamation-triangle-fill me-2"></i>
               {error}
               <button type="button" className="btn-close" onClick={() => setError("")}></button>
@@ -105,8 +127,16 @@ const Login = ({ setUser }) => {
           )}
           
           {!showForgotPassword ? (
-            <div key="login-form" className="card shadow-lg border-0">
+            <div key="login-form" className="card shadow-lg border-0" style={{ position: 'relative', zIndex: 2, borderRadius: '20px', padding: '0.8rem' }}>
               <div className="card-body">
+                <div className="text-center mb-4">
+                  <img 
+                    src={logo} 
+                    alt="Logo" 
+                    className="img-fluid mb-3" 
+                    style={{ maxHeight: '120px' }}
+                  />
+                </div>
                 <h2 className="card-title text-center mb-4 fw-bold text-primary">Iniciar Sesión</h2>
                 <form onSubmit={handleLogin}>
                   <div className="mb-4">
@@ -176,8 +206,16 @@ const Login = ({ setUser }) => {
               </div>
             </div>
           ) : (
-            <div key="forgot-password-form" className="card shadow-lg border-0">
+            <div key="forgot-password-form" className="card shadow-lg border-0" style={{ position: 'relative', zIndex: 2, borderRadius: '20px', padding: '0.8rem' }}>
               <div className="card-body">
+                <div className="text-center mb-4">
+                  <img 
+                    src={logo} 
+                    alt="Logo" 
+                    className="img-fluid mb-3" 
+                    style={{ maxHeight: '120px' }}
+                  />
+                </div>
                 <h2 className="card-title text-center mb-4 fw-bold text-primary">
                   <i className="bi bi-key me-2"></i>
                   Recuperar Contraseña
