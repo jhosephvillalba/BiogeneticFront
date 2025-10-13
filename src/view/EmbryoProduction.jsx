@@ -1270,7 +1270,7 @@ const EmbryoProduction = () => {
                                   <option value="">Seleccionar Toro</option>
                                   {clientBulls.map((bull) => (
                                     <option key={bull.id} value={bull.id}>
-                                      {bull.name}
+                                      {bull.name + " - " + "Lote: " + bull.lote}
                                     </option>
                                   ))}
                                 </select>
