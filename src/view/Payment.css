@@ -1,0 +1,439 @@
+/* Estilos para la interfaz de pago PSE */
+
+/* Indicador de pasos */
+.step-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  flex: 1;
+}
+
+.step-indicator:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: 60%;
+  width: 80%;
+  height: 2px;
+  background-color: #e0e0e0;
+  z-index: 1;
+}
+
+.step-indicator.active:not(:last-child)::after {
+  background-color: #007bff;
+}
+
+.step-number {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  margin-bottom: 8px;
+  position: relative;
+  z-index: 2;
+}
+
+.step-indicator.active .step-number {
+  background-color: #007bff;
+  color: white;
+}
+
+.step-label {
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.step-indicator.active .step-label {
+  color: #007bff;
+  font-weight: 600;
+}
+
+/* Tarjetas de método de pago */
+.payment-method-card {
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #fff;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+}
+
+.payment-method-card:hover {
+  border-color: #007bff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.15);
+}
+
+.payment-method-card.selected {
+  border-color: #007bff;
+  background-color: #f8f9ff;
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+}
+
+.payment-method-card i {
+  font-size: 1.5rem;
+  color: #007bff;
+  margin-right: 8px;
+}
+
+/* Tarjetas de banco */
+.bank-card {
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #fff;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  min-height: 140px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.bank-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #007bff, #0056b3);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.bank-card:hover {
+  border-color: #007bff;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 123, 255, 0.15);
+}
+
+.bank-card:hover::before {
+  transform: scaleX(1);
+}
+
+.bank-card.selected {
+  border-color: #007bff;
+  background-color: #f8f9ff;
+  box-shadow: 0 6px 12px rgba(0, 123, 255, 0.2);
+}
+
+.bank-card.selected::before {
+  transform: scaleX(1);
+}
+
+.bank-icon {
+  margin-bottom: 12px;
+}
+
+.bank-icon i {
+  font-size: 2.5rem;
+  color: #007bff;
+}
+
+.bank-info {
+  width: 100%;
+}
+
+.bank-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.bank-description {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 6px;
+  line-height: 1.3;
+  font-style: italic;
+}
+
+.bank-code {
+  font-size: 0.75rem;
+  color: #999;
+  font-weight: 500;
+  background-color: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* Formulario de datos del cliente */
+.form-control:disabled {
+  background-color: #f8f9fa;
+  opacity: 0.7;
+}
+
+.form-control:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.form-select:disabled {
+  background-color: #f8f9fa;
+  opacity: 0.7;
+}
+
+/* Botones */
+.btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+  font-weight: 500;
+  padding: 10px 20px;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
+
+.btn-success {
+  background-color: #28a745;
+  border-color: #28a745;
+  font-weight: 500;
+  padding: 12px 24px;
+}
+
+.btn-success:hover {
+  background-color: #218838;
+  border-color: #1e7e34;
+}
+
+.btn-outline-secondary {
+  color: #6c757d;
+  border-color: #6c757d;
+  font-weight: 500;
+}
+
+.btn-outline-secondary:hover {
+  color: #fff;
+  background-color: #6c757d;
+  border-color: #6c757d;
+}
+
+.btn-outline-primary {
+  color: #007bff;
+  border-color: #007bff;
+  font-weight: 500;
+}
+
+.btn-outline-primary:hover {
+  color: #fff;
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+/* Estados de carga */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .step-indicator {
+    margin-bottom: 20px;
+  }
+  
+  .step-indicator:not(:last-child)::after {
+    display: none;
+  }
+  
+  .payment-method-card,
+  .bank-card {
+    margin-bottom: 15px;
+  }
+  
+  .bank-card {
+    min-height: 100px;
+  }
+  
+  .d-flex.justify-content-between {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .d-flex.justify-content-between .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .step-label {
+    font-size: 0.75rem;
+  }
+  
+  .step-number {
+    width: 25px;
+    height: 25px;
+    font-size: 0.875rem;
+  }
+  
+  .payment-method-card,
+  .bank-card {
+    padding: 15px;
+  }
+  
+  .bank-card i {
+    font-size: 1.5rem;
+  }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Estados de validación */
+.form-control.is-invalid {
+  border-color: #dc3545;
+}
+
+.form-control.is-valid {
+  border-color: #28a745;
+}
+
+.invalid-feedback {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #dc3545;
+}
+
+.valid-feedback {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #28a745;
+}
+
+/* Indicadores de estado */
+.status-pending {
+  color: #ffc107;
+}
+
+.status-processing {
+  color: #007bff;
+}
+
+.status-completed {
+  color: #28a745;
+}
+
+.status-failed {
+  color: #dc3545;
+}
+
+.status-cancelled {
+  color: #6c757d;
+}
+
+/* Alertas personalizadas */
+.alert-payment {
+  border-left: 4px solid #007bff;
+  background-color: #f8f9ff;
+  border-color: #e3f2fd;
+}
+
+.alert-payment .alert-heading {
+  color: #007bff;
+}
+
+/* Mejoras de accesibilidad */
+.payment-method-card:focus,
+.bank-card:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+.btn:focus {
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Mejoras visuales */
+.card {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+  font-weight: 600;
+}
+
+/* Transiciones suaves */
+* {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Estados de hover mejorados */
+.payment-method-card:hover,
+.bank-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 123, 255, 0.2);
+}
+
+/* Indicadores de progreso */
+.progress {
+  height: 4px;
+  background-color: #e0e0e0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  background-color: #007bff;
+  transition: width 0.3s ease;
+}
+
+/* Mejoras para pantallas grandes */
+@media (min-width: 1200px) {
+  .container-fluid {
+    max-width: 1000px;
+  }
+  
+  .bank-card {
+    min-height: 140px;
+  }
+  
+  .payment-method-card {
+    min-height: 100px;
+  }
+}

@@ -34,6 +34,11 @@ const TransferSummary = lazy(() => import("./view/TransferSummary.jsx"));
 const TransferReportDetail = lazy(() => import("./view/TransferReportDetail.jsx"));
 const Calendar = lazy(() => import("./view/Calendar.jsx"));
 const BullPerformance = lazy(() => import("./view/BullPerformance.jsx"));
+const Billing = lazy(() => import("./view/Billing.jsx"));
+const CreateBilling = lazy(() => import("./view/CreateBilling.jsx"));
+const BillingDetail = lazy(() => import("./view/BillingDetail.jsx"));
+const ClientBilling = lazy(() => import("./view/ClientBilling.jsx"));
+const Payment = lazy(() => import("./view/Payment.jsx"));
 
 const App = () => {
   const location = useLocation();
@@ -224,6 +229,9 @@ const App = () => {
                   <Link to="/user/inventary" className={`sidebar-item${isActive('/user/inventary') ? ' active' : ''}`}>
                     <i className="bi bi-database me-2"></i> Toros
                   </Link>
+                  <Link to="/client/billing" className={`sidebar-item${isActive('/client/billing') ? ' active' : ''}`}>
+                    <i className="bi bi-receipt me-2"></i> Mis Facturas
+                  </Link>
                 </div>
                 <div className="sidebar-section">
                   <div className="sidebar-title">Cuenta</div>
@@ -275,6 +283,13 @@ const App = () => {
                   </Link>
                   <Link to="/transfer-summary" className={`sidebar-item${isActive('/transfer-summary') ? ' active' : ''}`}>
                     <i className="bi bi-list-check me-2"></i> Resumen de Transferencias
+                  </Link>
+                </div>
+
+                <div className="sidebar-section">
+                  <div className="sidebar-title">Facturación</div>
+                  <Link to="/billing" className={`sidebar-item${isActive('/billing') ? ' active' : ''}`}>
+                    <i className="bi bi-receipt me-2"></i> Facturación
                   </Link>
                 </div>
 
@@ -391,6 +406,11 @@ const App = () => {
                     <Route path="/reportdetails/:id" element={<ReportDetails />} />
                     <Route path="/calendar" element={<Calendar />} />
                     <Route path="/bull-performance" element={<BullPerformance />} />
+                    <Route path="/billing" element={<Billing />} />
+                    <Route path="/billing/create" element={<CreateBilling />} />
+                    <Route path="/billing/detail/:id" element={<BillingDetail />} />
+                    <Route path="/client/billing" element={<ClientBilling />} />
+                    <Route path="/payment/:id" element={<Payment />} />
                   </Route>
                   <Route path="*" element={<p>There's nothing here: 404!</p>} />
                 </Routes>
