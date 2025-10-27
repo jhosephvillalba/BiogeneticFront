@@ -95,16 +95,17 @@ import axios from './instance';
     }
   }
 
+
   /**
-   * Elimina una producción embrionaria
+   * Elimina una producción embrionaria con rollback (elimina también registros relacionados)
    * DELETE /produccion-embrionaria/{production_id}
    */
-  export const deleteProduction =  async (productionId) => {
+  export const deleteProductionWithRollback = async (productionId) => {
     try {
       const response = await axios.delete(`/produccion-embrionaria/${productionId}`);
       return response.data;
     } catch (error) {
-      console.error('Error al eliminar producción:', error);
+      console.error('Error al eliminar producción con rollback:', error);
       throw error;
     }
   }

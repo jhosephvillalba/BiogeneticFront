@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { usersApi } from "../Api";
 import { getBullsByClient, getAvailableBullsByClient } from "../Api/bulls";
 import * as opusApi from "../Api/opus";
+import { deleteOpus } from "../Api/opus";
 import * as productionApi from "../Api/productionEmbrionary";
+import { deleteProductionWithRollback } from "../Api/productionEmbrionary";
 import { getRaces } from "../Api/races";
 import * as apiInputs from "../Api/inputs";
 import * as apiOuputs from "../Api/outputs";
@@ -78,6 +80,9 @@ const EmbryoProduction = () => {
   const [showObservationModal, setShowObservationModal] = useState(false);
   const [observationValue, setObservationValue] = useState("");
   const observationTextareaRef = useRef(null);
+
+  // Estado para el modal de confirmación de eliminación
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleSelectRow = () => {
     setSelectRow(!selectRow);
@@ -359,6 +364,7 @@ const EmbryoProduction = () => {
           produccion_embrionaria_id: production?.id,
           order: maxOrder + 1,
           isExisting: false,
+          created: false, // Marcar como no creado aún en la base de datos
         };
       return [...prevRows, newRow];
     });
@@ -401,9 +407,28 @@ const EmbryoProduction = () => {
   };
 
   // Eliminar fila
-  const handleRemoveRow = (index) => {
-    const updatedRows = opusRows.filter((_, i) => i !== index);
-    setOpusRows(updatedRows);
+  const handleRemoveRow = async (index) => {
+    const rowToDelete = opusRows[index];
+    
+    try {
+      // Si el registro está creado en la base de datos, eliminarlo con el servicio
+      if (rowToDelete.created && rowToDelete.id) {
+        setLoading(true);
+        await deleteOpus(rowToDelete.id);
+        console.log(`Registro OPU ${rowToDelete.id} eliminado de la base de datos`);
+      } else {
+        console.log("Eliminando registro local no guardado");
+      }
+      
+      // Eliminar de la lista local
+      const updatedRows = opusRows.filter((_, i) => i !== index);
+      setOpusRows(updatedRows);
+    } catch (error) {
+      console.error("Error al eliminar registro OPU:", error);
+      alert("Error al eliminar el registro: " + (error.response?.data?.detail || error.message));
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Formatear decimales
@@ -608,6 +633,7 @@ const EmbryoProduction = () => {
               ...row,
               id: createdRecord.id,
               isExisting: true,
+              created: true, // Marcar como creado en la base de datos
               original: { ...createdRecord }
             };
           }
@@ -654,6 +680,7 @@ const EmbryoProduction = () => {
        ...r,
        order: order,
        isExisting: true,
+       created: true, // Marcar como creado en la base de datos
        original: { ...r },
        // Asegurar que los valores numéricos se preserven correctamente, incluyendo 0
        gi: r.gi !== null && r.gi !== undefined ? r.gi : 0,
@@ -736,12 +763,50 @@ const EmbryoProduction = () => {
     }
   };
 
+  // Eliminar producción con rollback
+  const handleDeleteProduction = async () => {
+    try {
+      setLoading(true);
+      await deleteProductionWithRollback(production.id);
+      alert("Producción eliminada correctamente.");
+      // Limpiar todos los estados
+      clearAllStates();
+      // Cerrar el modal
+      setShowDeleteModal(false);
+      // Recargar las producciones del cliente
+      if (selectedClient) {
+        await loadEmbryoProductions(selectedClient, true);
+      }
+    } catch (error) {
+      console.error("Error al eliminar producción:", error);
+      alert("Error al eliminar la producción: " + (error.response?.data?.detail || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="container-fluid py-4">
-      <h2 className="mb-4">
-        <i className="bi bi-egg me-2"></i>
-        Producción Embrionaria
-      </h2>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2 className="mb-0">
+          <i className="bi bi-egg me-2"></i>
+          Producción Embrionaria
+          {production && (
+            <span className="ms-3 text-muted" style={{ fontSize: "0.9rem", fontWeight: "normal" }}>
+              - {production.fecha_opu} - {production.lugar || 'Sin lugar'}
+            </span>
+          )}
+        </h2>
+        {production && (
+          <button
+            className="btn btn-danger"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            <i className="bi bi-trash me-1"></i>
+            Eliminar Producción
+          </button>
+        )}
+      </div>
 
       {error && (
         <div
@@ -1687,6 +1752,58 @@ const EmbryoProduction = () => {
                 </button>
                 <button type="button" className="btn btn-primary" onClick={handleSaveObservation} disabled={loading || !observationValue.trim()}>
                   {loading ? "Guardando..." : "Guardar Observación"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para eliminar producción */}
+      {showDeleteModal && (
+        <div className="modal" style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header bg-danger text-white">
+                <h5 className="modal-title">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  Confirmar Eliminación
+                </h5>
+                <button type="button" className="btn-close btn-close-white" onClick={() => setShowDeleteModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <p className="mb-3">
+                  ¿Está seguro de que desea eliminar esta producción embrionaria?
+                </p>
+                {production && (
+                  <div className="alert alert-warning mb-0">
+                    <strong>Producción #{production.id}</strong><br />
+                    <strong>Fecha:</strong> {production.fecha_opu}<br />
+                    <strong>Lugar:</strong> {production.lugar || 'Sin lugar'}<br />
+                    <strong>Cliente:</strong> {selectedClient?.full_name}
+                  </div>
+                )}
+                <p className="text-danger mt-3 mb-0">
+                  <i className="bi bi-exclamation-circle me-2"></i>
+                  <strong>Advertencia:</strong> Esta acción eliminará todos los registros OPU asociados y no se puede deshacer.
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowDeleteModal(false)} disabled={loading}>
+                  Cancelar
+                </button>
+                <button type="button" className="btn btn-danger" onClick={handleDeleteProduction} disabled={loading}>
+                  {loading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                      Eliminando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-trash me-1"></i>
+                      Continuar y Eliminar
+                    </>
+                  )}
                 </button>
               </div>
             </div>
