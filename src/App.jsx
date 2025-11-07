@@ -39,6 +39,7 @@ const CreateBilling = lazy(() => import("./view/CreateBilling.jsx"));
 const BillingDetail = lazy(() => import("./view/BillingDetail.jsx"));
 const ClientBilling = lazy(() => import("./view/ClientBilling.jsx"));
 const Payment = lazy(() => import("./view/Payment.jsx"));
+const PaymentResult = lazy(() => import("./view/PaymentResult.jsx"));
 
 const App = () => {
   const location = useLocation();
@@ -411,6 +412,7 @@ const App = () => {
                     <Route path="/billing/detail/:id" element={<BillingDetail />} />
                     <Route path="/client/billing" element={<ClientBilling />} />
                     <Route path="/payment/:id" element={<Payment />} />
+                    <Route path="/pagos/response" element={<PaymentResult />} />
                   </Route>
                   <Route path="*" element={<p>There's nothing here: 404!</p>} />
                 </Routes>

@@ -21,10 +21,12 @@ const Payment = () => {
   // Estados del formulario de datos del cliente
   const [clientData, setClientData] = useState({
     name: '',
+    lastName: '',
     email: '',
     phone: '',
+    cellPhone: '',
     document: '',
-    doc_type: 'CC',
+    doc_type: '', // No autocompletar - el usuario debe seleccionar
     city: '',
     address: ''
   });
@@ -36,6 +38,12 @@ const Payment = () => {
   const [pagoId, setPagoId] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [bankSearchTerm, setBankSearchTerm] = useState('');
+  
+  // Estados para DaviPlata OTP
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [refPayco, setRefPayco] = useState(null);
+  const [otp, setOtp] = useState('');
+  const [confirmingOtp, setConfirmingOtp] = useState(false);
 
   // Cargar datos de la factura
   useEffect(() => {
@@ -55,7 +63,7 @@ const Payment = () => {
         
         setInvoice(invoiceData);
         
-        // Cargar datos del cliente
+        // Cargar datos del cliente (autocompletar nombre, email, teléfono, ciudad; NO autocompletar documento y tipo)
         await loadClientData();
         
         // Cargar métodos de pago disponibles
@@ -77,31 +85,41 @@ const Payment = () => {
     }
   }, [id]);
 
-  // Cargar datos del cliente
+  // Cargar datos del cliente (sin autocompletar tipo y número de documento)
   const loadClientData = async () => {
     try {
       // Obtener datos del usuario actual
       const userData = await api.auth.getCurrentUser();
       console.log('Datos del usuario:', userData);
       
+      // Separar nombre completo en name y lastName
+      const fullName = userData.full_name || userData.name || '';
+      const nameParts = fullName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
       setClientData({
-        name: userData.full_name || userData.name || '',
+        name: firstName,
+        lastName: lastName,
         email: userData.email || '',
         phone: userData.phone || '',
-        document: userData.number_document || '',
-        doc_type: userData.type_document || 'CC',
+        cellPhone: userData.cell_phone || userData.cellPhone || userData.phone || '',
+        document: '', // NO autocompletar número de documento
+        doc_type: '', // NO autocompletar tipo de documento
         city: userData.city || 'Bogotá',
         address: userData.address || ''
       });
     } catch (error) {
       console.error('Error al cargar datos del cliente:', error);
-      // Usar datos por defecto si falla
+      // Si falla, dejar todos los campos vacíos
       setClientData({
         name: '',
+        lastName: '',
         email: '',
         phone: '',
+        cellPhone: '',
         document: '',
-        doc_type: 'CC',
+        doc_type: '',
         city: 'Bogotá',
         address: ''
       });
@@ -138,21 +156,11 @@ const Payment = () => {
 
   // Cargar métodos de pago disponibles
   const loadPaymentMethods = async () => {
-    try {
-      if (api.payments && api.payments.getAvailablePaymentMethods) {
-        const methods = await api.payments.getAvailablePaymentMethods();
-        setPaymentMethods(methods);
-      }
-    } catch (error) {
-      console.error('Error al cargar métodos de pago:', error);
-      // Usar métodos por defecto si falla
-      setPaymentMethods([
-        { id: 'epayco', name: 'ePayco (PSE)', icon: 'bi-credit-card' },
-        //{ id: 'transferencia', name: 'Transferencia Bancaria', icon: 'bi-bank' },
-        //{ id: 'efectivo', name: 'Pago en Efectivo', icon: 'bi-cash' },
-        //{ id: 'cheque', name: 'Cheque', icon: 'bi-file-text' }
-      ]);
-    }
+    // Métodos de pago disponibles: PSE y Daviplata
+    setPaymentMethods([
+      { id: 'epayco', name: 'PSE (Pagos Seguros en Línea)', icon: 'bi-bank' },
+      { id: 'daviplata', name: 'Daviplata', icon: 'bi-wallet2' }
+    ]);
   };
 
   // Cargar bancos PSE disponibles
@@ -186,15 +194,17 @@ const Payment = () => {
   };
 
   const handleBack = () => {
-    navigate('/client-billing');
+    navigate('/client/billing');
   };
 
   const handlePaymentMethodChange = (method) => {
     setPaymentMethod(method);
     if (method === 'epayco') {
       setCurrentStep(2); // Ir al paso de selección de banco
-    } else {
+    } else if (method === 'daviplata') {
       setCurrentStep(3); // Ir al paso de datos del cliente
+    } else {
+      setCurrentStep(3); // Ir al paso de datos del cliente para otros métodos
     }
   };
 
@@ -229,6 +239,14 @@ const Payment = () => {
     bank.code?.includes(bankSearchTerm)
   );
 
+  // Tipos de documento válidos: CC, CE, PP, NIT, TI
+  const validDocTypes = ['CC', 'CE', 'PP', 'NIT', 'TI'];
+  
+  // Validar que el tipo de documento sea válido
+  const isValidDocType = (docType) => {
+    return validDocTypes.includes(docType);
+  };
+
   const handleProcessPayment = async () => {
     try {
       if (!paymentMethod) {
@@ -258,11 +276,23 @@ const Payment = () => {
           return;
         }
         
+        // Validar tipo de documento
+        if (clientData.doc_type && !isValidDocType(clientData.doc_type)) {
+          alert('El tipo de documento seleccionado no es válido. Por favor selecciona CC, CE, PP, NIT o TI');
+          setCurrentStep(3);
+          return;
+        }
+        
         // Procesar pago con ePayco/PSE
         const paymentData = {
           factura_id: parseInt(id),
-          city: clientData.city,
+          full_name: clientData.name,
+          email: clientData.email,
+          phone: clientData.phone,
           address: clientData.address,
+          doc_type: clientData.doc_type,
+          document: clientData.document,
+          city: clientData.city,
           bank_id: selectedBank
         };
         
@@ -283,8 +313,64 @@ const Payment = () => {
           alert('Error: No se recibió URL de redirección del banco');
         }
         
+      } else if (paymentMethod === 'daviplata') {
+        // Validar datos del cliente para daviplata (phone es requerido según la API)
+        if (!clientData.name || !clientData.email || !clientData.phone || !clientData.city || !clientData.address) {
+          alert('Por favor completa todos los datos requeridos para continuar con el pago (nombre, email, teléfono, ciudad y dirección son obligatorios)');
+          setCurrentStep(3); // Ir al paso de datos del cliente
+          return;
+        }
+        
+        // Validar tipo de documento
+        if (clientData.doc_type && !isValidDocType(clientData.doc_type)) {
+          alert('El tipo de documento seleccionado no es válido. Por favor selecciona CC, CE, PP, NIT o TI');
+          setCurrentStep(3);
+          return;
+        }
+        
+        // Procesar pago con daviplata
+        const paymentData = {
+          factura_id: parseInt(id),
+          full_name: clientData.name,
+          email: clientData.email,
+          phone: clientData.phone || '',
+          address: clientData.address,
+          doc_type: clientData.doc_type || '',
+          document: clientData.document || '',
+          city: clientData.city
+        };
+        
+        console.log('Creando pago con daviplata:', paymentData);
+        
+        // Usar el servicio específico de DaviPlata
+        if (api.payments && api.payments.createDaviplataPayment) {
+          const response = await api.payments.createDaviplataPayment(paymentData);
+          console.log('Respuesta de pago DaviPlata:', response);
+          
+          // Guardar ID del pago y referencia de ePayco si está disponible
+          if (response.pago_id) {
+            setPagoId(response.pago_id);
+          }
+          
+          // Si hay ref_payco, significa que se requiere confirmación de OTP
+          if (response.ref_payco) {
+            setRefPayco(response.ref_payco);
+            setShowOtpModal(true);
+            alert('Por favor revisa tu aplicación DaviPlata y ingresa el código OTP que recibiste.');
+          } else if (response.success) {
+            // Si el pago fue exitoso directamente
+            alert('Pago con DaviPlata procesado exitosamente.');
+            navigate('/client/billing');
+          } else {
+            alert('Pago con DaviPlata iniciado. Por favor revisa tu aplicación DaviPlata para completar el pago.');
+            navigate('/client/billing');
+          }
+        } else {
+          alert('Pago con DaviPlata no disponible temporalmente.');
+        }
+        
       } else {
-        // Procesar pago manual (transferencia, efectivo, cheque)
+        // Procesar pago manual (otros métodos)
         const paymentData = {
           factura_id: parseInt(id),
           metodo_pago: paymentMethod,
@@ -297,7 +383,7 @@ const Payment = () => {
         console.log('Pago manual creado:', manualResponse);
         
         alert(`Pago ${paymentMethod} registrado exitosamente. Se procesará manualmente.`);
-        navigate('/client-billing');
+        navigate('/client/billing');
       }
       
     } catch (error) {
@@ -305,6 +391,51 @@ const Payment = () => {
       alert('Error al procesar el pago: ' + (error.message || 'Error desconocido'));
     } finally {
       setProcessingPayment(false);
+    }
+  };
+
+  // Confirmar OTP de DaviPlata
+  const handleConfirmOtp = async () => {
+    if (!otp || otp.length < 4) {
+      alert('Por favor ingresa un código OTP válido');
+      return;
+    }
+
+    if (!refPayco) {
+      alert('Error: No se encontró la referencia del pago');
+      return;
+    }
+
+    try {
+      setConfirmingOtp(true);
+      
+      const otpData = {
+        ref_payco: refPayco,
+        otp: otp
+      };
+
+      console.log('Confirmando OTP DaviPlata:', otpData);
+      const response = await api.payments.confirmDaviplataOtp(otpData);
+      console.log('OTP confirmado:', response);
+
+      if (response.success || response.status === 'success') {
+        alert('Pago con DaviPlata confirmado exitosamente.');
+        setShowOtpModal(false);
+        setOtp('');
+        setRefPayco(null);
+        navigate('/client/billing');
+      } else {
+        alert(response.message || 'Error al confirmar el OTP. Por favor verifica el código e intenta nuevamente.');
+      }
+    } catch (error) {
+      console.error('Error al confirmar OTP:', error);
+      const errorMessage = error.response?.data?.detail || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          'Error al confirmar el OTP';
+      alert('Error al confirmar el OTP: ' + errorMessage);
+    } finally {
+      setConfirmingOtp(false);
     }
   };
 
@@ -653,126 +784,149 @@ const Payment = () => {
                           </div>
                         )}
                         
+                        {/* Formulario para PSE y Daviplata */}
                         <div className="row">
-                          <div className="col-md-6">
-                            <div className="mb-3">
-                              <label className="form-label">Nombre Completo *</label>
-                              <input
-                                type="text"
-                                className={`form-control ${!clientData.name && editingClientData ? 'is-invalid' : ''}`}
-                                value={clientData.name}
-                                onChange={(e) => handleClientDataChange('name', e.target.value)}
-                                disabled={!editingClientData}
-                                required
-                              />
-                              {!clientData.name && editingClientData && (
-                                <div className="invalid-feedback">
-                                  El nombre es requerido
+                              <div className="col-md-6">
+                                <div className="mb-3">
+                                  <label className="form-label">Nombre Completo *</label>
+                                  <input
+                                    type="text"
+                                    className={`form-control ${!clientData.name && editingClientData ? 'is-invalid' : ''}`}
+                                    value={clientData.name}
+                                    onChange={(e) => handleClientDataChange('name', e.target.value)}
+                                    disabled={!editingClientData}
+                                    required
+                                  />
+                                  {!clientData.name && editingClientData && (
+                                    <div className="invalid-feedback">
+                                      El nombre es requerido
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            <div className="mb-3">
-                              <label className="form-label">Email *</label>
-                              <input
-                                type="email"
-                                className={`form-control ${!clientData.email && editingClientData ? 'is-invalid' : ''}`}
-                                value={clientData.email}
-                                onChange={(e) => handleClientDataChange('email', e.target.value)}
-                                disabled={!editingClientData}
-                                required
-                              />
-                              {!clientData.email && editingClientData && (
-                                <div className="invalid-feedback">
-                                  El email es requerido
+                                <div className="mb-3">
+                                  <label className="form-label">Email *</label>
+                                  <input
+                                    type="email"
+                                    className={`form-control ${!clientData.email && editingClientData ? 'is-invalid' : ''}`}
+                                    value={clientData.email}
+                                    onChange={(e) => handleClientDataChange('email', e.target.value)}
+                                    disabled={!editingClientData}
+                                    required
+                                  />
+                                  {!clientData.email && editingClientData && (
+                                    <div className="invalid-feedback">
+                                      El email es requerido
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+                                <div className="mb-3">
+                                  <label className="form-label">
+                                    Teléfono {paymentMethod === 'daviplata' && '*'}
+                                  </label>
+                                  <input
+                                    type="tel"
+                                    className={`form-control ${paymentMethod === 'daviplata' && !clientData.phone && editingClientData ? 'is-invalid' : ''}`}
+                                    value={clientData.phone}
+                                    onChange={(e) => handleClientDataChange('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                    disabled={!editingClientData}
+                                    required={paymentMethod === 'daviplata'}
+                                    maxLength={10}
+                                    placeholder="10 dígitos"
+                                  />
+                                  {paymentMethod === 'daviplata' && !clientData.phone && editingClientData && (
+                                    <div className="invalid-feedback">
+                                      El teléfono es requerido para pagos con DaviPlata
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="col-md-6">
+                                <div className="mb-3">
+                                  <label className="form-label">Tipo de Documento</label>
+                                  <select
+                                    className={`form-select ${!clientData.doc_type ? 'is-invalid' : ''}`}
+                                    value={clientData.doc_type || ''}
+                                    onChange={(e) => handleClientDataChange('doc_type', e.target.value)}
+                                    disabled={!editingClientData}
+                                    required
+                                  >
+                                    <option value="">Seleccionar</option>
+                                    <option value="CC">Cédula de Ciudadanía</option>
+                                    <option value="CE">Cédula de Extranjería</option>
+                                    <option value="TI">Tarjeta de Identidad</option>
+                                    <option value="PP">Pasaporte</option>
+                                    <option value="NIT">NIT</option>
+                                  </select>
+                                  {!clientData.doc_type && (
+                                    <div className="invalid-feedback">
+                                      El tipo de documento es requerido
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">Número de Documento</label>
+                                  <input
+                                    type="text"
+                                    className="form-control"
+                                    value={clientData.document}
+                                    onChange={(e) => handleClientDataChange('document', e.target.value)}
+                                    disabled={!editingClientData}
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">Ciudad *</label>
+                                  <input
+                                    type="text"
+                                    className={`form-control ${!clientData.city ? 'is-invalid' : ''}`}
+                                    value={clientData.city}
+                                    onChange={(e) => handleClientDataChange('city', e.target.value)}
+                                    required
+                                    placeholder="Ej: Bogotá"
+                                  />
+                                  {!clientData.city && (
+                                    <div className="invalid-feedback">
+                                      La ciudad es requerida
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div className="mb-3">
-                              <label className="form-label">Teléfono</label>
-                              <input
-                                type="tel"
-                                className="form-control"
-                                value={clientData.phone}
-                                onChange={(e) => handleClientDataChange('phone', e.target.value)}
-                                disabled={!editingClientData}
-                              />
+                            <div className="row">
+                              <div className="col-12">
+                                <div className="mb-3">
+                                  <label className="form-label">Dirección *</label>
+                                  <textarea
+                                    className={`form-control ${!clientData.address ? 'is-invalid' : ''}`}
+                                    rows="3"
+                                    value={clientData.address}
+                                    onChange={(e) => handleClientDataChange('address', e.target.value)}
+                                    required
+                                    placeholder="Ej: Calle 123 #45-67"
+                                  />
+                                  {!clientData.address && (
+                                    <div className="invalid-feedback">
+                                      La dirección es requerida
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                          <div className="col-md-6">
-                            <div className="mb-3">
-                              <label className="form-label">Tipo de Documento</label>
-                              <select
-                                className="form-select"
-                                value={clientData.doc_type}
-                                onChange={(e) => handleClientDataChange('doc_type', e.target.value)}
-                                disabled={!editingClientData}
+                            <div className="d-flex justify-content-between mt-3">
+                              <button className="btn btn-outline-secondary" onClick={prevStep}>
+                                <i className="bi bi-arrow-left me-2"></i> Anterior
+                              </button>
+                              <button 
+                                className="btn btn-primary" 
+                                onClick={nextStep}
+                                disabled={
+                                  !clientData.city || 
+                                  !clientData.address || 
+                                  (paymentMethod === 'daviplata' && !clientData.phone)
+                                }
                               >
-                                <option value="CC">Cédula de Ciudadanía</option>
-                                <option value="CE">Cédula de Extranjería</option>
-                                <option value="PP">Pasaporte</option>
-                                <option value="NIT">NIT</option>
-                              </select>
+                                Continuar <i className="bi bi-arrow-right ms-2"></i>
+                              </button>
                             </div>
-                            <div className="mb-3">
-                              <label className="form-label">Número de Documento</label>
-                              <input
-                                type="text"
-                                className="form-control"
-                                value={clientData.document}
-                                onChange={(e) => handleClientDataChange('document', e.target.value)}
-                                disabled={!editingClientData}
-                              />
-                            </div>
-                            <div className="mb-3">
-                              <label className="form-label">Ciudad *</label>
-                              <input
-                                type="text"
-                                className={`form-control ${!clientData.city ? 'is-invalid' : ''}`}
-                                value={clientData.city}
-                                onChange={(e) => handleClientDataChange('city', e.target.value)}
-                                required
-                                placeholder="Ej: Bogotá"
-                              />
-                              {!clientData.city && (
-                                <div className="invalid-feedback">
-                                  La ciudad es requerida para el pago PSE
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="row">
-                          <div className="col-12">
-                            <div className="mb-3">
-                              <label className="form-label">Dirección *</label>
-                              <textarea
-                                className={`form-control ${!clientData.address ? 'is-invalid' : ''}`}
-                                rows="3"
-                                value={clientData.address}
-                                onChange={(e) => handleClientDataChange('address', e.target.value)}
-                                required
-                                placeholder="Ej: Calle 123 #45-67"
-                              />
-                              {!clientData.address && (
-                                <div className="invalid-feedback">
-                                  La dirección es requerida para el pago PSE
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="d-flex justify-content-between mt-3">
-                          <button className="btn btn-outline-secondary" onClick={prevStep}>
-                            <i className="bi bi-arrow-left me-2"></i> Anterior
-                          </button>
-                          <button 
-                            className="btn btn-primary" 
-                            onClick={nextStep}
-                            disabled={!clientData.city || !clientData.address}
-                          >
-                            Continuar <i className="bi bi-arrow-right ms-2"></i>
-                          </button>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -800,7 +954,11 @@ const Payment = () => {
                           </div>
                           <div className="col-md-6">
                             <h6>Datos del Pago</h6>
-                            <p><strong>Método:</strong> {paymentMethod === 'epayco' ? 'PSE (Pagos Seguros en Línea)' : paymentMethod}</p>
+                            <p><strong>Método:</strong> {
+                              paymentMethod === 'epayco' ? 'PSE (Pagos Seguros en Línea)' :
+                              paymentMethod === 'daviplata' ? 'Daviplata' :
+                              paymentMethod
+                            }</p>
                             {paymentMethod === 'epayco' && selectedBank && (
                               <p><strong>Banco:</strong> {availableBanks.find(b => b.id === selectedBank)?.name}</p>
                             )}
@@ -860,6 +1018,100 @@ const Payment = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de Confirmación OTP para DaviPlata */}
+      {showOtpModal && (
+        <div className="modal" style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header bg-primary text-white">
+                <h5 className="modal-title">
+                  <i className="bi bi-shield-check me-2"></i>
+                  Confirmar Pago DaviPlata
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn-close btn-close-white" 
+                  onClick={() => {
+                    setShowOtpModal(false);
+                    setOtp('');
+                  }}
+                  disabled={confirmingOtp}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="alert alert-info mb-3" role="alert">
+                  <i className="bi bi-info-circle me-2"></i>
+                  <strong>Instrucciones:</strong>
+                  <ul className="mb-0 mt-2">
+                    <li>Revisa tu aplicación DaviPlata en tu celular</li>
+                    <li>Ingresa el código OTP que recibiste</li>
+                    <li>Este código confirma el pago de la factura</li>
+                  </ul>
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="otpInput" className="form-label">
+                    <strong>Código OTP *</strong>
+                  </label>
+                  <input
+                    type="text"
+                    id="otpInput"
+                    className="form-control form-control-lg text-center"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Ingresa el código de 6 dígitos"
+                    maxLength={6}
+                    disabled={confirmingOtp}
+                    autoFocus
+                    style={{ letterSpacing: '0.5em', fontSize: '1.5rem' }}
+                  />
+                  <small className="form-text text-muted">
+                    Ingresa el código de 6 dígitos que recibiste en tu aplicación DaviPlata
+                  </small>
+                </div>
+                {refPayco && (
+                  <div className="alert alert-secondary mb-0">
+                    <small>
+                      <strong>Referencia:</strong> {refPayco}
+                    </small>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowOtpModal(false);
+                    setOtp('');
+                  }}
+                  disabled={confirmingOtp}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleConfirmOtp}
+                  disabled={confirmingOtp || !otp || otp.length < 4}
+                >
+                  {confirmingOtp ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                      Confirmando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-check-circle me-2"></i>
+                      Confirmar Pago
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

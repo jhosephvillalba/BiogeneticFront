@@ -177,6 +177,36 @@ const payments = {
       console.error('Error al obtener métodos de pago:', error);
       throw error;
     }
+  },
+
+  // Crear pago DaviPlata
+  createDaviplataPayment: async (paymentData) => {
+    try {
+      console.log('Creando pago DaviPlata:', paymentData);
+      const response = await axios.post('pagos/daviplata/create', paymentData);
+      console.log('Respuesta de pago DaviPlata:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error al crear pago DaviPlata:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
+  },
+
+  // Confirmar OTP de pago DaviPlata
+  confirmDaviplataOtp: async (otpData) => {
+    try {
+      console.log('Confirmando OTP DaviPlata:', otpData);
+      const response = await axios.post('pagos/daviplata/confirm-otp', otpData);
+      console.log('OTP DaviPlata confirmado:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error al confirmar OTP DaviPlata:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
   }
 };
 
