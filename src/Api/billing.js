@@ -11,7 +11,7 @@ const billing = {
       if (fecha_desde) queryParams += `&fecha_desde=${fecha_desde}`;
       if (fecha_hasta) queryParams += `&fecha_hasta=${fecha_hasta}`;
       
-      const response = await axios.get(`facturacion/?${queryParams}`);
+      const response = await axios.get(`facturacion?${queryParams}`);
       return response.data;
     } catch (error) {
       console.error('Error al obtener facturas:', error);
