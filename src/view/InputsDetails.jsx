@@ -384,6 +384,13 @@ const InputsDetails = () => {
                 </div>
               </div>
 
+              <div className="row mt-3">
+                <div className="col-md-4">
+                  <h6 className="text-muted mb-1">Escalarilla</h6>
+                  <p className="mb-0">{input.escalarilla || "No disponible"}</p>
+                </div>
+              </div>
+
               {/* <div className="row mt-3">
                 <div className="col-12">
                   <h6 className="text-muted mb-1">Observaciones</h6>
