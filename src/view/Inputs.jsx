@@ -22,9 +22,20 @@ const Inputs = () => {
   const [error, setError] = useState(null);
 
   // State for bull details
+  const [userInputs, setUserInputs] = useState([]);
+  const [userInputsTotal, setUserInputsTotal] = useState(0);
+  const [userInputsTotalPages, setUserInputsTotalPages] = useState(0);
+  const [userInputsPage, setUserInputsPage] = useState(1);
+  const [inputsPerPage] = useState(10);
+  const [loadingUserInputs, setLoadingUserInputs] = useState(false);
+
   const [selectedBull, setSelectedBull] = useState(null);
   const [loadingBull, setLoadingBull] = useState(false);
   const [bullInputs, setBullInputs] = useState([]);
+  const [bullInputsTotal, setBullInputsTotal] = useState(0);
+  const [bullInputsTotalPages, setBullInputsTotalPages] = useState(0);
+  const [bullInputsPage, setBullInputsPage] = useState(1);
+  const [bullInputsPerPage] = useState(10);
   const [loadingBullInputs, setLoadingBullInputs] = useState(false);
 
   // State for pagination
@@ -48,15 +59,16 @@ const Inputs = () => {
   // Nuevo estado para lista de toros
   const [availableBulls, setAvailableBulls] = useState([]);
 
-  const loadUsers = async (reset = false) => {
+  const loadUsers = async (reset = false, pageOverride = null) => {
     try {
       setLoading(true);
       if (reset) {
         setError(null);
-        setCurrentPage(1);
+        pageOverride = 1;
       }
 
-      const skip = (currentPage - 1) * itemsPerPage;
+      const effectivePage = pageOverride ?? currentPage;
+      const skip = (effectivePage - 1) * itemsPerPage;
 
       // Construir objeto de filtros según la API
       const filters = {};
@@ -88,6 +100,10 @@ const Inputs = () => {
         setUsers([]);
         setTotalItems(0);
       }
+
+      if (reset && effectivePage !== currentPage) {
+        setCurrentPage(effectivePage);
+      }
     } catch (error) {
       console.error("Error al cargar usuarios:", error);
       if (error.response) {
@@ -102,27 +118,77 @@ const Inputs = () => {
     }
   };
 
+  const fetchUserInputs = async (userId, page = 1) => {
+    if (!userId) {
+      setUserInputs([]);
+      setUserInputsTotal(0);
+      setUserInputsTotalPages(0);
+      setUserInputsPage(1);
+      return;
+    }
+
+    try {
+      setLoadingUserInputs(true);
+
+      const skip = (page - 1) * inputsPerPage;
+      const response = await getInputsByUser(userId, skip, inputsPerPage);
+
+      let items = [];
+      let total = 0;
+      let totalPages = 0;
+
+      if (Array.isArray(response)) {
+        items = response;
+        total = response.length;
+      } else if (response && response.items) {
+        items = response.items;
+        total = response.total ?? response.items.length;
+        totalPages =
+          response.total_pages ??
+          Math.ceil((response.total ?? response.items.length) / inputsPerPage);
+      } else if (response && typeof response === "object") {
+        items = [response];
+        total = 1;
+      }
+
+      setUserInputs(items);
+      setUserInputsTotal(total);
+      setUserInputsTotalPages(
+        totalPages || Math.ceil(total / inputsPerPage) || 0
+      );
+      setUserInputsPage(page);
+    } catch (error) {
+      console.error("Error al cargar las entradas del usuario:", error);
+      setError("No se pudieron cargar las entradas del usuario");
+      setUserInputs([]);
+      setUserInputsTotal(0);
+      setUserInputsTotalPages(0);
+    } finally {
+      setLoadingUserInputs(false);
+    }
+  };
+
   // Cargar datos del toro seleccionado y sus entradas
   const loadBullDetails = async (bullId) => {
     if (!bullId) {
       setSelectedBull(null);
       setBullInputs([]);
+      setBullInputsTotal(0);
+      setBullInputsTotalPages(0);
+      setBullInputsPage(1);
       setRaceDetails(null);
       return;
     }
 
     setLoadingBull(true);
-    setLoadingBullInputs(true);
     setLoadingRace(true);
 
     try {
-      // Obtener datos del toro
       const bullDetails = await getBull(bullId);
       setSelectedBull(bullDetails);
 
       console.log("Datos del toro obtenidos:", bullDetails);
 
-      // Cargar los detalles de la raza si el toro tiene race_id
       if (bullDetails.race_id) {
         try {
           const raceData = await getRaceById(bullDetails.race_id);
@@ -131,105 +197,168 @@ const Inputs = () => {
         } catch (raceError) {
           console.error("Error al cargar datos de la raza:", raceError);
         }
+      } else {
+        setRaceDetails(null);
       }
-
-      // Obtener entradas del toro específico
-      const inputs = await getInputsByBull(bullId, 0, 100);
-      console.log("Entradas del toro obtenidas:", inputs);
-
-      // Formatear las entradas correctamente
-      let formattedInputs = [];
-      if (Array.isArray(inputs)) {
-        formattedInputs = inputs;
-      } else if (inputs && inputs.items) {
-        formattedInputs = inputs.items;
-      } else if (
-        inputs &&
-        typeof inputs === "object" &&
-        !Array.isArray(inputs)
-      ) {
-        formattedInputs = [inputs]; // Si es un único objeto
-      }
-
-      console.log("Entradas formateadas:", formattedInputs);
-
-      setBullInputs(formattedInputs);
     } catch (error) {
       console.error("Error al cargar detalles del toro:", error);
       setError("No se pudieron cargar los detalles del toro seleccionado.");
-      setBullInputs([]);
       setRaceDetails(null);
     } finally {
       setLoadingBull(false);
-      setLoadingBullInputs(false);
       setLoadingRace(false);
     }
   };
 
-  // Función para cargar los toros disponibles
-  const loadAvailableBulls = async () => {
+  const fetchBullInputs = async (bullId, page = 1) => {
+    if (!bullId) {
+      setBullInputs([]);
+      setBullInputsTotal(0);
+      setBullInputsTotalPages(0);
+      setBullInputsPage(1);
+      return;
+    }
+
     try {
-      if (!selectedUser) return;
-      
-      // Obtener los toros únicos de las entradas del cliente
-      const uniqueBulls = [...new Set(bullInputs.map(input => input.bull?.id))]
-        .filter(id => id) // Filtrar IDs nulos o undefined
-        .map(id => {
-          const input = bullInputs.find(input => input.bull?.id === id);
-          return input.bull;
+      setLoadingBullInputs(true);
+
+      const skip = (page - 1) * bullInputsPerPage;
+      const response = await getInputsByBull(bullId, skip, bullInputsPerPage);
+
+      let items = [];
+      let total = 0;
+      let totalPages = 0;
+
+      if (Array.isArray(response)) {
+        items = response;
+        total = response.length;
+      } else if (response && response.items) {
+        items = response.items;
+        total = response.total ?? response.items.length;
+        totalPages =
+          response.total_pages ??
+          Math.ceil((response.total ?? response.items.length) / bullInputsPerPage);
+      } else if (response && typeof response === "object") {
+        items = [response];
+        total = 1;
+      }
+
+      setBullInputs(items);
+      setBullInputsTotal(total);
+      setBullInputsTotalPages(
+        totalPages || Math.ceil(total / bullInputsPerPage) || 0
+      );
+      setBullInputsPage(page);
+    } catch (error) {
+      console.error("Error al cargar las entradas del toro:", error);
+      setError("No se pudieron cargar los detalles del toro seleccionado.");
+      setBullInputs([]);
+      setBullInputsTotal(0);
+      setBullInputsTotalPages(0);
+    } finally {
+      setLoadingBullInputs(false);
+    }
+  };
+
+  // Función para cargar los toros disponibles
+  const loadAvailableBulls = async (userId) => {
+    if (!userId) {
+      setAvailableBulls([]);
+      return;
+    }
+
+    try {
+      const uniqueBulls = new Map();
+      let skip = 0;
+      const limit = 100;
+      let total = Infinity;
+
+      while (skip < total) {
+        const response = await getInputsByUser(userId, skip, limit);
+        const items = Array.isArray(response)
+          ? response
+          : response?.items
+          ? response.items
+          : response && typeof response === "object"
+          ? [response]
+          : [];
+
+        items.forEach((input) => {
+          if (input?.bull?.id && !uniqueBulls.has(input.bull.id)) {
+            uniqueBulls.set(input.bull.id, input.bull);
+          }
         });
 
-      setAvailableBulls(uniqueBulls);
+        if (response && typeof response === "object" && !Array.isArray(response)) {
+          total = response.total ?? Infinity;
+        }
+
+        if (items.length < limit) {
+          break;
+        }
+
+        skip += limit;
+      }
+
+      setAvailableBulls(Array.from(uniqueBulls.values()));
     } catch (error) {
       console.error("Error al cargar los toros:", error);
+      setAvailableBulls([]);
     }
   };
 
   // Efecto para cargar datos iniciales y cuando cambia la página
   useEffect(() => {
-    loadUsers(false);
+    loadUsers(false, currentPage);
   }, [currentPage]);
 
   // Efecto para cargar datos del toro cuando se selecciona uno
   useEffect(() => {
     if (selectedBull?.id) {
       loadBullDetails(selectedBull.id);
+      fetchBullInputs(selectedBull.id, 1);
     } else {
       setBullInputs([]);
+      setBullInputsTotal(0);
+      setBullInputsTotalPages(0);
+      setBullInputsPage(1);
     }
   }, [selectedBull?.id]);
 
-  // Efecto para cargar los toros al montar el componente
+  // Efecto para cargar los toros disponibles del usuario seleccionado
   useEffect(() => {
-    loadAvailableBulls();
-  }, []);
-
-  // Efecto para cargar los toros cuando cambian las entradas del cliente
-  useEffect(() => {
-    loadAvailableBulls();
-  }, [bullInputs, selectedUser]);
+    if (selectedUser?.id) {
+      loadAvailableBulls(selectedUser.id);
+    } else {
+      setAvailableBulls([]);
+    }
+  }, [selectedUser?.id]);
 
   // Handle search button click
   const handleSearch = (e) => {
     e.preventDefault();
     // console.log("Iniciando búsqueda con término:", searchTerm); // Debug
-    loadUsers(true);
+    setCurrentPage(1);
+    loadUsers(true, 1);
   };
 
   // Handle user selection
   const handleSelectUser = async (user) => {
     setSelectedUser(user);
     setSelectedBull(null);
+    setUserInputs([]);
     setBullInputs([]);
+    setUserInputsPage(1);
+    setBullInputsPage(1);
     setLoading(true);
 
     try {
-      const inputs = await getInputsByUser(user.id);
-      setBullInputs(Array.isArray(inputs) ? inputs : inputs.items || []);
+      await fetchUserInputs(user.id, 1);
     } catch (error) {
       console.error("Error al cargar las entradas del usuario:", error);
       setError("No se pudieron cargar las entradas del usuario");
-      setBullInputs([]);
+      setUserInputs([]);
+      setAvailableBulls([]);
     } finally {
       setLoading(false);
     }
@@ -241,21 +370,108 @@ const Inputs = () => {
     setSearchTerm("");
     setSelectedUser(null);
     setSelectedBull(null);
+    setUserInputs([]);
     setBullInputs([]);
+    setAvailableBulls([]);
+    setUserInputsPage(1);
+    setBullInputsPage(1);
     setError(null);
     setCurrentPage(1);
-    loadUsers(true);
+    loadUsers(true, 1);
   };
 
   // Pagination logic
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  const renderPagination = (current, total, onChange) => {
+    if (total <= 1) return null;
+
+    const pagesToShow = Array.from({ length: total }, (_, i) => i + 1).filter(
+      (page) =>
+        page === 1 ||
+        page === total ||
+        Math.abs(page - current) <= 2
+    );
+
+    return (
+      <nav className="mt-3">
+        <ul className="pagination justify-content-center">
+          <li className={`page-item ${current === 1 ? "disabled" : ""}`}>
+            <button
+              className="page-link"
+              onClick={() => onChange(current - 1)}
+              disabled={current === 1}
+            >
+              <i className="bi bi-chevron-left"></i> Anterior
+            </button>
+          </li>
+          {pagesToShow.map((page, index) => {
+            const prevPage = pagesToShow[index - 1];
+            const needsEllipsis = index > 0 && prevPage !== page - 1;
+
+            return (
+              <React.Fragment key={`page-${page}`}>
+                {needsEllipsis && (
+                  <li className="page-item disabled">
+                    <span className="page-link">...</span>
+                  </li>
+                )}
+                <li className={`page-item ${current === page ? "active" : ""}`}>
+                  <button className="page-link" onClick={() => onChange(page)}>
+                    {page}
+                  </button>
+                </li>
+              </React.Fragment>
+            );
+          })}
+          <li
+            className={`page-item ${current === total ? "disabled" : ""}`}
+          >
+            <button
+              className="page-link"
+              onClick={() => onChange(current + 1)}
+              disabled={current === total}
+            >
+              Siguiente <i className="bi bi-chevron-right"></i>
+            </button>
+          </li>
+        </ul>
+      </nav>
+    );
+  };
+
+  const handleUserInputsPaginate = (pageNumber) => {
+    if (
+      !selectedUser?.id ||
+      pageNumber === userInputsPage ||
+      pageNumber < 1 ||
+      pageNumber > userInputsTotalPages
+    ) {
+      return;
+    }
+    fetchUserInputs(selectedUser.id, pageNumber);
+  };
+
+  const handleBullInputsPaginate = (pageNumber) => {
+    if (
+      !selectedBull?.id ||
+      pageNumber === bullInputsPage ||
+      pageNumber < 1 ||
+      pageNumber > bullInputsTotalPages
+    ) {
+      return;
+    }
+    fetchBullInputs(selectedBull.id, pageNumber);
+  };
+
+  const filteredUserInputs = getFilteredInputs();
+
   // Función simplificada para manejar decimales
-  const formatDecimal = (num) => {
-  const value = parseFloat(num) || 0;
-  return parseFloat(value.toFixed(1)); // Redondear a 1 decimal sin error de precisión
-};
+  function formatDecimal(num) {
+    const value = parseFloat(num) || 0;
+    return parseFloat(value.toFixed(1)); // Redondear a 1 decimal sin error de precisión
+  }
 
   // Manejador de cambio para el input de edición
   const handleEditChange = (e) => {
@@ -290,16 +506,22 @@ const Inputs = () => {
       }
 
       // Actualización optimista
-      setBullInputs((prev) =>
-        prev.map((item) =>
+      const applyOptimisticUpdate = (items) =>
+        items.map((item) =>
           item.id === input.id
-            ? { ...item, quantity_taken: newQty, total: received - newQty }
+            ? {
+                ...item,
+                quantity_taken: newQty,
+                total: formatDecimal(item.quantity_received) - newQty,
+              }
             : item
-        )
-      );
+        );
+
+      setUserInputs((prev) => (prev.length ? applyOptimisticUpdate(prev) : prev));
+      setBullInputs((prev) => (prev.length ? applyOptimisticUpdate(prev) : prev));
 
       // Llamadas a API
-      const updateRes = await updateInput(input.id, { quantity_taken: newQty });
+      await updateInput(input.id, { quantity_taken: newQty });
       await createOutput(input.id, {
         quantity_output: formatDecimal(newQty - input.quantity_taken),
         output_date: new Date().toISOString(),
@@ -307,18 +529,19 @@ const Inputs = () => {
       });
 
       // Recarga final para sincronización
-      const refreshed = selectedBull
-        ? await getInputsByBull(selectedBull.id)
-        : await getInputsByUser(selectedUser.id);
+      if (selectedUser?.id) {
+        await fetchUserInputs(selectedUser.id, userInputsPage);
+      }
 
-      setBullInputs(
-        Array.isArray(refreshed) ? refreshed : refreshed.items || []
-      );
+      if (selectedBull?.id) {
+        await fetchBullInputs(selectedBull.id, bullInputsPage);
+      }
 
       setEditingInputId(null);
     } catch (error) {
       setUpdateError(error.message);
       // Revertir cambios si falla
+      setUserInputs((prev) => [...prev]);
       setBullInputs((prev) => [...prev]);
     } finally {
       setUpdateLoading(false);
@@ -339,24 +562,24 @@ const Inputs = () => {
   };
 
   // Función para filtrar las entradas
-  const getFilteredInputs = () => {
-    if (!bullInputs) return [];
-    
-    return bullInputs.filter(input => {
+  function getFilteredInputs() {
+    if (!userInputs) return [];
+
+    return userInputs.filter((input) => {
       const received = formatDecimal(parseFloat(input.quantity_received || 0));
       const used = formatDecimal(parseFloat(input.quantity_taken || 0));
       const available = received - used;
-      
+
       // Filtro por disponibilidad
       if (availabilityFilter === "available" && available <= 0) return false;
       if (availabilityFilter === "depleted" && available > 0) return false;
-      
+
       // Filtro por toro
       if (bullFilter && input.bull?.id !== parseInt(bullFilter)) return false;
-      
+
       return true;
     });
-  };
+  }
 
   return (
     <div className="container-fluid p-4">
@@ -491,90 +714,7 @@ const Inputs = () => {
               </table>
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <nav className="mt-3">
-                <ul className="pagination justify-content-center">
-                  <li
-                    className={`page-item ${
-                      currentPage === 1 ? "disabled" : ""
-                    }`}
-                  >
-                    <button
-                      className="page-link"
-                      onClick={() => paginate(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      <i className="bi bi-chevron-left"></i> Anterior
-                    </button>
-                  </li>
-
-                  {/* Mostrar números de página con elipsis */}
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(page => {
-                      // Mostrar siempre la primera página, la última y las páginas cercanas a la actual
-                      return (
-                        page === 1 ||
-                        page === totalPages ||
-                        Math.abs(page - currentPage) <= 2
-                      );
-                    })
-                    .map((page, index, array) => {
-                      // Agregar elipsis cuando hay saltos en la secuencia
-                      if (index > 0 && array[index - 1] !== page - 1) {
-                        return (
-                          <React.Fragment key={`ellipsis-${page}`}>
-                            <li className="page-item disabled">
-                              <span className="page-link">...</span>
-                            </li>
-                            <li
-                              className={`page-item ${
-                                currentPage === page ? "active" : ""
-                              }`}
-                            >
-                              <button
-                                className="page-link"
-                                onClick={() => paginate(page)}
-                              >
-                                {page}
-                              </button>
-                            </li>
-                          </React.Fragment>
-                        );
-                      }
-                      return (
-                        <li
-                          key={page}
-                          className={`page-item ${
-                            currentPage === page ? "active" : ""
-                          }`}
-                        >
-                          <button
-                            className="page-link"
-                            onClick={() => paginate(page)}
-                          >
-                            {page}
-                          </button>
-                        </li>
-                      );
-                    })}
-
-                  <li
-                    className={`page-item ${
-                      currentPage === totalPages ? "disabled" : ""
-                    }`}
-                  >
-                    <button
-                      className="page-link"
-                      onClick={() => paginate(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      Siguiente <i className="bi bi-chevron-right"></i>
-                    </button>
-                  </li>
-                </ul>
-              </nav>
-            )}
+            {renderPagination(currentPage, totalPages, paginate)}
 
             <div className="text-muted text-center mt-2 mb-4">
               Mostrando {users.length} de {totalItems} clientes
@@ -654,8 +794,8 @@ const Inputs = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {getFilteredInputs().length > 0 ? (
-                      getFilteredInputs().map((input) => {
+                    {filteredUserInputs.length > 0 ? (
+                      filteredUserInputs.map((input) => {
                         const received = formatDecimal(
                           parseFloat(input.quantity_received || 0)
                         );
@@ -769,7 +909,7 @@ timeZone: 'UTC' })
                       })
                     ) : (
                       <tr>
-                        <td colSpan="7" className="text-center py-4">
+                        <td colSpan="9" className="text-center py-4">
                           <span className="text-muted">
                             <i className="bi bi-inbox me-2"></i>
                             No hay entradas registradas para este cliente
@@ -779,6 +919,16 @@ timeZone: 'UTC' })
                     )}
                   </tbody>
                 </table>
+              </div>
+              <div className="px-3 pb-3">
+                {renderPagination(
+                  userInputsPage,
+                  userInputsTotalPages,
+                  handleUserInputsPaginate
+                )}
+                <div className="text-muted text-center mt-2">
+                  Mostrando {filteredUserInputs.length} de {userInputsTotal} entradas
+                </div>
               </div>
             </div>
           </div>
