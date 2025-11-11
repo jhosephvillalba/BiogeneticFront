@@ -49,6 +49,14 @@ const EmbryoProduction = () => {
   // Estados para el modal de semen
   const [showSemenModal, setShowSemenModal] = useState(false);
   const [semenEntries, setSemenEntries] = useState([]);
+  const [semenError, setSemenError] = useState(null);
+  const [semenLoading, setSemenLoading] = useState(false);
+  const [semenPagination, setSemenPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    limit: 10,
+  });
   // Estados para edición y confirmación
   const [editingInputId, setEditingInputId] = useState(null);
   const [editValue, setEditValue] = useState("");
@@ -100,6 +108,22 @@ const EmbryoProduction = () => {
     setFemaleBulls([]);
     setMaleBulls([]);
     setSemenEntries([]);
+    setSemenPagination({
+      currentPage: 1,
+      totalPages: 1,
+      totalItems: 0,
+      limit: 10,
+    });
+    setSemenError(null);
+    setSemenLoading(false);
+    setSemenPagination({
+      currentPage: 1,
+      totalPages: 1,
+      totalItems: 0,
+      limit: 10,
+    });
+    setSemenError(null);
+    setSemenLoading(false);
     setEmbryoProductionData({
       cliente_id: 0,
       fecha_opu: new Date().toISOString().split("T")[0],
@@ -437,20 +461,158 @@ const EmbryoProduction = () => {
     return parseFloat(value.toFixed(1));
   };
 
-  // Abrir modal de semen (solo si hay producción creada)
-  const handleOpenSemenModal = () => {
-    if (!production) return;
-    apiInputs
-      .getInputsByUser(selectedClient.id)
-      .then((result) => {
-        const filterActivos = result.filter((item) => item.total !== "0.00");
-        setSemenEntries(filterActivos);
-      })
-      .catch((error) => {
-        console.error({ error });
+  function parseTotalValue(value, fallback = 0) {
+    if (value === null || value === undefined) return fallback;
+    const parsed = parseFloat(value);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  }
+
+  async function loadSemenEntries(userId, page = 1) {
+    if (!userId) return;
+
+    const limit = semenPagination.limit;
+    const skip = (page - 1) * limit;
+
+    try {
+      setSemenLoading(true);
+      setSemenError(null);
+
+      const response = await apiInputs.getInputsByUser(userId, skip, limit);
+
+      const items = Array.isArray(response)
+        ? response
+        : response?.items
+        ? response.items
+        : response && typeof response === "object"
+        ? [response]
+        : [];
+
+      const totalFromResponse =
+        (response && typeof response === "object" && !Array.isArray(response)
+          ? response.total ?? response.total_items ?? 0
+          : items.length) || 0;
+
+      const total =
+        typeof totalFromResponse === "string"
+          ? parseInt(totalFromResponse, 10) || items.length
+          : totalFromResponse;
+
+      const rawTotalPages =
+        response && typeof response === "object" && !Array.isArray(response)
+          ? response.total_pages
+          : null;
+      const parsedTotalPages =
+        typeof rawTotalPages === "string"
+          ? parseInt(rawTotalPages, 10)
+          : rawTotalPages;
+      const computedLimitRaw = parseTotalValue(
+        response && typeof response === "object" ? response.limit : limit,
+        limit
+      );
+      const computedLimit =
+        computedLimitRaw && computedLimitRaw > 0
+          ? Math.round(computedLimitRaw)
+          : limit;
+      const totalPagesFromResponse =
+        parsedTotalPages ?? Math.ceil(total / (computedLimit || 1));
+
+      setSemenEntries(items);
+      setSemenPagination({
+        currentPage: page,
+        totalPages: totalPagesFromResponse || 1,
+        totalItems: total,
+        limit: computedLimit || limit,
       });
+      setEditingInputId(null);
+      setEditValue("");
+      setRemarkValue("");
+    } catch (error) {
+      console.error("Error al cargar unidades de semen:", error);
+      setSemenEntries([]);
+      setSemenError("No se pudieron cargar las unidades de semen.");
+      setSemenPagination((prev) => ({
+        ...prev,
+        currentPage: page,
+        totalItems: 0,
+        totalPages: 1,
+      }));
+    } finally {
+      setSemenLoading(false);
+    }
+  }
+
+  const handleOpenSemenModal = async () => {
+    if (!production || !selectedClient?.id) return;
     setShowSemenModal(true);
+    await loadSemenEntries(selectedClient.id, 1);
   };
+
+  const handleSemenPaginate = (pageNumber) => {
+    if (
+      !selectedClient?.id ||
+      pageNumber === semenPagination.currentPage ||
+      pageNumber < 1 ||
+      pageNumber > semenPagination.totalPages
+    ) {
+      return;
+    }
+    loadSemenEntries(selectedClient.id, pageNumber);
+  };
+
+  function renderSemenPaginationControls(current, total, onChange) {
+    if (total <= 1) return null;
+
+    const pagesToShow = Array.from({ length: total }, (_, index) => index + 1).filter(
+      (page) =>
+        page === 1 ||
+        page === total ||
+        Math.abs(page - current) <= 2
+    );
+
+    return (
+      <nav>
+        <ul className="pagination pagination-sm mb-0">
+          <li className={`page-item ${current === 1 ? "disabled" : ""}`}>
+            <button
+              className="page-link"
+              onClick={() => onChange(current - 1)}
+              disabled={current === 1}
+            >
+              <i className="bi bi-chevron-left"></i>
+            </button>
+          </li>
+          {pagesToShow.map((page, index) => {
+            const prevPage = pagesToShow[index - 1];
+            const needsEllipsis = index > 0 && prevPage !== page - 1;
+
+            return (
+              <React.Fragment key={`semen-page-${page}`}>
+                {needsEllipsis && (
+                  <li className="page-item disabled">
+                    <span className="page-link">...</span>
+                  </li>
+                )}
+                <li className={`page-item ${current === page ? "active" : ""}`}>
+                  <button className="page-link" onClick={() => onChange(page)}>
+                    {page}
+                  </button>
+                </li>
+              </React.Fragment>
+            );
+          })}
+          <li className={`page-item ${current === total ? "disabled" : ""}`}>
+            <button
+              className="page-link"
+              onClick={() => onChange(current + 1)}
+              disabled={current === total}
+            >
+              <i className="bi bi-chevron-right"></i>
+            </button>
+          </li>
+        </ul>
+      </nav>
+    );
+  }
 
   // Lógica de edición y guardado de cantidades
   const handleStartEdit = (input) => {
@@ -479,9 +641,9 @@ const EmbryoProduction = () => {
       setUpdateLoading(true);
       setUpdateError(null);
       
-      const newQty = parseFloat(editValue) || 0;
-      const received = parseFloat(input.quantity_received) || 0;
-      const currentTaken = parseFloat(input.quantity_taken) || 0;
+      const newQty = parseTotalValue(editValue);
+      const received = parseTotalValue(input.quantity_received);
+      const currentTaken = parseTotalValue(input.quantity_taken);
 
       if (newQty < currentTaken) {
         throw new Error("No puedes reducir la cantidad utilizada");
@@ -494,10 +656,10 @@ const EmbryoProduction = () => {
       setSemenEntries((prev) =>
         prev.map((item) =>
           item.id === input.id
-            ? { 
-                ...item, 
-                quantity_taken: newQty, 
-                total: (received - newQty).toFixed(1)
+            ? {
+                ...item,
+                quantity_taken: newQty.toFixed(2),
+                total: (received - newQty).toFixed(2),
               }
             : item
         )
@@ -506,7 +668,7 @@ const EmbryoProduction = () => {
       // Llamadas a API
       await apiInputs.updateInput(input.id, { quantity_taken: newQty });
       const output = await apiOuputs.createOutput(input.id, {
-        quantity_output: (newQty - currentTaken).toFixed(1),
+        quantity_output: (newQty - currentTaken).toFixed(2),
         output_date: new Date().toISOString(),
         remark: remarkValue || "Sin comentario",
         produccion_embrionaria_id: production?.id, // Relacionar con la producción embrionaria actual
@@ -547,6 +709,9 @@ const EmbryoProduction = () => {
       }, 3000);
     } finally {
       setUpdateLoading(false);
+      if (selectedClient?.id) {
+        await loadSemenEntries(selectedClient.id, semenPagination.currentPage);
+      }
     }
   };
 
@@ -1577,7 +1742,7 @@ const EmbryoProduction = () => {
                 ></button>
               </div>
               <div className="modal-body">
-                <table className="table">
+                <table className="table mb-0">
                   <thead>
                     <tr>
                       <th>Toro</th>
@@ -1592,112 +1757,151 @@ const EmbryoProduction = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {semenEntries.map((entry, index) => (
-                      <tr key={entry.id || `semen-entry-${index}`}>
-                        <td>{entry.bull.name}</td>
-                        <td>{entry.bull.registration_number}</td>
-                        <td>{entry.lote}</td>
-                        <td>
-                          {editingInputId === entry.id ? (
-                            <span className={parseFloat(entry.quantity_received - (parseFloat(editValue) || 0)) <= 0 ? "text-danger fw-bold" : "text-success"}>
-                              {(parseFloat(entry.quantity_received) - (parseFloat(editValue) || 0)).toFixed(1)}
-                              {parseFloat(entry.quantity_received - (parseFloat(editValue) || 0)) <= 0 && (
-                                <span className="badge bg-danger ms-2">Agotado</span>
-                              )}
-                            </span>
-                          ) : (
-                            <span className={parseFloat(entry.total) <= 0 ? "text-danger fw-bold" : "text-success"}>
-                              {parseFloat(entry.total).toFixed(1)}
-                              {parseFloat(entry.total) <= 0 && (
-                                <span className="badge bg-danger ms-2">Agotado</span>
-                              )}
-                            </span>
-                          )}
-                        </td>
-                        <td>{entry.quantity_taken}</td>
-                        <td>{entry.quantity_received}</td>
-                        <td>
-                          {editingInputId === entry.id ? (
-                            <input
-                              type="number"
-                              className="form-control form-control-sm"
-                              value={editValue}
-                              onChange={handleEditChange}
-                              min="0"
-                              step="0.1"
-                              disabled={updateLoading}
-                            />
-                          ) : (
-                            <span>{entry.quantity_taken || 0}</span>
-                          )}
-                        </td>
-                        <td>
-                          {editingInputId === entry.id ? (
-                            <input
-                              type="text"
-                              className="form-control form-control-sm"
-                              value={remarkValue}
-                              onChange={(e) => setRemarkValue(e.target.value)}
-                              maxLength={100}
-                              placeholder="Comentario de la salida"
-                              disabled={updateLoading}
-                            />
-                          ) : (
-                            <span className="text-muted">-</span>
-                          )}
-                        </td>
-                        <td>
-                          {editingInputId === entry.id ? (
-                            <div className="d-flex gap-2">
-                              <button
-                                className="btn btn-sm btn-success"
-                                onClick={() => handleUpdateQuantity(entry)}
-                                disabled={updateLoading}
-                              >
-                                {updateLoading ? (
-                                  <span className="spinner-border spinner-border-sm" />
-                                ) : (
-                                  <i className="bi bi-check" />
-                                )}
-                              </button>
-                              <button
-                                className="btn btn-sm btn-secondary"
-                                onClick={handleCancelEdit}
-                                disabled={updateLoading}
-                              >
-                                <i className="bi bi-x" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="d-flex align-items-center gap-2">
-                              <button
-                                className="btn btn-primary btn-sm"
-                                onClick={() => handleStartEdit(entry)}
-                                disabled={parseFloat(entry.total) <= 0}
-                                title={
-                                  parseFloat(entry.total) <= 0
-                                    ? "No hay cantidad disponible"
-                                    : "Editar cantidad utilizada"
-                                }
-                              >
-                                <i className="bi bi-pencil" />
-                              </button>
-                              {saveStatusByEntry[entry.id]?.status === 'success' && (
-                                <span className="badge bg-success">Guardado</span>
-                              )}
-                              {saveStatusByEntry[entry.id]?.status === 'error' && (
-                                <span className="badge bg-danger">Error</span>
-                              )}
-                            </div>
-                          )}
+                    {semenLoading ? (
+                      <tr>
+                        <td colSpan="9" className="text-center py-4">
+                          <div className="spinner-border text-primary" role="status">
+                            <span className="visually-hidden">Cargando...</span>
+                          </div>
                         </td>
                       </tr>
-                    ))}
+                    ) : semenEntries.length > 0 ? (
+                      semenEntries.map((entry, index) => {
+                        const received = parseTotalValue(entry.quantity_received);
+                        const taken = parseTotalValue(entry.quantity_taken);
+                        const totalAvailable = parseTotalValue(
+                          entry.total,
+                          received - taken
+                        );
+                        const projectedAvailable =
+                          editingInputId === entry.id
+                            ? received - parseTotalValue(editValue, taken)
+                            : totalAvailable;
+                        const isDepleted = projectedAvailable <= 0;
+
+                        return (
+                          <tr key={entry.id || `semen-entry-${index}`}>
+                            <td>{entry.bull?.name || "N/A"}</td>
+                            <td>{entry.bull?.registration_number || "N/A"}</td>
+                            <td>{entry.lote || "Sin lote"}</td>
+                            <td>
+                              <span
+                                className={
+                                  isDepleted ? "text-danger fw-bold" : "text-success"
+                                }
+                              >
+                                {projectedAvailable.toFixed(2)}
+                                {isDepleted && (
+                                  <span className="badge bg-danger ms-2">Agotado</span>
+                                )}
+                              </span>
+                            </td>
+                            <td>{taken.toFixed(2)}</td>
+                            <td>{received.toFixed(2)}</td>
+                            <td>
+                              {editingInputId === entry.id ? (
+                                <input
+                                  type="number"
+                                  className="form-control form-control-sm"
+                                  value={editValue}
+                                  onChange={handleEditChange}
+                                  min="0"
+                                  step="0.1"
+                                  max={received}
+                                  disabled={updateLoading}
+                                />
+                              ) : (
+                                <span>{taken.toFixed(2)}</span>
+                              )}
+                            </td>
+                            <td>
+                              {editingInputId === entry.id ? (
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  value={remarkValue}
+                                  onChange={(e) => setRemarkValue(e.target.value)}
+                                  maxLength={100}
+                                  placeholder="Comentario de la salida"
+                                  disabled={updateLoading}
+                                />
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
+                            </td>
+                            <td>
+                              {editingInputId === entry.id ? (
+                                <div className="d-flex gap-2">
+                                  <button
+                                    className="btn btn-sm btn-success"
+                                    onClick={() => handleUpdateQuantity(entry)}
+                                    disabled={updateLoading}
+                                  >
+                                    {updateLoading ? (
+                                      <span className="spinner-border spinner-border-sm" />
+                                    ) : (
+                                      <i className="bi bi-check" />
+                                    )}
+                                  </button>
+                                  <button
+                                    className="btn btn-sm btn-secondary"
+                                    onClick={handleCancelEdit}
+                                    disabled={updateLoading}
+                                  >
+                                    <i className="bi bi-x" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="d-flex align-items-center gap-2">
+                                  <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={() => handleStartEdit(entry)}
+                                    disabled={totalAvailable <= 0}
+                                    title={
+                                      totalAvailable <= 0
+                                        ? "No hay cantidad disponible"
+                                        : "Editar cantidad utilizada"
+                                    }
+                                  >
+                                    <i className="bi bi-pencil" />
+                                  </button>
+                                  {saveStatusByEntry[entry.id]?.status === "success" && (
+                                    <span className="badge bg-success">Guardado</span>
+                                  )}
+                                  {saveStatusByEntry[entry.id]?.status === "error" && (
+                                    <span className="badge bg-danger">Error</span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="9" className="text-center py-4 text-muted">
+                          No hay unidades registradas para este cliente.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
-                {updateError && (
-                  <div className="alert alert-danger mt-2">{updateError}</div>
+                {semenError && (
+                  <div className="alert alert-danger mt-3">{semenError}</div>
                 )}
+                {updateError && !semenError && (
+                  <div className="alert alert-danger mt-3">{updateError}</div>
+                )}
+                <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mt-3">
+                  {renderSemenPaginationControls(
+                    semenPagination.currentPage,
+                    semenPagination.totalPages,
+                    handleSemenPaginate
+                  )}
+                  <small className="text-muted">
+                    Mostrando {semenEntries.length} de {semenPagination.totalItems} entradas
+                  </small>
+                </div>
               </div>
               <div className="modal-footer d-flex justify-content-between">
                 <button
