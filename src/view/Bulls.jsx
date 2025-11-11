@@ -49,7 +49,15 @@ const Bulls = () => {
   const [showInputModal, setShowInputModal] = useState(false);
   const [selectedBull, setSelectedBull] = useState(null);
   const [quantityReceived, setQuantityReceived] = useState("");
+  const [inputLote, setInputLote] = useState("");
+  const [inputEscalerilla, setInputEscalerilla] = useState("");
   const [inputLoading, setInputLoading] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState(null);
+  const [editLote, setEditLote] = useState("");
+  const [editEscalerilla, setEditEscalerilla] = useState("");
+  const [entryUpdateLoading, setEntryUpdateLoading] = useState(false);
+  const [entryUpdateError, setEntryUpdateError] = useState(null);
+  const [entryVisibilityFilter, setEntryVisibilityFilter] = useState("available");
 
   // Estado para las entradas del toro seleccionado
   const [bullInputs, setBullInputs] = useState([]);
@@ -62,6 +70,18 @@ const Bulls = () => {
   });
 
   // Función para aplicar filtros locales
+  const parseNumber = (value) => {
+    const parsed = parseFloat(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  const computeAvailableUnits = (input) => {
+    if (input?.total !== undefined && input?.total !== null) {
+      return parseNumber(input.total);
+    }
+    return parseNumber(input.quantity_received) - parseNumber(input.quantity_taken);
+  };
+
   const applyLocalFilters = useCallback(
     (bullsToFilter) => {
       let filtered = [...bullsToFilter];
@@ -153,6 +173,39 @@ const Bulls = () => {
       setLoading(false);
     }
   };
+
+  const fetchBullInputs = useCallback(
+    async (bullId) => {
+      if (!bullId) {
+        setBullInputs([]);
+        return;
+      }
+
+      try {
+        setLoadingInputs(true);
+        setEntryUpdateError(null);
+        const inputsModule = await import("../Api/inputs");
+        const response = await inputsModule.getInputsByBull(bullId, 0, 100);
+        const items = Array.isArray(response)
+          ? response
+          : response?.items
+          ? response.items
+          : response?.results
+          ? response.results
+          : [];
+        setBullInputs(items);
+      } catch (error) {
+        console.error("Error al cargar entradas:", error);
+        setEntryUpdateError(
+          "No se pudieron cargar las entradas del toro seleccionado."
+        );
+        setBullInputs([]);
+      } finally {
+        setLoadingInputs(false);
+      }
+    },
+    []
+  );
 
   // Función para limpiar el cliente seleccionado
   const clearSelectedClient = () => {
@@ -426,25 +479,114 @@ const Bulls = () => {
 
     setSelectedBull(bull);
     setQuantityReceived("");
+    setInputLote(bull.lote || "");
+    setInputEscalerilla(bull.escalerilla || "");
+    setEditingEntryId(null);
+    setEditLote("");
+    setEditEscalerilla("");
+    setEntryUpdateError(null);
+    setEntryVisibilityFilter("available");
     setShowInputModal(true);
 
-    // Cargar las entradas existentes de este toro
+    await fetchBullInputs(bull.id);
+  };
+
+  const closeInputModal = () => {
+    setShowInputModal(false);
+    setSelectedBull(null);
+    setQuantityReceived("");
+    setInputLote("");
+    setInputEscalerilla("");
+    setEditingEntryId(null);
+    setEditLote("");
+    setEditEscalerilla("");
+    setEntryUpdateError(null);
+    setEntryVisibilityFilter("available");
+    setBullInputs([]);
+  };
+
+  const handleStartEditEntry = (entry) => {
+    setEditingEntryId(entry.id);
+    setEditLote(entry.lote || "");
+    setEditEscalerilla(entry.escalarilla || "");
+    setEntryUpdateError(null);
+  };
+
+  const handleCancelEditEntry = () => {
+    if (entryUpdateLoading) return;
+    setEditingEntryId(null);
+    setEditLote("");
+    setEditEscalerilla("");
+    setEntryUpdateError(null);
+  };
+
+  const handleSaveEditEntry = async (entry) => {
+    if (!entry || !editingEntryId) return;
+
+    const updatedLote = editLote.trim();
+    const updatedEscalerilla = editEscalerilla.trim();
+
+    if (!updatedLote || !updatedEscalerilla) {
+      setEntryUpdateError("El lote y la escalerilla no pueden estar vacíos.");
+      return;
+    }
+
+    if (
+      updatedLote === (entry.lote || "") &&
+      updatedEscalerilla === (entry.escalarilla || "")
+    ) {
+      handleCancelEditEntry();
+      return;
+    }
+
     try {
-      setLoadingInputs(true);
+      setEntryUpdateLoading(true);
+      setEntryUpdateError(null);
       const inputsModule = await import("../Api/inputs");
-      const inputs = await inputsModule.getInputsByBull(bull.id, 0, 100);
-      const filterInpust = inputs.filter(
-        (input) =>
-          input.status_id !== "Completed" && input.status_id !== "Cancelled"
-      );
-      console.log("Entradas cargadas:", inputs);
-      setBullInputs(filterInpust || []);
+      await inputsModule.updateInput(entry.id, {
+        lote: updatedLote,
+        escalerilla: updatedEscalerilla,
+      });
+      await fetchBullInputs(selectedBull?.id);
+      setEditingEntryId(null);
+      setEditLote("");
+      setEditEscalerilla("");
     } catch (error) {
-      console.error("Error al cargar entradas:", error);
+      console.error("Error al actualizar la entrada:", error);
+      setEntryUpdateError(
+        "No se pudo actualizar la entrada. Intenta nuevamente."
+      );
     } finally {
-      setLoadingInputs(false);
+      setEntryUpdateLoading(false);
     }
   };
+
+  const filteredBullInputsForModal = useMemo(() => {
+    const entries = Array.isArray(bullInputs) ? [...bullInputs] : [];
+    entries.sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    if (entryVisibilityFilter === "all") {
+      return entries;
+    }
+
+    return entries.filter((entry) => computeAvailableUnits(entry) > 0);
+  }, [bullInputs, entryVisibilityFilter]);
+
+  useEffect(() => {
+    if (!editingEntryId) return;
+    const stillVisible = filteredBullInputsForModal.some(
+      (entry) => entry.id === editingEntryId
+    );
+    if (!stillVisible) {
+      setEditingEntryId(null);
+      setEditLote("");
+      setEditEscalerilla("");
+    }
+  }, [editingEntryId, filteredBullInputsForModal]);
 
   // Función para registrar entrada rápida
   const handleQuickInput = async (e) => {
@@ -454,9 +596,13 @@ const Bulls = () => {
       !selectedBull ||
       !quantityReceived ||
       isNaN(parseFloat(quantityReceived)) ||
-      parseFloat(quantityReceived) <= 0
+      parseFloat(quantityReceived) <= 0 ||
+      !inputLote.trim() ||
+      !inputEscalerilla.trim()
     ) {
-      alert("Por favor ingrese una cantidad válida mayor a cero");
+      alert(
+        "Por favor ingrese una cantidad válida mayor a cero, junto con el lote y la escalerilla."
+      );
       return;
     }
 
@@ -473,27 +619,18 @@ const Bulls = () => {
         user_id: selectedClient.id,
         quantity_received: parseFloat(quantityReceived),
         date: new Date().toISOString().split("T")[0],
-        escalarilla: selectedBull.escalerilla || "",
-        lote: selectedBull.lote || "",
+        escalarilla: inputEscalerilla.trim(),
+        lote: inputLote.trim(),
       };
 
       const inputsModule = await import("../Api/inputs");
       await inputsModule.createInput(inputData);
 
-      // Recargar las entradas
-      const inputs = await inputsModule.getInputsByBull(
-        selectedBull.id,
-        0,
-        100
-      );
-      const filterInpust = inputs.filter(
-        (input) =>
-          input.status_id !== "Completed" && input.status_id !== "Cancelled"
-      );
-
-      setBullInputs(filterInpust || []);
+      await fetchBullInputs(selectedBull.id);
 
       setQuantityReceived("");
+      setInputLote(inputLote.trim());
+      setInputEscalerilla(inputEscalerilla.trim());
       alert("Entrada registrada correctamente");
     } catch (error) {
       console.error("Error al registrar entrada:", error);
@@ -1082,8 +1219,8 @@ const Bulls = () => {
                 <button
                   type="button"
                   className="btn-close"
-                  onClick={() => setShowInputModal(false)}
-                  disabled={inputLoading || loadingInputs}
+                  onClick={closeInputModal}
+                  disabled={inputLoading || loadingInputs || entryUpdateLoading}
                 ></button>
               </div>
               <div className="modal-body">
@@ -1113,6 +1250,32 @@ const Bulls = () => {
                               disabled={inputLoading}
                             />
                           </div>
+                          <div className="mb-3">
+                            <label className="form-label">Lote</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={inputLote}
+                              onChange={(e) => setInputLote(e.target.value)}
+                              placeholder="Número o identificador del lote"
+                              maxLength={100}
+                              required
+                              disabled={inputLoading}
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <label className="form-label">Escalerilla</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={inputEscalerilla}
+                              onChange={(e) => setInputEscalerilla(e.target.value)}
+                              placeholder="Ubicación o escalerilla asignada"
+                              maxLength={100}
+                              required
+                              disabled={inputLoading}
+                            />
+                          </div>
                           <button
                             type="submit"
                             className="btn btn-primary w-100"
@@ -1135,28 +1298,40 @@ const Bulls = () => {
 
                   <div className="col-md-8">
                     <div className="card">
-                      <div className="card-header bg-light">
+                      <div className="card-header bg-light d-flex justify-content-between align-items-center">
                         <h6 className="mb-0">Historial de Entradas</h6>
+                        <div className="d-flex align-items-center gap-2">
+                          <label htmlFor="entryVisibilityFilter" className="form-label mb-0 small text-muted">
+                            Mostrar
+                          </label>
+                          <select
+                            id="entryVisibilityFilter"
+                            className="form-select form-select-sm"
+                            value={entryVisibilityFilter}
+                            onChange={(e) => setEntryVisibilityFilter(e.target.value)}
+                            disabled={loadingInputs}
+                          >
+                            <option value="available">Solo con disponibilidad</option>
+                            <option value="all">Incluir agotadas</option>
+                          </select>
+                        </div>
                       </div>
                       <div className="card-body p-0">
                         {loadingInputs ? (
                           <div className="text-center py-4">
-                            <div
-                              className="spinner-border text-primary"
-                              role="status"
-                            >
-                              <span className="visually-hidden">
-                                Cargando...
-                              </span>
+                            <div className="spinner-border text-primary" role="status">
+                              <span className="visually-hidden">Cargando...</span>
                             </div>
-                            <p className="mt-2 text-muted">
-                              Cargando entradas...
-                            </p>
+                            <p className="mt-2 text-muted">Cargando entradas...</p>
                           </div>
-                        ) : bullInputs.length === 0 ? (
-                          <div className="text-center py-4 text-muted">
+                        ) : filteredBullInputsForModal.length === 0 ? (
+                          <div className="text-center py-4 text-muted px-3">
                             <i className="bi bi-inbox fs-3 d-block mb-2"></i>
-                            <p>No hay entradas registradas para este toro</p>
+                            <p className="mb-0">
+                              {entryVisibilityFilter === "available" && Array.isArray(bullInputs) && bullInputs.length > 0
+                                ? "No hay entradas con unidades disponibles. Cambia el filtro para ver entradas agotadas."
+                                : "No hay entradas registradas para este toro."}
+                            </p>
                           </div>
                         ) : (
                           <div className="table-responsive">
@@ -1165,32 +1340,108 @@ const Bulls = () => {
                                 <tr>
                                   <th>ID</th>
                                   <th>Fecha</th>
-                                  <th>Cantidad</th>
+                                  <th>Recibida</th>
+                                  <th>Disponible</th>
+                                  <th>Lote</th>
+                                  <th>Escalerilla</th>
+                                  <th>Acciones</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {bullInputs.map((input) => (
-                                  <tr key={input.id}>
-                                    <td>{input.id}</td>
-                                    <td>
-                                      {input.created_at
-                                        ? new Date(
-                                            input.created_at
-                                          ).toLocaleDateString("es-CO", {
-                                            timeZone: "UTC",
-                                          })
-                                        : "N/A"}
-                                    </td>
-                                    <td>
-                                      {parseFloat(
-                                        input.quantity_received
-                                      ).toFixed(1)}{" "}
-                                      unidades
-                                    </td>
-                                  </tr>
-                                ))}
+                                {filteredBullInputsForModal.map((input) => {
+                                  const isEditing = editingEntryId === input.id;
+                                  const availableUnits = computeAvailableUnits(input);
+                                  return (
+                                    <tr key={input.id}>
+                                      <td>{input.id}</td>
+                                      <td>
+                                        {input.created_at
+                                          ? new Date(input.created_at).toLocaleDateString("es-CO", {
+                                              timeZone: "UTC",
+                                            })
+                                          : "N/A"}
+                                      </td>
+                                      <td>{parseNumber(input.quantity_received).toFixed(1)} unidades</td>
+                                      <td>
+                                        <span
+                                          className={
+                                            availableUnits <= 0 ? "text-danger fw-semibold" : "text-success fw-semibold"
+                                          }
+                                        >
+                                          {availableUnits.toFixed(1)} unidades
+                                        </span>
+                                      </td>
+                                      <td>
+                                        {isEditing ? (
+                                          <input
+                                            type="text"
+                                            className="form-control form-control-sm"
+                                            value={editLote}
+                                            onChange={(e) => setEditLote(e.target.value)}
+                                            maxLength={100}
+                                            disabled={entryUpdateLoading}
+                                          />
+                                        ) : (
+                                          input.lote || "Sin lote"
+                                        )}
+                                      </td>
+                                      <td>
+                                        {isEditing ? (
+                                          <input
+                                            type="text"
+                                            className="form-control form-control-sm"
+                                            value={editEscalerilla}
+                                            onChange={(e) => setEditEscalerilla(e.target.value)}
+                                            maxLength={100}
+                                            disabled={entryUpdateLoading}
+                                          />
+                                        ) : (
+                                          input.escalarilla || "Sin escalerilla"
+                                        )}
+                                      </td>
+                                      <td>
+                                        {isEditing ? (
+                                          <div className="btn-group btn-group-sm">
+                                            <button
+                                              className="btn btn-success"
+                                              onClick={() => handleSaveEditEntry(input)}
+                                              disabled={entryUpdateLoading}
+                                            >
+                                              {entryUpdateLoading ? (
+                                                <span className="spinner-border spinner-border-sm" role="status" />
+                                              ) : (
+                                                <i className="bi bi-check" />
+                                              )}
+                                            </button>
+                                            <button
+                                              className="btn btn-secondary"
+                                              onClick={handleCancelEditEntry}
+                                              disabled={entryUpdateLoading}
+                                            >
+                                              <i className="bi bi-x" />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            className="btn btn-outline-primary btn-sm"
+                                            onClick={() => handleStartEditEntry(input)}
+                                            title="Editar lote y escalerilla"
+                                            disabled={Boolean(editingEntryId) && editingEntryId !== input.id}
+                                          >
+                                            <i className="bi bi-pencil" />
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
+                          </div>
+                        )}
+                        {entryUpdateError && (
+                          <div className="alert alert-danger m-3 mb-0" role="alert">
+                            {entryUpdateError}
                           </div>
                         )}
                       </div>
@@ -1202,8 +1453,8 @@ const Bulls = () => {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setShowInputModal(false)}
-                  disabled={inputLoading || loadingInputs}
+                  onClick={closeInputModal}
+                  disabled={inputLoading || loadingInputs || entryUpdateLoading}
                 >
                   Cerrar
                 </button>
