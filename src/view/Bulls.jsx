@@ -38,7 +38,7 @@ const Bulls = () => {
     name: "",
     lote: "",
     registration_number: "",
-    escalerilla: "",
+    escalarilla: "",
     race_id: 0,
     sex_id: 0,
     status: "active",
@@ -50,11 +50,11 @@ const Bulls = () => {
   const [selectedBull, setSelectedBull] = useState(null);
   const [quantityReceived, setQuantityReceived] = useState("");
   const [inputLote, setInputLote] = useState("");
-  const [inputEscalerilla, setInputEscalerilla] = useState("");
+  const [inputEscalarilla, setInputEscalarilla] = useState("");
   const [inputLoading, setInputLoading] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState(null);
   const [editLote, setEditLote] = useState("");
-  const [editEscalerilla, setEditEscalerilla] = useState("");
+  const [editEscalarilla, setEditEscalarilla] = useState("");
   const [entryUpdateLoading, setEntryUpdateLoading] = useState(false);
   const [entryUpdateError, setEntryUpdateError] = useState(null);
   const [entryVisibilityFilter, setEntryVisibilityFilter] = useState("available");
@@ -428,7 +428,7 @@ const Bulls = () => {
         sex_id: 0,
         status: "Active",
         lote: "",
-        escalerilla: "",
+        escalarilla: "",
         description: "",
       });
       setShowNewBullModal(false);
@@ -480,10 +480,10 @@ const Bulls = () => {
     setSelectedBull(bull);
     setQuantityReceived("");
     setInputLote(bull.lote || "");
-    setInputEscalerilla(bull.escalerilla || "");
+    setInputEscalarilla(bull.escalarilla ?? bull.escalerilla ?? "");
     setEditingEntryId(null);
     setEditLote("");
-    setEditEscalerilla("");
+    setEditEscalarilla("");
     setEntryUpdateError(null);
     setEntryVisibilityFilter("available");
     setShowInputModal(true);
@@ -496,10 +496,10 @@ const Bulls = () => {
     setSelectedBull(null);
     setQuantityReceived("");
     setInputLote("");
-    setInputEscalerilla("");
+    setInputEscalarilla("");
     setEditingEntryId(null);
     setEditLote("");
-    setEditEscalerilla("");
+    setEditEscalarilla("");
     setEntryUpdateError(null);
     setEntryVisibilityFilter("available");
     setBullInputs([]);
@@ -508,7 +508,7 @@ const Bulls = () => {
   const handleStartEditEntry = (entry) => {
     setEditingEntryId(entry.id);
     setEditLote(entry.lote || "");
-    setEditEscalerilla(entry.escalarilla || "");
+    setEditEscalarilla(entry.escalarilla ?? entry.escalerilla ?? "");
     setEntryUpdateError(null);
   };
 
@@ -516,7 +516,7 @@ const Bulls = () => {
     if (entryUpdateLoading) return;
     setEditingEntryId(null);
     setEditLote("");
-    setEditEscalerilla("");
+    setEditEscalarilla("");
     setEntryUpdateError(null);
   };
 
@@ -524,16 +524,16 @@ const Bulls = () => {
     if (!entry || !editingEntryId) return;
 
     const updatedLote = editLote.trim();
-    const updatedEscalerilla = editEscalerilla.trim();
+    const updatedEscalarilla = editEscalarilla.trim();
 
-    if (!updatedLote || !updatedEscalerilla) {
-      setEntryUpdateError("El lote y la escalerilla no pueden estar vacíos.");
+    if (!updatedLote || !updatedEscalarilla) {
+      setEntryUpdateError("El lote y la escalarilla no pueden estar vacíos.");
       return;
     }
 
     if (
       updatedLote === (entry.lote || "") &&
-      updatedEscalerilla === (entry.escalarilla || "")
+      updatedEscalarilla === (entry.escalarilla || "")
     ) {
       handleCancelEditEntry();
       return;
@@ -545,12 +545,12 @@ const Bulls = () => {
       const inputsModule = await import("../Api/inputs");
       await inputsModule.updateInput(entry.id, {
         lote: updatedLote,
-        escalerilla: updatedEscalerilla,
+        escalarilla: updatedEscalarilla,
       });
       await fetchBullInputs(selectedBull?.id);
       setEditingEntryId(null);
       setEditLote("");
-      setEditEscalerilla("");
+      setEditEscalarilla("");
     } catch (error) {
       console.error("Error al actualizar la entrada:", error);
       setEntryUpdateError(
@@ -584,7 +584,7 @@ const Bulls = () => {
     if (!stillVisible) {
       setEditingEntryId(null);
       setEditLote("");
-      setEditEscalerilla("");
+      setEditEscalarilla("");
     }
   }, [editingEntryId, filteredBullInputsForModal]);
 
@@ -598,10 +598,10 @@ const Bulls = () => {
       isNaN(parseFloat(quantityReceived)) ||
       parseFloat(quantityReceived) <= 0 ||
       !inputLote.trim() ||
-      !inputEscalerilla.trim()
+      !inputEscalarilla.trim()
     ) {
       alert(
-        "Por favor ingrese una cantidad válida mayor a cero, junto con el lote y la escalerilla."
+        "Por favor ingrese una cantidad válida mayor a cero, junto con el lote y la escalarilla."
       );
       return;
     }
@@ -619,7 +619,7 @@ const Bulls = () => {
         user_id: selectedClient.id,
         quantity_received: parseFloat(quantityReceived),
         date: new Date().toISOString().split("T")[0],
-        escalarilla: inputEscalerilla.trim(),
+        escalarilla: inputEscalarilla.trim(),
         lote: inputLote.trim(),
       };
 
@@ -630,7 +630,7 @@ const Bulls = () => {
 
       setQuantityReceived("");
       setInputLote(inputLote.trim());
-      setInputEscalerilla(inputEscalerilla.trim());
+      setInputEscalarilla(inputEscalarilla.trim());
       alert("Entrada registrada correctamente");
     } catch (error) {
       console.error("Error al registrar entrada:", error);
@@ -841,7 +841,7 @@ const Bulls = () => {
                   <th width="20%">Nombre</th>
                   <th width="15%">Registro</th>
                   <th width="15%">Lote</th>
-                  <th width="15%">Escalerilla</th>
+                  <th width="15%">Escalarilla</th>
                   <th width="15%">Descripción</th>
                   <th width="20%">Raza</th>
                   <th width="15%">Sexo</th>
@@ -900,7 +900,7 @@ const Bulls = () => {
                         <td>{bull.name || "Sin nombre"}</td>
                         <td>{bull.registration_number || bull.registration_number || "Sin registro"}</td>
                         <td>{bull.lote || "Sin registro"}</td>
-                        <td>{bull.escalerilla ||"Sin registro"}</td>
+                        <td>{bull.escalarilla ?? bull.escalerilla ?? "Sin registro"}</td>
                         <td>{bull.description || "Sin registro"}</td>
                         <td>{raceName}</td>
                         <td>{sexName}</td>
@@ -1086,16 +1086,16 @@ const Bulls = () => {
                     />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Escalerilla</label>
+                    <label className="form-label">Escalarilla</label>
                     <input
                       type="text"
                       className="form-control"
-                      name="escalerilla"
-                      value={newBullData.escalerilla}
+                      name="escalarilla"
+                      value={newBullData.escalarilla}
                       onChange={(e) =>
                         setNewBullData((prev) => ({
                           ...prev,
-                          escalerilla: e.target.value,
+                          escalarilla: e.target.value,
                         }))
                       }
                     />
@@ -1264,13 +1264,13 @@ const Bulls = () => {
                             />
                           </div>
                           <div className="mb-3">
-                            <label className="form-label">Escalerilla</label>
+                            <label className="form-label">Escalarilla</label>
                             <input
                               type="text"
                               className="form-control"
-                              value={inputEscalerilla}
-                              onChange={(e) => setInputEscalerilla(e.target.value)}
-                              placeholder="Ubicación o escalerilla asignada"
+                              value={inputEscalarilla}
+                              onChange={(e) => setInputEscalarilla(e.target.value)}
+                              placeholder="Ubicación o escalarilla asignada"
                               maxLength={100}
                               required
                               disabled={inputLoading}
@@ -1343,7 +1343,7 @@ const Bulls = () => {
                                   <th>Recibida</th>
                                   <th>Disponible</th>
                                   <th>Lote</th>
-                                  <th>Escalerilla</th>
+                                  <th>Escalarilla</th>
                                   <th>Acciones</th>
                                 </tr>
                               </thead>
@@ -1390,13 +1390,13 @@ const Bulls = () => {
                                           <input
                                             type="text"
                                             className="form-control form-control-sm"
-                                            value={editEscalerilla}
-                                            onChange={(e) => setEditEscalerilla(e.target.value)}
+                                            value={editEscalarilla}
+                                            onChange={(e) => setEditEscalarilla(e.target.value)}
                                             maxLength={100}
                                             disabled={entryUpdateLoading}
                                           />
                                         ) : (
-                                          input.escalarilla || "Sin escalerilla"
+                                          input.escalarilla ?? input.escalerilla ?? "Sin escalarilla"
                                         )}
                                       </td>
                                       <td>
@@ -1425,7 +1425,7 @@ const Bulls = () => {
                                           <button
                                             className="btn btn-outline-primary btn-sm"
                                             onClick={() => handleStartEditEntry(input)}
-                                            title="Editar lote y escalerilla"
+                                            title="Editar lote y escalarilla"
                                             disabled={Boolean(editingEntryId) && editingEntryId !== input.id}
                                           >
                                             <i className="bi bi-pencil" />
