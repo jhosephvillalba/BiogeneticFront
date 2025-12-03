@@ -29,7 +29,7 @@ const TransferReport = () => {
   const [rowsData, setRowsData] = useState({});
 
   // Opciones para los selects
-  const horarioOptions = ['D', 'R'];
+  const ovarioOptions = ['D', 'R'];
   const dxOptions = ['P+', 'V'];
 
   // Estado para el objeto transfers
@@ -204,7 +204,7 @@ const TransferReport = () => {
             savedRowsData[row.id] = {
               estado: reporte.estado || '',
               receptora: reporte.receptora || '',
-              horario: reporte.horario || 'D',
+              ovario: reporte.ovario || 'D',
               dx: reporte.dx || 'P+',
               dxx: reporte.dxx || 'P+',
               dxxx: reporte.dxxx || 'P+'
@@ -245,7 +245,7 @@ const TransferReport = () => {
             initialRowsData[row.id] = {
               estado: '',
               receptora: '',
-              horario: 'D',
+              ovario: 'D',
               dx: 'P+',
               dxx: 'P+',
               dxxx: 'P+'
@@ -287,7 +287,7 @@ const TransferReport = () => {
           initialRowsData[row.id] = {
             estado: '',
             receptora: '',
-            horario: 'D',
+            ovario: 'D',
             dx: 'P+',
             dxx: 'P+',
             dxxx: 'P+'
@@ -391,7 +391,7 @@ const TransferReport = () => {
         initialRowsData[row.id] = {
           estado: '',
           receptora: '',
-          horario: 'D',
+          ovario: 'D',
           dx: 'P+',
           dxx: 'P+',
           dxxx: 'P+'
@@ -428,7 +428,7 @@ const TransferReport = () => {
         initialRowsData[row.id] = {
           estado: reporte.estado || '',
           receptora: reporte.receptora || '',
-          horario: reporte.horario || 'D',
+          ovario: reporte.ovario || 'D',
           dx: reporte.dx || 'P+',
           dxx: reporte.dxx || 'P+',
           dxxx: reporte.dxxx || 'P+'
@@ -464,7 +464,7 @@ const TransferReport = () => {
         toro_raza: row.razaToro,
         estado: rowData.estado || '',
         receptora: rowData.receptora || '',
-        horario: rowData.horario || 'D',
+        ovario: rowData.ovario || 'D',
         dx: rowData.dx || 'P+',
         dxx: rowData.dxx || 'P+',
         dxxx: rowData.dxxx || 'P+'
@@ -494,7 +494,7 @@ const TransferReport = () => {
             toro_raza: row.razaToro,
             estado: rowData.estado || '',
             receptora: rowData.receptora || '',
-            horario: rowData.horario || 'D',
+            ovario: rowData.ovario || 'D',
             dx: rowData.dx || 'P+',
             dxx: rowData.dxx || 'P+',
             dxxx: rowData.dxxx || 'P+'
@@ -554,7 +554,7 @@ const TransferReport = () => {
             toro_raza: row.razaToro,
             estado: rowData.estado || '',
             receptora: rowData.receptora || '',
-            horario: rowData.horario || 'D',
+            ovario: rowData.ovario || 'D',
             dx: rowData.dx || 'P+',
             dxx: rowData.dxx || 'P+',
             dxxx: rowData.dxxx || 'P+'
@@ -893,7 +893,7 @@ const TransferReport = () => {
                     <th>Raza del Toro</th>
                     <th>Estado</th>
                     <th>Receptora</th>
-                    <th>Horario</th>
+                    <th>Ovario</th>
                     <th>DX</th>
                     <th>DXX</th>
                     <th>DXXX</th>
@@ -930,10 +930,10 @@ const TransferReport = () => {
                       <td>
                         <select
                           className="form-select form-select-sm"
-                          value={rowsData[row.id]?.horario || 'D'}
-                          onChange={(e) => handleRowDataChange(row.id, 'horario', e.target.value)}
+                          value={rowsData[row.id]?.ovario || 'D'}
+                          onChange={(e) => handleRowDataChange(row.id, 'ovario', e.target.value)}
                         >
-                          {horarioOptions.map(option => (
+                          {ovarioOptions.map(option => (
                             <option key={option} value={option}>{option}</option>
                           ))}
                         </select>

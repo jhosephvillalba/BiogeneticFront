@@ -57,6 +57,22 @@ export const getTasksByDate = async (date) => {
 };
 
 /**
+ * Obtener todas las tareas de un mes específico
+ * @param {number} year - Año (ej: 2025)
+ * @param {number} month - Mes (1-12)
+ * @returns {Promise<Array>} Lista de tareas del mes
+ */
+export const getTasksByMonth = async (year, month) => {
+  try {
+    const response = await axios.get(`/calendar/tasks/month/${year}/${month}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error obteniendo tareas del mes:", error);
+    throw error;
+  }
+};
+
+/**
  * Obtener tareas por rango de fechas
  * @param {string} startDate - Fecha de inicio
  * @param {string} endDate - Fecha de fin
@@ -573,6 +589,7 @@ export default {
   getCalendarTasks,
   getClientTasks,
   getTasksByDate,
+  getTasksByMonth,
   getTasksByDateRange,
   searchTasks,
   getTaskById,

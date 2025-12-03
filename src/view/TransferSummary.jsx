@@ -166,7 +166,7 @@ const TransferSummary = () => {
                       <th>Raza del Toro</th>
                       <th>Estado</th>
                       <th>Receptora</th>
-                      <th>Horario</th>
+                      <th>Ovario</th>
                       <th>DX</th>
                       <th>DXX</th>
                       <th>DXXX</th>
@@ -182,7 +182,7 @@ const TransferSummary = () => {
                         <td>{reporte.toro_raza}</td>
                         <td>{reporte.estado}</td>
                         <td>{reporte.receptora}</td>
-                        <td>{reporte.horario}</td>
+                        <td>{reporte.ovario}</td>
                         <td>{reporte.dx}</td>
                         <td>{reporte.dxx}</td>
                         <td>{reporte.dxxx}</td>

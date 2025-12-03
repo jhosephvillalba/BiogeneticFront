@@ -44,6 +44,9 @@ const Calendar = () => {
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedDayTasks, setSelectedDayTasks] = useState([]);
   const [selectedDaySelectedIds, setSelectedDaySelectedIds] = useState([]);
+  const [monthTasks, setMonthTasks] = useState([]); // Tareas del mes completo
+  const [expandedDays, setExpandedDays] = useState(new Set()); // Días con acordeón expandido
+  const [showAllTasksModal, setShowAllTasksModal] = useState(false); // Modal con todas las tareas del mes
   
   // Estado para el modal de nueva tarea
   const [newTask, setNewTask] = useState({
@@ -102,7 +105,7 @@ const Calendar = () => {
 
     const clientName = rawTask.clientName
       || rawTask.client_name
-      || rawTask.client
+      || rawTask.client?.full_name
       || rawTask.client_full_name
       || '';
 
@@ -110,6 +113,7 @@ const Calendar = () => {
       ...rawTask,
       summary,
       clientName,
+      client_name: clientName, // Mantener ambos para compatibilidad
       taskName: rawTask.taskName || rawTask.task_name || summary,
       taskType: rawTask.taskType || rawTask.task_type || rawTask.type,
       start: {
@@ -120,6 +124,17 @@ const Calendar = () => {
         date: endDateStr || (endDateTime ? String(endDateTime).split(' ')[0] : (startDateStr || '')),
         dateTime: endDateTime,
       },
+      // Preservar campos del nuevo formato del API
+      start_date: startDateStr,
+      start_time: startTimeStr,
+      end_date: endDateStr,
+      end_time: endTimeStr,
+      color_background: rawTask.color_background || rawTask.color?.background,
+      color_foreground: rawTask.color_foreground || rawTask.color?.foreground,
+      color: {
+        background: rawTask.color_background || rawTask.color?.background || '#e3f2fd',
+        foreground: rawTask.color_foreground || rawTask.color?.foreground || '#0d47a1'
+      }
     };
   };
 
@@ -396,6 +411,35 @@ const Calendar = () => {
       if (normalizedNewTasks.length > 0) {
         setTasks(prev => [...prev, ...normalizedNewTasks]);
         setFilteredTasks(prev => [...prev, ...normalizedNewTasks]);
+        setMonthTasks(prev => [...prev, ...normalizedNewTasks]);
+        
+        // Si hay un día seleccionado y el modal está abierto, actualizar sus tareas
+        if (selectedDay && showDayModal) {
+          const dateStr = toLocalYMD(selectedDay);
+          const updatedDayTasks = getDayTasks(selectedDay);
+          setSelectedDayTasks(updatedDayTasks);
+        }
+        
+        // Recargar tareas del mes para asegurar sincronización
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+        try {
+          const monthTasksData = await calendarServices.getTasksByMonth(year, month);
+          const normalized = normalizeTasksArray(monthTasksData);
+          setMonthTasks(normalized);
+          if (!selectedClient) {
+            setFilteredTasks(normalized);
+          } else {
+            // Si hay cliente seleccionado, filtrar las nuevas tareas
+            const clientTasks = normalized.filter(t => 
+              t.client_id === parseInt(newTask.clientId) || 
+              (t.client_name || t.clientName || t.client?.full_name) === newTask.clientName
+            );
+            setFilteredTasks(clientTasks);
+          }
+        } catch (err) {
+          console.error("Error recargando tareas del mes:", err);
+        }
       } else {
         console.warn('La API no devolvió tareas creadas, pero la operación pudo haber sido exitosa.');
       }
@@ -460,11 +504,51 @@ const Calendar = () => {
     }
   };
 
-  // Obtener tareas para una fecha específica
-  const getTasksForDate = (date) => {
+  // Función helper para obtener todas las tareas de un día específico
+  const getDayTasks = (date) => {
     const dateStr = toLocalYMD(date);
-    const dayTasks = (filteredTasks || []).filter(task => task?.start?.date === dateStr);
-    // Mostrar como mucho 1 tarea en la celda
+    // Si hay cliente seleccionado, usar filteredTasks, sino usar monthTasks
+    const sourceTasks = selectedClient ? filteredTasks : monthTasks;
+    return (sourceTasks || []).filter(task => {
+      if (!task) return false;
+      const taskDate = task.start_date || task.start?.date;
+      if (!taskDate) return false;
+      return taskDate === dateStr;
+    });
+  };
+  
+  // Agrupar tareas por día
+  const groupTasksByDay = (tasks) => {
+    const grouped = {};
+    tasks.forEach(task => {
+      const dateStr = task.start_date || task.start?.date;
+      if (dateStr) {
+        if (!grouped[dateStr]) {
+          grouped[dateStr] = [];
+        }
+        grouped[dateStr].push(task);
+      }
+    });
+    return grouped;
+  };
+  
+  // Toggle acordeón de un día
+  const toggleDayAccordion = (dateStr) => {
+    setExpandedDays(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(dateStr)) {
+        newSet.delete(dateStr);
+      } else {
+        newSet.add(dateStr);
+      }
+      return newSet;
+    });
+  };
+
+  // Obtener tareas para una fecha específica (solo para visualización en la casilla)
+  const getTasksForDate = (date) => {
+    const dayTasks = getDayTasks(date);
+    // Mostrar como mucho 1 tarea en la celda para evitar saturación visual
     return dayTasks.slice(0, 1);
   };
 
@@ -515,6 +599,8 @@ const Calendar = () => {
     setShowDropdown(false);
     setTasks([]);
     setFilteredTasks([]);
+    setMonthTasks([]);
+    setExpandedDays(new Set());
     setSelectedDay(null);
     setSelectedDayTasks([]);
     setSelectedDaySelectedIds([]);
@@ -545,16 +631,16 @@ const Calendar = () => {
   const toggleTaskStatus = async (taskId) => {
     try {
       const updatedTask = await calendarServices.toggleTaskStatus(taskId);
-      setTasks(prev => prev.map(task => 
+      const updateTaskInState = (prev) => prev.map(task => 
         task.id === taskId 
           ? { ...task, status: updatedTask.status }
           : task
-      ));
-      setFilteredTasks(prev => prev.map(task => 
-        task.id === taskId 
-          ? { ...task, status: updatedTask.status }
-          : task
-      ));
+      );
+      
+      setTasks(updateTaskInState);
+      setFilteredTasks(updateTaskInState);
+      setMonthTasks(updateTaskInState);
+      setSelectedDayTasks(updateTaskInState);
     } catch (err) {
       console.error("Error al cambiar estado de tarea:", err);
       setError("Error al cambiar el estado de la tarea");
@@ -674,14 +760,35 @@ const Calendar = () => {
     calculateStats();
   }, [tasks]);
 
-  // Cargar estadísticas cuando cambia el mes
+  // Cargar tareas del mes cuando cambia el mes o cuando no hay cliente seleccionado
   useEffect(() => {
+    const loadMonthTasks = async () => {
+      try {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1; // getMonth() devuelve 0-11, necesitamos 1-12
+        
+        if (!selectedClient) {
+          // Si no hay cliente seleccionado, cargar todas las tareas del mes
+          setLoading(true);
+          const monthTasksData = await calendarServices.getTasksByMonth(year, month);
+          const normalized = normalizeTasksArray(monthTasksData);
+          setMonthTasks(normalized);
+          setFilteredTasks(normalized);
+        } else {
+          // Si hay cliente seleccionado, cargar solo sus tareas
+          await loadClientTasks(selectedClient.id);
+        }
+      } catch (err) {
+        console.error("Error cargando tareas del mes:", err);
+        setError("Error al cargar las tareas del mes");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
     fetchCalendarStats();
-    // Recargar tareas del cliente seleccionado si hay uno
-    if (selectedClient) {
-      loadClientTasks(selectedClient.id);
-    }
-  }, [currentDate]);
+    loadMonthTasks();
+  }, [currentDate, selectedClient]);
 
   // Establecer template por defecto cuando se cargan los templates
   useEffect(() => {
@@ -719,6 +826,26 @@ const Calendar = () => {
       {/* Header minimalista */}
       <div className="calendar-header">
         <div className="calendar-nav">
+          {/* Icono de ojo para ver todas las tareas del mes */}
+          <button 
+            className="calendar-nav-btn" 
+            onClick={async () => {
+              try {
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth() + 1;
+                const monthTasksData = await calendarServices.getTasksByMonth(year, month);
+                const normalized = normalizeTasksArray(monthTasksData);
+                setMonthTasks(normalized);
+                setShowAllTasksModal(true);
+              } catch (err) {
+                console.error("Error cargando tareas del mes:", err);
+                setError("Error al cargar las tareas del mes");
+              }
+            }}
+            title="Ver todas las tareas del mes"
+          >
+            <i className="bi bi-eye"></i>
+          </button>
           <button className="calendar-nav-btn" onClick={previousMonth}>
             <i className="bi bi-chevron-left"></i>
           </button>
@@ -752,8 +879,19 @@ const Calendar = () => {
                   onClick={() => {
                     setSearchQuery('');
                     setSelectedClient(null);
-                    setFilteredTasks(tasks);
+                    setFilteredTasks([]);
+                    setExpandedDays(new Set());
                     setShowDropdown(false);
+                    // Recargar tareas del mes completo
+                    const year = currentDate.getFullYear();
+                    const month = currentDate.getMonth() + 1;
+                    calendarServices.getTasksByMonth(year, month)
+                      .then(data => {
+                        const normalized = normalizeTasksArray(data);
+                        setMonthTasks(normalized);
+                        setFilteredTasks(normalized);
+                      })
+                      .catch(err => console.error("Error recargando tareas:", err));
                   }}
                 >
                   <i className="bi bi-x"></i>
@@ -828,7 +966,12 @@ const Calendar = () => {
           {calendar.map((date, index) => {
             const isCurrentMonth = date.getMonth() === currentDate.getMonth();
             const isToday = toLocalYMD(date) === toLocalYMD(new Date());
-            const dayTasks = getTasksForDate(date);
+            const dateStr = toLocalYMD(date);
+            const allDayTasks = getDayTasks(date);
+            const isExpanded = expandedDays.has(dateStr);
+            const maxVisible = 5;
+            const visibleTasks = isExpanded ? allDayTasks : allDayTasks.slice(0, maxVisible);
+            const hasMore = allDayTasks.length > maxVisible;
             
             return (
               <div
@@ -836,57 +979,152 @@ const Calendar = () => {
                 className={`calendar-day ${
                   !isCurrentMonth ? 'other-month' : ''
                 } ${isToday ? 'today' : ''}`}
+                onClick={(e) => {
+                  // Solo abrir modal si se hace clic en el área del día, no en tareas, botones o iconos
+                  if (e.target.closest('.event-item') || 
+                      e.target.closest('.day-add-btn') || 
+                      e.target.closest('.day-view-btn') ||
+                      e.target.closest('.btn') ||
+                      e.target.closest('button')) {
+                    return;
+                  }
+                  // Ya no abrimos el modal automáticamente, solo con el icono de ojo
+                }}
               >
                 <div className="day-header">
-                                      <div className="day-number-container">
-                      <span className="day-number">{date.getDate()}</span>
-                      {isToday && (
-                        <div className="today-indicator">
-                          <i className="bi bi-check-circle-fill today-check"></i>
-                        </div>
-                      )}
-                    </div>
-                  <button
-                    className="day-add-btn"
-                    onClick={() => openNewTaskModal(date)}
-                    title="Agregar evento"
-                  >
-                    <i className="bi bi-plus"></i>
-                  </button>
+                  <div className="day-number-container">
+                    <span className="day-number">{date.getDate()}</span>
+                    {isToday && (
+                      <div className="today-indicator">
+                        <i className="bi bi-check-circle-fill today-check"></i>
+                      </div>
+                    )}
+                    {allDayTasks.length > 0 && (
+                      <span className="badge bg-primary badge-sm ms-1" style={{ fontSize: '0.65rem' }}>
+                        {allDayTasks.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="d-flex gap-1">
+                    {allDayTasks.length > 0 && (
+                      <button
+                        className="day-view-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedDay(date);
+                          setSelectedDayTasks(allDayTasks);
+                          setSelectedDaySelectedIds([]);
+                          setShowDayModal(true);
+                        }}
+                        title="Ver todas las tareas del día"
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#0d6efd',
+                          padding: '2px 6px',
+                          fontSize: '0.9rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <i className="bi bi-eye"></i>
+                      </button>
+                    )}
+                    <button
+                      className="day-add-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openNewTaskModal(date);
+                      }}
+                      title="Agregar evento"
+                    >
+                      <i className="bi bi-plus"></i>
+                    </button>
+                  </div>
                 </div>
                 
-                {/* Eventos del día */}
-                <div className="day-events" onClick={() => {
-                  setSelectedDay(date);
-                  const dateStr = toLocalYMD(date);
-                  const allDayTasks = (tasks || []).filter(t => t?.start?.date === dateStr && (!selectedClient || t.client_id === selectedClient.id || t.clientName?.toLowerCase().includes(selectedClient?.full_name?.toLowerCase() || '')));
-                  setSelectedDayTasks(allDayTasks);
-                  setShowDayModal(true);
-                }}>
-                  {dayTasks.map(task => (
-                    <div
-                      key={task.id}
-                      className={`event-item ${task.status === 'completed' ? 'completed' : ''} status-${task.status}`}
-                      style={{ 
-                        backgroundColor: task.color?.background || '#e3f2fd',
-                        color: task.color?.foreground || '#0d47a1'
-                      }}
-                      title={`${task.summary} - ${task.clientName}`}
-                    >
-                      <div className="event-title">{task.summary}</div>
-                      <div className="event-client">{task.clientName}</div>
-                      {task?.start?.dateTime && (
-                        <div className="event-time">
-                          {new Date(task.start.dateTime).toLocaleTimeString('es-CO', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </div>
-                      )}
-                      <i className={`bi ${task.status === 'completed' ? 'bi-check-circle-fill text-success' : 'bi-circle text-primary'} event-status-icon`}></i>
+                {/* Eventos del día con acordeón */}
+                {allDayTasks.length > 0 && (
+                  <div className="day-events">
+                    <div className="accordion accordion-flush" id={`accordion-${dateStr}`}>
+                      {visibleTasks.map((task, taskIndex) => {
+                        const taskId = task.id || `task-${dateStr}-${taskIndex}`;
+                        const clientName = task.client_name || task.clientName || task.client?.full_name || 'Sin cliente';
+                        const taskSummary = task.summary || task.task_name || 'Tarea';
+                        const taskStatus = task.status || 'pending';
+                        const backgroundColor = task.color_background || task.color?.background || '#e3f2fd';
+                        const foregroundColor = task.color_foreground || task.color?.foreground || '#0d47a1';
+                        
+                        return (
+                          <div
+                            key={taskId}
+                            className={`accordion-item event-item ${taskStatus === 'completed' ? 'completed' : ''} status-${taskStatus}`}
+                            style={{ 
+                              backgroundColor: backgroundColor,
+                              color: foregroundColor,
+                              border: 'none',
+                              marginBottom: '2px',
+                              cursor: 'pointer'
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Abrir modal de detalles de la tarea
+                              openEventModal(task);
+                            }}
+                          >
+                            <div className="accordion-header">
+                              <div className="d-flex align-items-center justify-content-between w-100 p-1">
+                                <div className="flex-grow-1" style={{ fontSize: '0.75rem' }}>
+                                  <div className="fw-bold">{taskSummary}</div>
+                                  <div className="small" style={{ opacity: 0.8 }}>
+                                    {clientName}
+                                  </div>
+                                </div>
+                                <div className="d-flex align-items-center gap-1">
+                                  {task.start_time && (
+                                    <small style={{ fontSize: '0.7rem' }}>
+                                      {task.start_time.substring(0, 5)}
+                                    </small>
+                                  )}
+                                  <i className={`bi ${taskStatus === 'completed' ? 'bi-check-circle-fill text-success' : 'bi-circle text-primary'}`} style={{ fontSize: '0.7rem' }}></i>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                    
+                    {/* Botón "Ver más" si hay más tareas */}
+                    {hasMore && !isExpanded && (
+                      <button
+                        className="btn btn-sm btn-link p-0 mt-1 w-100 text-start"
+                        style={{ fontSize: '0.7rem', textDecoration: 'none' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleDayAccordion(dateStr);
+                        }}
+                      >
+                        <i className="bi bi-chevron-down me-1"></i>
+                        Ver {allDayTasks.length - maxVisible} más
+                      </button>
+                    )}
+                    
+                    {/* Botón "Ver menos" si está expandido */}
+                    {hasMore && isExpanded && (
+                      <button
+                        className="btn btn-sm btn-link p-0 mt-1 w-100 text-start"
+                        style={{ fontSize: '0.7rem', textDecoration: 'none' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleDayAccordion(dateStr);
+                        }}
+                      >
+                        <i className="bi bi-chevron-up me-1"></i>
+                        Ver menos
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -920,7 +1158,17 @@ const Calendar = () => {
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
-                  Tareas del {selectedDay?.toLocaleDateString('es-CO')} {selectedClient ? `- ${selectedClient.full_name}` : ''}
+                  <i className="bi bi-calendar-event me-2"></i>
+                  Tareas del {selectedDay?.toLocaleDateString('es-CO', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })} 
+                  {selectedClient ? ` - ${selectedClient.full_name}` : ' (Todos los clientes)'}
+                  <span className="badge bg-primary ms-2">
+                    {selectedDayTasks.length} {selectedDayTasks.length === 1 ? 'tarea' : 'tareas'}
+                  </span>
                 </h5>
                 <button type="button" className="btn-close" onClick={() => setShowDayModal(false)}></button>
               </div>
@@ -929,8 +1177,17 @@ const Calendar = () => {
                   <div className="alert alert-info mb-0">No hay tareas para este día.</div>
                 ) : (
                   <div className="list-group">
-                    {selectedDayTasks.map(t => (
-                      <div key={t.id} className="list-group-item">
+                    {selectedDayTasks.map(t => {
+                      const clientName = t.client_name || t.clientName || t.client?.full_name || 'Sin cliente';
+                      const taskSummary = t.summary || t.task_name || 'Tarea';
+                      
+                      return (
+                      <div 
+                        key={t.id} 
+                        className="list-group-item list-group-item-action"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => openEventModal(t)}
+                      >
                         <div className="d-flex align-items-center justify-content-between">
                           <div className="d-flex align-items-center gap-2">
                             <input
@@ -938,32 +1195,42 @@ const Calendar = () => {
                               type="checkbox"
                               checked={selectedDaySelectedIds.includes(t.id)}
                               onChange={(e) => {
+                                e.stopPropagation();
                                 setSelectedDaySelectedIds(prev => e.target.checked ? [...prev, t.id] : prev.filter(id => id !== t.id));
                               }}
+                              onClick={(e) => e.stopPropagation()}
                             />
                         <div>
                           <div className="fw-bold d-flex align-items-center gap-2">
-                            {t.summary}
+                            {taskSummary}
                             {t.status === 'completed' && <i className="bi bi-check-circle-fill text-success"></i>}
                           </div>
                           <div className="small text-muted">
-                            {t.clientName} • {t?.start?.dateTime && new Date(t.start.dateTime).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                            {clientName} • {(t.start_time || (t?.start?.dateTime && new Date(t.start.dateTime).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }))) || 'Sin hora'}
                           </div>
                         </div>
                           </div>
                           <div className="d-flex align-items-center gap-2">
                             <span className={`badge bg-${getStatusColor(t.status)}`}>{getStatusText(t.status)}</span>
-                            <button className="btn btn-sm btn-outline-primary" onClick={() => openEventModal(t)}>
+                            <button 
+                              className="btn btn-sm btn-outline-primary" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEventModal(t);
+                              }}
+                            >
                               Ver detalle
                             </button>
                             <button
                               className={`btn btn-sm ${t.status === 'completed' ? 'btn-warning' : 'btn-success'}`}
-                              onClick={async () => {
+                              onClick={async (e) => {
+                                e.stopPropagation();
                                 try {
                                   const updated = await calendarServices.toggleTaskStatus(t.id);
                                   setTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: updated.status } : x));
                                   setFilteredTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: updated.status } : x));
                                   setSelectedDayTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: updated.status } : x));
+                                  setMonthTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: updated.status } : x));
                                 } catch (err) {
                                   console.error('Error cambiando estado:', err);
                                   setError('No se pudo cambiar el estado.');
@@ -974,13 +1241,27 @@ const Calendar = () => {
                             </button>
                             <button
                               className="btn btn-sm btn-outline-danger"
-                              onClick={async () => {
+                              onClick={async (e) => {
+                                e.stopPropagation();
                                 if (!window.confirm('¿Eliminar esta tarea?')) return;
                                 try {
                                   await calendarServices.deleteTask(t.id);
-                                  setTasks(prev => prev.filter(x => x.id !== t.id));
-                                  setFilteredTasks(prev => prev.filter(x => x.id !== t.id));
-                                  setSelectedDayTasks(prev => prev.filter(x => x.id !== t.id));
+                                  const removeTask = (prev) => prev.filter(x => x.id !== t.id);
+                                  
+                                  setTasks(removeTask);
+                                  setFilteredTasks(removeTask);
+                                  setSelectedDayTasks(removeTask);
+                                  setMonthTasks(removeTask);
+                                  
+                                  // Recargar tareas del mes para asegurar sincronización
+                                  const year = currentDate.getFullYear();
+                                  const month = currentDate.getMonth() + 1;
+                                  if (!selectedClient) {
+                                    const monthTasksData = await calendarServices.getTasksByMonth(year, month);
+                                    const normalized = normalizeTasksArray(monthTasksData);
+                                    setMonthTasks(normalized);
+                                    setFilteredTasks(normalized);
+                                  }
                                 } catch (err) {
                                   console.error('Error eliminando:', err);
                                   setError('No se pudo eliminar la tarea.');
@@ -992,7 +1273,8 @@ const Calendar = () => {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </div>
@@ -1007,10 +1289,23 @@ const Calendar = () => {
                       if (!window.confirm(`¿Eliminar ${selectedDaySelectedIds.length} tareas seleccionadas?`)) return;
                       try {
                         await calendarServices.deleteMultipleTasks(selectedDaySelectedIds);
-                        setTasks(prev => prev.filter(x => !selectedDaySelectedIds.includes(x.id)));
-                        setFilteredTasks(prev => prev.filter(x => !selectedDaySelectedIds.includes(x.id)));
-                        setSelectedDayTasks(prev => prev.filter(x => !selectedDaySelectedIds.includes(x.id)));
+                        const removeTasks = (prev) => prev.filter(x => !selectedDaySelectedIds.includes(x.id));
+                        
+                        setTasks(removeTasks);
+                        setFilteredTasks(removeTasks);
+                        setSelectedDayTasks(removeTasks);
+                        setMonthTasks(removeTasks);
                         setSelectedDaySelectedIds([]);
+                        
+                        // Recargar tareas del mes para asegurar sincronización
+                        const year = currentDate.getFullYear();
+                        const month = currentDate.getMonth() + 1;
+                        if (!selectedClient) {
+                          const monthTasksData = await calendarServices.getTasksByMonth(year, month);
+                          const normalized = normalizeTasksArray(monthTasksData);
+                          setMonthTasks(normalized);
+                          setFilteredTasks(normalized);
+                        }
                       } catch (err) {
                         console.error('Error eliminando en lote:', err);
                         setError('No se pudieron eliminar las tareas seleccionadas.');
@@ -1287,22 +1582,19 @@ const Calendar = () => {
                   <div className="col-md-6">
                     <h6 className="text-muted mb-3">Información General</h6>
                     <div className="mb-3">
-                      <label className="form-label fw-bold">Evento:</label>
-                      <p className="mb-0">{selectedEvent.summary}</p>
+                      <label className="form-label fw-bold">ID de Tarea:</label>
+                      <p className="mb-0">#{selectedEvent.id}</p>
                     </div>
                     <div className="mb-3">
-                      <label className="form-label fw-bold">Cliente:</label>
-                      <p className="mb-0">{selectedEvent.clientName}</p>
+                      <label className="form-label fw-bold">Evento/Tarea:</label>
+                      <p className="mb-0">{selectedEvent.summary || selectedEvent.task_name || 'Sin nombre'}</p>
                     </div>
                     <div className="mb-3">
-                      <label className="form-label fw-bold">Fecha:</label>
+                      <label className="form-label fw-bold">Tipo de Tarea:</label>
                       <p className="mb-0">
-                        {selectedEvent?.start?.date && new Date(selectedEvent.start.date).toLocaleDateString('es-CO', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                        <span className="badge bg-info">
+                          {selectedEvent.task_type || selectedEvent.taskType || 'N/A'}
+                        </span>
                       </p>
                     </div>
                     <div className="mb-3">
@@ -1311,31 +1603,60 @@ const Calendar = () => {
                         {getStatusText(selectedEvent.status)}
                       </span>
                     </div>
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">Fecha de Inicio:</label>
+                      <p className="mb-0">
+                        {selectedEvent.start_date || selectedEvent?.start?.date 
+                          ? new Date(selectedEvent.start_date || selectedEvent.start.date).toLocaleDateString('es-CO', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })
+                          : 'No especificada'}
+                      </p>
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">Fecha de Fin:</label>
+                      <p className="mb-0">
+                        {selectedEvent.end_date || selectedEvent?.end?.date 
+                          ? new Date(selectedEvent.end_date || selectedEvent.end.date).toLocaleDateString('es-CO', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })
+                          : 'No especificada'}
+                      </p>
+                    </div>
                   </div>
                   
                   <div className="col-md-6">
                     <h6 className="text-muted mb-3">Detalles del Proceso</h6>
                     <div className="mb-3">
                       <label className="form-label fw-bold">Veterinario:</label>
-                      <p className="mb-0">{selectedEvent.veterinarian}</p>
+                      <p className="mb-0">{selectedEvent.veterinarian || 'No especificado'}</p>
                     </div>
                     <div className="mb-3">
                       <label className="form-label fw-bold">Ubicación:</label>
-                      <p className="mb-0">{selectedEvent.location}</p>
+                      <p className="mb-0">{selectedEvent.location || 'No especificada'}</p>
                     </div>
                     <div className="mb-3">
-                      <label className="form-label fw-bold">Hora:</label>
+                      <label className="form-label fw-bold">Hora de Inicio:</label>
                       <p className="mb-0">
-                        {selectedEvent?.start?.dateTime && new Date(selectedEvent.start.dateTime).toLocaleTimeString('es-CO', {
+                        {selectedEvent.start_time || (selectedEvent?.start?.dateTime && new Date(selectedEvent.start.dateTime).toLocaleTimeString('es-CO', {
                           hour: '2-digit',
                           minute: '2-digit'
-                        })}
-                        {selectedEvent?.end?.dateTime && 
-                          ` - ${new Date(selectedEvent.end.dateTime).toLocaleTimeString('es-CO', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}`
-                        }
+                        })) || 'No especificada'}
+                      </p>
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">Hora de Fin:</label>
+                      <p className="mb-0">
+                        {selectedEvent.end_time || (selectedEvent?.end?.dateTime && new Date(selectedEvent.end.dateTime).toLocaleTimeString('es-CO', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })) || 'No especificada'}
                       </p>
                     </div>
                     {selectedEvent.suffix && (
@@ -1347,6 +1668,29 @@ const Calendar = () => {
                   </div>
                 </div>
 
+                {/* Información del Cliente */}
+                {(selectedEvent.client || selectedEvent.client_name || selectedEvent.clientName) && (
+                  <div className="mt-4">
+                    <h6 className="text-muted mb-3">Información del Cliente</h6>
+                    <div className="card">
+                      <div className="card-body">
+                        <div className="row">
+                          <div className="col-md-6">
+                            <p className="mb-1"><strong>Nombre:</strong> {selectedEvent.client?.full_name || selectedEvent.client_name || selectedEvent.clientName}</p>
+                            <p className="mb-1"><strong>Email:</strong> {selectedEvent.client?.email || 'No especificado'}</p>
+                            <p className="mb-0"><strong>Teléfono:</strong> {selectedEvent.client?.phone || 'No especificado'}</p>
+                          </div>
+                          <div className="col-md-6">
+                            <p className="mb-1"><strong>Documento:</strong> {selectedEvent.client?.number_document || 'No especificado'}</p>
+                            <p className="mb-1"><strong>Tipo de Documento:</strong> {selectedEvent.client?.type_document || 'No especificado'}</p>
+                            <p className="mb-0"><strong>Especialidad:</strong> {selectedEvent.client?.specialty || 'No especificada'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {selectedEvent.description && (
                   <div className="mt-4">
                     <h6 className="text-muted mb-3">Descripción</h6>
@@ -1355,13 +1699,37 @@ const Calendar = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Información de creación */}
+                <div className="mt-4">
+                  <h6 className="text-muted mb-3">Información del Sistema</h6>
+                  <div className="row">
+                    <div className="col-md-6">
+                      <p className="mb-1"><strong>Creado:</strong> {selectedEvent.created_at ? new Date(selectedEvent.created_at).toLocaleString('es-CO') : 'No disponible'}</p>
+                    </div>
+                    <div className="col-md-6">
+                      <p className="mb-1"><strong>Actualizado:</strong> {selectedEvent.updated_at ? new Date(selectedEvent.updated_at).toLocaleString('es-CO') : 'No disponible'}</p>
+                    </div>
+                  </div>
+                  {selectedEvent.creator && (
+                    <p className="mb-0 mt-2"><strong>Creado por:</strong> {selectedEvent.creator.full_name || selectedEvent.creator.email || 'Usuario del sistema'}</p>
+                  )}
+                </div>
               </div>
 
               <div className="modal-footer">
                 <button
                   type="button"
                   className="btn btn-danger me-auto"
-                  onClick={() => deleteTask(selectedEvent.id)}
+                  onClick={async () => {
+                    if (!window.confirm('¿Está seguro de eliminar esta tarea?')) return;
+                    try {
+                      await deleteTask(selectedEvent.id);
+                      setShowEventModal(false);
+                    } catch (err) {
+                      console.error('Error eliminando tarea:', err);
+                    }
+                  }}
                 >
                   <i className="bi bi-trash me-2"></i>
                   Eliminar
@@ -1376,13 +1744,185 @@ const Calendar = () => {
                 <button
                   type="button"
                   className={`btn btn-${selectedEvent.status === 'completed' ? 'warning' : 'success'}`}
-                  onClick={() => {
-                    toggleTaskStatus(selectedEvent.id);
-                    setShowEventModal(false);
+                  onClick={async () => {
+                    try {
+                      await toggleTaskStatus(selectedEvent.id);
+                      // No cerrar el modal para que el usuario vea el cambio
+                    } catch (err) {
+                      console.error('Error cambiando estado:', err);
+                    }
                   }}
                 >
                   <i className={`bi bi-${selectedEvent.status === 'completed' ? 'arrow-counterclockwise' : 'check'} me-2`}></i>
                   {selectedEvent.status === 'completed' ? 'Marcar como Pendiente' : 'Marcar como Completada'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal con todas las tareas del mes */}
+      {showAllTasksModal && (
+        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-xl modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="bi bi-calendar-event me-2"></i>
+                  Todas las Tareas de {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+                  <span className="badge bg-primary ms-2">
+                    {monthTasks.length} {monthTasks.length === 1 ? 'tarea' : 'tareas'}
+                  </span>
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn btn-sm btn-outline-secondary me-2"
+                  onClick={async () => {
+                    // Recargar tareas del mes
+                    try {
+                      const year = currentDate.getFullYear();
+                      const month = currentDate.getMonth() + 1;
+                      const monthTasksData = await calendarServices.getTasksByMonth(year, month);
+                      const normalized = normalizeTasksArray(monthTasksData);
+                      setMonthTasks(normalized);
+                      if (!selectedClient) {
+                        setFilteredTasks(normalized);
+                      }
+                    } catch (err) {
+                      console.error("Error recargando tareas:", err);
+                      setError("Error al recargar las tareas");
+                    }
+                  }}
+                  title="Recargar tareas"
+                >
+                  <i className="bi bi-arrow-clockwise"></i>
+                </button>
+                <button type="button" className="btn-close" onClick={() => setShowAllTasksModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                {monthTasks.length === 0 ? (
+                  <div className="alert alert-info mb-0">No hay tareas para este mes.</div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-hover">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Tarea</th>
+                          <th>Cliente</th>
+                          <th>Hora</th>
+                          <th>Veterinario</th>
+                          <th>Ubicación</th>
+                          <th>Estado</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthTasks
+                          .sort((a, b) => {
+                            const dateA = a.start_date || a.start?.date || '';
+                            const dateB = b.start_date || b.start?.date || '';
+                            if (dateA !== dateB) return dateA.localeCompare(dateB);
+                            const timeA = a.start_time || '';
+                            const timeB = b.start_time || '';
+                            return timeA.localeCompare(timeB);
+                          })
+                          .map(task => {
+                            const clientName = task.client_name || task.clientName || task.client?.full_name || 'Sin cliente';
+                            const taskSummary = task.summary || task.task_name || 'Tarea';
+                            const taskDate = task.start_date || task.start?.date || 'Sin fecha';
+                            const taskTime = task.start_time || (task.start?.dateTime && new Date(task.start.dateTime).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })) || 'Sin hora';
+                            
+                            return (
+                              <tr key={task.id}>
+                                <td>
+                                  {taskDate ? new Date(taskDate).toLocaleDateString('es-CO', {
+                                    day: '2-digit',
+                                    month: 'short'
+                                  }) : 'Sin fecha'}
+                                </td>
+                                <td>
+                                  <div className="fw-bold">{taskSummary}</div>
+                                  <small className="text-muted">{task.task_type || task.taskType || ''}</small>
+                                </td>
+                                <td>{clientName}</td>
+                                <td>{taskTime}</td>
+                                <td>{task.veterinarian || 'No especificado'}</td>
+                                <td>{task.location || 'No especificada'}</td>
+                                <td>
+                                  <span className={`badge bg-${getStatusColor(task.status)}`}>
+                                    {getStatusText(task.status)}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div className="d-flex gap-1">
+                                    <button
+                                      className="btn btn-sm btn-outline-primary"
+                                      onClick={() => {
+                                        openEventModal(task);
+                                        setShowAllTasksModal(false);
+                                      }}
+                                      title="Ver detalles"
+                                    >
+                                      <i className="bi bi-eye"></i>
+                                    </button>
+                                    <button
+                                      className={`btn btn-sm ${task.status === 'completed' ? 'btn-warning' : 'btn-success'}`}
+                                      onClick={async () => {
+                                        try {
+                                          await toggleTaskStatus(task.id);
+                                        } catch (err) {
+                                          console.error('Error cambiando estado:', err);
+                                        }
+                                      }}
+                                      title={task.status === 'completed' ? 'Marcar pendiente' : 'Marcar completada'}
+                                    >
+                                      <i className={`bi ${task.status === 'completed' ? 'bi-arrow-counterclockwise' : 'bi-check'}`}></i>
+                                    </button>
+                                    <button
+                                      className="btn btn-sm btn-outline-danger"
+                                      onClick={async () => {
+                                        if (!window.confirm('¿Eliminar esta tarea?')) return;
+                                        try {
+                                          await calendarServices.deleteTask(task.id);
+                                          const removeTask = (prev) => prev.filter(x => x.id !== task.id);
+                                          
+                                          setTasks(removeTask);
+                                          setFilteredTasks(removeTask);
+                                          setMonthTasks(removeTask);
+                                          
+                                          // Recargar tareas del mes para asegurar sincronización
+                                          const year = currentDate.getFullYear();
+                                          const month = currentDate.getMonth() + 1;
+                                          const monthTasksData = await calendarServices.getTasksByMonth(year, month);
+                                          const normalized = normalizeTasksArray(monthTasksData);
+                                          setMonthTasks(normalized);
+                                          if (!selectedClient) {
+                                            setFilteredTasks(normalized);
+                                          }
+                                        } catch (err) {
+                                          console.error('Error eliminando:', err);
+                                          setError('No se pudo eliminar la tarea.');
+                                        }
+                                      }}
+                                      title="Eliminar"
+                                    >
+                                      <i className="bi bi-trash"></i>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAllTasksModal(false)}>
+                  Cerrar
                 </button>
               </div>
             </div>

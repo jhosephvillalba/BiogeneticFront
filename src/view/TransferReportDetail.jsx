@@ -256,7 +256,7 @@ const TransferReportDetail = () => {
                     <th style={{ width: '12%' }}>Raza del Toro</th>
                     <th style={{ width: '10%' }}>Estado</th>
                     <th style={{ width: '15%' }}>Receptora</th>
-                    <th className="text-center" style={{ width: '8%' }}>Horario</th>
+                    <th className="text-center" style={{ width: '8%' }}>Ovario</th>
                     <th className="text-center" style={{ width: '6%' }}>DX</th>
                     <th className="text-center" style={{ width: '6%' }}>DXX</th>
                     <th className="text-center" style={{ width: '6%' }}>DXXX</th>
@@ -277,8 +277,8 @@ const TransferReportDetail = () => {
                       </td>
                       <td>{reporte.receptora || '-'}</td>
                       <td className="text-center">
-                        <span className={`badge ${reporte.horario === 'D' ? 'bg-warning' : 'bg-info'}`}>
-                          {reporte.horario || '-'}
+                        <span className={`badge ${reporte.ovario === 'D' ? 'bg-warning' : 'bg-info'}`}>
+                          {reporte.ovario || '-'}
                         </span>
                       </td>
                       <td className="text-center">
@@ -338,9 +338,9 @@ const TransferReportDetail = () => {
               <div className="col-md-3">
                 <div className="border rounded p-3 bg-light">
                   <h5 className="text-warning mb-1">
-                    {transferencia.reportes.filter(r => r.horario === 'D').length}
+                    {transferencia.reportes.filter(r => r.ovario === 'D').length}
                   </h5>
-                  <small className="text-muted">Horario Diurno</small>
+                  <small className="text-muted">Ovario Diurno</small>
                 </div>
               </div>
               <div className="col-md-3">
