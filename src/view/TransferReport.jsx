@@ -29,7 +29,7 @@ const TransferReport = () => {
   const [rowsData, setRowsData] = useState({});
 
   // Opciones para los selects
-  const ovarioOptions = ['D', 'R'];
+  const ovarioOptions = ['D', 'I']; // D = Derecho, I = Izquierdo
   const dxOptions = ['P+', 'V'];
 
   // Estado para el objeto transfers
