@@ -1,8 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { usersApi, calendarApi } from '../Api';
 import { searchUsers } from '../Api/users';
 import * as calendarServices from '../Api/calendar';
 import './Calendar.css';
+
+// ✅ Funciones helper movidas fuera del componente para evitar recreación en cada render
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'completed':
+      return 'success';
+    case 'cancelled':
+      return 'danger';
+    case 'pending':
+    default:
+      return 'primary';
+  }
+};
+
+const getStatusText = (status) => {
+  switch (status) {
+    case 'completed':
+      return 'Completada';
+    case 'cancelled':
+      return 'Cancelada';
+    case 'pending':
+    default:
+      return 'Pendiente';
+  }
+};
 
 const Calendar = () => {
   // Helpers de fecha/hora para zona Bogotá
@@ -231,7 +256,7 @@ const Calendar = () => {
       setSearchResults([]);
       setShowDropdown(false);
     }
-  }, [searchQuery, tasks]);
+  }, [searchQuery]); // ✅ Removida dependencia innecesaria 'tasks'
 
   // Efecto para cerrar el dropdown cuando se hace clic fuera
   useEffect(() => {
@@ -257,8 +282,8 @@ const Calendar = () => {
     loadClientTasks(client.id);
   };
 
-  // Cargar tareas de un cliente específico
-  const loadClientTasks = async (clientId) => {
+  // Cargar tareas de un cliente específico - MEMOIZADA
+  const loadClientTasks = useCallback(async (clientId) => {
     try {
       const startDate = toLocalYMD(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
       const endDate = toLocalYMD(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0));
@@ -276,7 +301,7 @@ const Calendar = () => {
       setTasks(clientTasks);
       setFilteredTasks(clientTasks);
     }
-  };
+  }, [currentDate, tasks, selectedClient]); // ✅ Memoizada con todas las dependencias
 
   // Generar sufijo único para el cliente
   const generateTaskSuffix = (clientName) => {
@@ -621,11 +646,16 @@ const Calendar = () => {
     setShowModal(true);
   };
 
-  // Abrir modal de evento
-  const openEventModal = (event) => {
+  // ✅ Abrir modal de evento - Memoizado
+  const openEventModal = useCallback((event) => {
     setSelectedEvent(event);
     setShowEventModal(true);
-  };
+  }, []);
+
+  // ✅ Handler memoizado para click en tarea
+  const handleTaskClick = useCallback((task) => {
+    openEventModal(task);
+  }, [openEventModal]);
 
   // Cambiar estado de una tarea
   const toggleTaskStatus = async (taskId) => {
@@ -662,31 +692,7 @@ const Calendar = () => {
     }
   };
 
-  // Obtener el color de estado de la tarea
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'cancelled':
-        return 'danger';
-      case 'pending':
-      default:
-        return 'primary';
-    }
-  };
-
-  // Obtener el texto del estado
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'Completada';
-      case 'cancelled':
-        return 'Cancelada';
-      case 'pending':
-      default:
-        return 'Pendiente';
-    }
-  };
+  // ✅ Funciones getStatusColor y getStatusText movidas fuera del componente
 
   // Exportar tareas del calendario
   const exportCalendarTasks = async () => {
@@ -719,8 +725,8 @@ const Calendar = () => {
     }
   };
 
-  // Calcular estadísticas
-  const calculateStats = () => {
+  // Calcular estadísticas - MEMOIZADA
+  const calculateStats = useCallback(() => {
     const today = toLocalYMD(new Date());
     const safeTasks = Array.isArray(tasks) ? tasks : [];
     const todayTasks = safeTasks.filter(task => task?.start?.date === today);
@@ -731,7 +737,7 @@ const Calendar = () => {
       completed: safeTasks.filter(task => task?.status === 'completed').length,
       today: todayTasks.length
     });
-  };
+  }, [tasks]); // ✅ Memoizada con dependencia tasks
 
   // Obtener estadísticas del servidor
   const fetchCalendarStats = async () => {
@@ -758,14 +764,18 @@ const Calendar = () => {
   // Actualizar estadísticas cuando cambian las tareas
   useEffect(() => {
     calculateStats();
-  }, [tasks]);
+  }, [tasks, calculateStats]); // ✅ Agregado calculateStats
 
   // Cargar tareas del mes cuando cambia el mes o cuando no hay cliente seleccionado
+  // Usar valores primitivos para evitar re-renders innecesarios
+  const currentYear = useMemo(() => currentDate.getFullYear(), [currentDate]);
+  const currentMonth = useMemo(() => currentDate.getMonth() + 1, [currentDate]);
+  
   useEffect(() => {
     const loadMonthTasks = async () => {
       try {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth() + 1; // getMonth() devuelve 0-11, necesitamos 1-12
+        const year = currentYear;
+        const month = currentMonth;
         
         if (!selectedClient) {
           // Si no hay cliente seleccionado, cargar todas las tareas del mes
@@ -788,7 +798,7 @@ const Calendar = () => {
     
     fetchCalendarStats();
     loadMonthTasks();
-  }, [currentDate, selectedClient]);
+  }, [currentYear, currentMonth, selectedClient, loadClientTasks]); // ✅ Valores primitivos y loadClientTasks
 
   // Establecer template por defecto cuando se cargan los templates
   useEffect(() => {
@@ -1186,7 +1196,7 @@ const Calendar = () => {
                         key={t.id} 
                         className="list-group-item list-group-item-action"
                         style={{ cursor: 'pointer' }}
-                        onClick={() => openEventModal(t)}
+                        onClick={() => handleTaskClick(t)}
                       >
                         <div className="d-flex align-items-center justify-content-between">
                           <div className="d-flex align-items-center gap-2">

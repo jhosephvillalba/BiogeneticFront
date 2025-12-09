@@ -103,9 +103,13 @@ export const getInputsByUser = async (userId, skip = 0, limit = 100) => {
 };
 
 // Obtener inputs por toro
-export const getInputsByBull = async (bullId, skip = 0, limit = 100) => {
+export const getInputsByBull = async (bullId, skip = 0, limit = 100, search = "") => {
   try {
-    const response = await axios.get(`/inputs/bull/${bullId}?skip=${skip}&limit=${limit}`);
+    let url = `/inputs/bull/${bullId}?skip=${skip}&limit=${limit}`;
+    if (search && search.trim() !== "") {
+      url += `&search=${encodeURIComponent(search.trim())}`;
+    }
+    const response = await axios.get(url);
     return response.data;
   } catch (error) {
     throw error;

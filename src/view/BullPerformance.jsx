@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, startTransition } from "react";
 import { searchUsers } from "../Api/users";
 import { getBullPerformanceData } from "../Api/bullPerformance";
 
@@ -409,16 +409,18 @@ const BullPerformance = () => {
       
       setError(errorMessage);
       
-      // Fallback a datos mock en caso de error
+      // Fallback a datos mock en caso de error - Agrupado con startTransition
       console.log("Usando datos mock debido al error");
-      setPerformanceData(mockData);
-      setPagination(prev => ({
-        ...prev,
-        totalItems: mockData.length,
-        currentPage: 1,
-        hasMore: false // En modo mock, no hay más páginas
-      }));
-      setUsingMockData(true);
+      startTransition(() => {
+        setPerformanceData(mockData);
+        setPagination(prev => ({
+          ...prev,
+          totalItems: mockData.length,
+          currentPage: 1,
+          hasMore: false // En modo mock, no hay más páginas
+        }));
+        setUsingMockData(true);
+      });
     } finally {
       setLoading(false);
     }
@@ -438,15 +440,16 @@ const BullPerformance = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [selectedClient, filters.query]);
+  }, [selectedClient, filters.query, loadPerformanceData]); // ✅ Agregado loadPerformanceData
 
   // Recargar datos cuando cambie la página
   useEffect(() => {
     loadPerformanceData();
-  }, [pagination.currentPage]);
+  }, [pagination.currentPage, loadPerformanceData]); // ✅ Agregado loadPerformanceData
 
   // Los datos ya vienen paginados desde la API
-  const filteredData = useMemo(() => {
+  // Renombrado de filteredData a displayData para mayor claridad
+  const displayData = useMemo(() => {
     return [...performanceData];
   }, [performanceData]);
 
@@ -680,7 +683,7 @@ const BullPerformance = () => {
                   {error}
                 </td>
               </tr>
-            ) : filteredData.length === 0 ? (
+            ) : displayData.length === 0 ? (
               <tr>
                 <td colSpan="8" className="text-center text-muted py-4">
                   <i className="bi bi-graph-up me-2"></i>
@@ -691,7 +694,7 @@ const BullPerformance = () => {
                 </td>
               </tr>
             ) : (
-              filteredData.map((item) => (
+              displayData.map((item) => (
                 <tr key={item.id}>
                   <td className="fw-semibold">{item.nombre}</td>
                   <td>{item.raza}</td>
@@ -770,7 +773,7 @@ const BullPerformance = () => {
       {pagination.totalItems > 0 && (
         <div className="mt-3 text-muted text-center">
           <small>
-            Página {pagination.currentPage} - Mostrando {filteredData.length} registros
+            Página {pagination.currentPage} - Mostrando {displayData.length} registros
             {!pagination.hasMore && " (última página)"}
           </small>
         </div>

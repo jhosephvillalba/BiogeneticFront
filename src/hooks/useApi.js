@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 
 /**
@@ -21,7 +21,21 @@ export const useApi = (apiFn, options = {}) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
-  // Función para ejecutar la llamada a la API
+  // Refs para callbacks inestables - OPTIMIZADO
+  const apiFnRef = useRef(apiFn);
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  const initialDataRef = useRef(initialData);
+  
+  // Actualizar refs cuando cambian los callbacks
+  useEffect(() => {
+    apiFnRef.current = apiFn;
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+    initialDataRef.current = initialData;
+  }, [apiFn, onSuccess, onError, initialData]);
+  
+  // Función para ejecutar la llamada a la API - OPTIMIZADA
   const execute = useCallback(async (...args) => {
     try {
       setLoading(true);
@@ -32,24 +46,24 @@ export const useApi = (apiFn, options = {}) => {
       // Si hay clave de caché, usar fetchWithCache
       if (cacheKey) {
         const cacheKeyWithArgs = `${cacheKey}:${JSON.stringify(args)}`;
-        result = await fetchWithCache(cacheKeyWithArgs, () => apiFn(...args), ttl);
+        result = await fetchWithCache(cacheKeyWithArgs, () => apiFnRef.current(...args), ttl);
       } else {
         // Sin caché, llamada directa
-        result = await apiFn(...args);
+        result = await apiFnRef.current(...args);
       }
       
       setData(result);
-      onSuccess(result);
+      onSuccessRef.current(result);
       return result;
     } catch (err) {
       console.error('Error en llamada a API:', err);
       setError(err);
-      onError(err);
+      onErrorRef.current(err);
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [apiFn, cacheKey, fetchWithCache, ttl, onSuccess, onError]);
+  }, [cacheKey, fetchWithCache, ttl]); // ✅ Solo dependencias estables
   
   // Función para invalidar caché
   const refresh = useCallback(() => {
@@ -59,12 +73,12 @@ export const useApi = (apiFn, options = {}) => {
     return execute();
   }, [cacheKey, execute, invalidateCache]);
   
-  // Función para resetear el estado
+  // Función para resetear el estado - OPTIMIZADA
   const reset = useCallback(() => {
-    setData(initialData);
+    setData(initialDataRef.current);
     setLoading(false);
     setError(null);
-  }, [initialData]);
+  }, []); // ✅ Sin dependencias - usa ref
   
   return {
     data,

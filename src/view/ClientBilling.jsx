@@ -639,12 +639,12 @@ const ClientBilling = () => {
                                     { key: 'fundas_te', name: 'Fundas T.E' }
                                   ];
 
-                                  return items.map((item, index) => {
+                                  return items.map((item) => {
                                     const value = selectedInvoice[item.key];
                                     console.log(`${item.key}:`, value, 'Tipo:', typeof value);
                                     
                                     return (
-                                      <tr key={index}>
+                                      <tr key={item.key}>
                                         <td className="ps-3">{item.name}</td>
                                         <td className="text-end pe-3 fw-bold">
                                           {value && value > 0 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 // Contexto para gestionar estado global y caché
 const AppContext = createContext();
@@ -11,10 +11,18 @@ export const AppProvider = ({ children }) => {
   // Estado para indicador de carga global
   const [isLoading, setIsLoading] = useState(false);
   
-  // Función para obtener datos con caché
-  const fetchWithCache = async (key, fetchFn, ttl = 5 * 60 * 1000) => {
+  // Ref para mantener referencia actualizada del caché
+  const apiCacheRef = useRef(apiCache);
+  
+  // Actualizar ref cuando cambia el caché
+  useEffect(() => {
+    apiCacheRef.current = apiCache;
+  }, [apiCache]);
+  
+  // Función para obtener datos con caché - MEMOIZADA
+  const fetchWithCache = useCallback(async (key, fetchFn, ttl = 5 * 60 * 1000) => {
     // Verificar si existe en caché y no ha expirado
-    const cached = apiCache[key];
+    const cached = apiCacheRef.current[key];
     const now = Date.now();
     
     if (cached && cached.expiry > now) {
@@ -38,10 +46,10 @@ export const AppProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []); // ✅ Sin dependencias - usa ref para caché actualizado
   
-  // Función para invalidar caché
-  const invalidateCache = (key) => {
+  // Función para invalidar caché - MEMOIZADA
+  const invalidateCache = useCallback((key) => {
     if (key) {
       setApiCache(prev => {
         const newCache = { ...prev };
@@ -51,7 +59,7 @@ export const AppProvider = ({ children }) => {
     } else {
       setApiCache({});
     }
-  };
+  }, []); // ✅ Sin dependencias - función pura
   
   // Persistir caché en localStorage
   useEffect(() => {
@@ -72,36 +80,41 @@ export const AppProvider = ({ children }) => {
     }
     
     return () => {
-      // Guardar caché al desmontar
+      // Guardar caché al desmontar usando ref actualizado
       try {
-        localStorage.setItem('app_api_cache', JSON.stringify(apiCache));
+        localStorage.setItem('app_api_cache', JSON.stringify(apiCacheRef.current));
       } catch (error) {
         console.warn('Error al guardar caché:', error);
       }
     };
-  }, []);
+  }, []); // ✅ Dependencias vacías - usa ref en cleanup
   
-  // Guardar caché periódicamente
+  // Guardar caché periódicamente - OPTIMIZADO
   useEffect(() => {
     const saveInterval = setInterval(() => {
       try {
-        localStorage.setItem('app_api_cache', JSON.stringify(apiCache));
+        // ✅ Usa ref en lugar de estado para evitar recrear el interval
+        localStorage.setItem('app_api_cache', JSON.stringify(apiCacheRef.current));
       } catch (error) {
         console.warn('Error al guardar caché:', error);
       }
     }, 60000); // Cada minuto
     
     return () => clearInterval(saveInterval);
-  }, [apiCache]);
+  }, []); // ✅ Solo se crea una vez - usa ref para caché actualizado
+  
+  // Valor del contexto MEMOIZADO para evitar re-renders innecesarios
+  // apiCache removido del contexto - solo se usa internamente a través de refs
+  const contextValue = useMemo(() => ({
+    isLoading,
+    setIsLoading,
+    fetchWithCache,
+    invalidateCache
+    // ✅ apiCache removido - no se expone directamente, solo se usa internamente
+  }), [isLoading, fetchWithCache, invalidateCache]);
   
   return (
-    <AppContext.Provider value={{
-      isLoading,
-      setIsLoading,
-      fetchWithCache,
-      invalidateCache,
-      apiCache
-    }}>
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );

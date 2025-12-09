@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo, startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { getBull } from "../Api/bulls";
 import { getInputsByBull, getInputsByUser, updateInput } from "../Api/inputs";
@@ -59,7 +59,7 @@ const Inputs = () => {
   // Nuevo estado para lista de toros
   const [availableBulls, setAvailableBulls] = useState([]);
 
-  const loadUsers = async (reset = false, pageOverride = null) => {
+  const loadUsers = useCallback(async (reset = false, pageOverride = null) => {
     try {
       setLoading(true);
       if (reset) {
@@ -116,7 +116,7 @@ const Inputs = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, currentPage, itemsPerPage]); // ✅ Memoizada con dependencias correctas
 
   const fetchUserInputs = async (userId, page = 1) => {
     if (!userId) {
@@ -169,7 +169,7 @@ const Inputs = () => {
   };
 
   // Cargar datos del toro seleccionado y sus entradas
-  const loadBullDetails = async (bullId) => {
+  const loadBullDetails = useCallback(async (bullId) => {
     if (!bullId) {
       setSelectedBull(null);
       setBullInputs([]);
@@ -208,9 +208,9 @@ const Inputs = () => {
       setLoadingBull(false);
       setLoadingRace(false);
     }
-  };
+  }, []); // ✅ Memoizada - no tiene dependencias externas
 
-  const fetchBullInputs = async (bullId, page = 1) => {
+  const fetchBullInputs = useCallback(async (bullId, page = 1) => {
     if (!bullId) {
       setBullInputs([]);
       setBullInputsTotal(0);
@@ -258,10 +258,10 @@ const Inputs = () => {
     } finally {
       setLoadingBullInputs(false);
     }
-  };
+  }, []); // ✅ Memoizada - no tiene dependencias externas
 
   // Función para cargar los toros disponibles
-  const loadAvailableBulls = async (userId) => {
+  const loadAvailableBulls = useCallback(async (userId) => {
     if (!userId) {
       setAvailableBulls([]);
       return;
@@ -305,12 +305,12 @@ const Inputs = () => {
       console.error("Error al cargar los toros:", error);
       setAvailableBulls([]);
     }
-  };
+  }, []); // ✅ Memoizada - no tiene dependencias externas
 
   // Efecto para cargar datos iniciales y cuando cambia la página
   useEffect(() => {
     loadUsers(false, currentPage);
-  }, [currentPage]);
+  }, [currentPage, loadUsers]); // ✅ Agregado loadUsers
 
   // Efecto para cargar datos del toro cuando se selecciona uno
   useEffect(() => {
@@ -323,7 +323,7 @@ const Inputs = () => {
       setBullInputsTotalPages(0);
       setBullInputsPage(1);
     }
-  }, [selectedBull?.id]);
+  }, [selectedBull?.id, loadBullDetails, fetchBullInputs]); // ✅ Agregadas funciones memoizadas
 
   // Efecto para cargar los toros disponibles del usuario seleccionado
   useEffect(() => {
@@ -332,7 +332,7 @@ const Inputs = () => {
     } else {
       setAvailableBulls([]);
     }
-  }, [selectedUser?.id]);
+  }, [selectedUser?.id, loadAvailableBulls]); // ✅ Agregado loadAvailableBulls
 
   // Handle search button click
   const handleSearch = (e) => {
@@ -465,7 +465,7 @@ const Inputs = () => {
     fetchBullInputs(selectedBull.id, pageNumber);
   };
 
-  const filteredUserInputs = getFilteredInputs();
+  // ✅ filteredUserInputs ahora está memoizado arriba con useMemo
 
   // Función simplificada para manejar decimales
   function formatDecimal(num) {
@@ -505,7 +505,7 @@ const Inputs = () => {
         throw new Error(`No puedes tomar más de ${received} unidades`);
       }
 
-      // Actualización optimista
+      // Actualización optimista - Agrupada con startTransition
       const applyOptimisticUpdate = (items) =>
         items.map((item) =>
           item.id === input.id
@@ -517,8 +517,11 @@ const Inputs = () => {
             : item
         );
 
-      setUserInputs((prev) => (prev.length ? applyOptimisticUpdate(prev) : prev));
-      setBullInputs((prev) => (prev.length ? applyOptimisticUpdate(prev) : prev));
+      // Agrupar actualizaciones optimistas para reducir re-renders
+      startTransition(() => {
+        setUserInputs((prev) => (prev.length ? applyOptimisticUpdate(prev) : prev));
+        setBullInputs((prev) => (prev.length ? applyOptimisticUpdate(prev) : prev));
+      });
 
       // Llamadas a API
       await updateInput(input.id, { quantity_taken: newQty });
@@ -561,8 +564,8 @@ const Inputs = () => {
     setUpdateError(null);
   };
 
-  // Función para filtrar las entradas
-  function getFilteredInputs() {
+  // ✅ Función para filtrar las entradas - Memoizada con useMemo
+  const filteredUserInputs = useMemo(() => {
     if (!userInputs) return [];
 
     return userInputs.filter((input) => {
@@ -579,7 +582,7 @@ const Inputs = () => {
 
       return true;
     });
-  }
+  }, [userInputs, availabilityFilter, bullFilter]);
 
   return (
     <div className="container-fluid p-4">

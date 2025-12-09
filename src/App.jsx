@@ -41,6 +41,15 @@ const ClientBilling = lazy(() => import("./view/ClientBilling.jsx"));
 const Payment = lazy(() => import("./view/Payment.jsx"));
 const PaymentResult = lazy(() => import("./view/PaymentResult.jsx"));
 
+// Componente de fallback reutilizable para lazy loading
+const LazyFallback = () => (
+  <div className="d-flex justify-content-center align-items-center py-5">
+    <div className="spinner-border text-primary" role="status">
+      <span className="visually-hidden">Cargando...</span>
+    </div>
+  </div>
+);
+
 const App = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -62,6 +71,26 @@ const App = () => {
   const toggleSidebar = () => {
     setSidebarVisible(!sidebarVisible);
   };
+
+  // Preload componentes críticos después de carga inicial
+  useEffect(() => {
+    // Preload Login y Profile después de que la app esté lista
+    const preloadCritical = async () => {
+      try {
+        // Preload componentes críticos que se usan frecuentemente
+        await Promise.all([
+          import("./view/Login"),
+          import("./view/Profile")
+        ]);
+      } catch (error) {
+        console.warn('Error al precargar componentes críticos:', error);
+      }
+    };
+    
+    // Preload después de un delay para no bloquear carga inicial
+    const timer = setTimeout(preloadCritical, 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Actualizar cómo detectamos el rol del usuario
   const checkUserRole = (user) => {
@@ -133,7 +162,7 @@ const App = () => {
     return () => {
       isMounted = false;
     };
-  }, [navigate]);
+  }, [navigate, location]); // ✅ Agregado location
 
   // Redirecciones iniciales por rol (evitar navegar en cada cambio de ruta)
   useEffect(() => {
@@ -148,7 +177,7 @@ const App = () => {
         navigate('/inventory', { replace: true });
       }
     }
-  }, [user, navigate]);
+  }, [user, navigate, location]); // ✅ Agregado location
 
   if (loading) {
     // Muestra una pantalla de carga mientras verificamos la sesión
@@ -253,9 +282,6 @@ const App = () => {
 
                 <div className="sidebar-section">
                   <div className="sidebar-title">Gestión</div>
-                  <Link to="/gestion/inputs" className={`sidebar-item${isActive('/gestion/inputs') ? ' active' : ''}`}>
-                    <i className="bi bi-box-arrow-in-right me-2"></i> Entradas
-                  </Link>
                   <Link to="/bulls" className={`sidebar-item${isActive('/bulls') ? ' active' : ''}`}>
                     <i className="bi bi-database me-2"></i> Toros
                   </Link>
@@ -363,13 +389,7 @@ const App = () => {
 
           <main className="flex-grow-1 overflow-auto">
             <div className="container-fluid">
-              <Suspense fallback={
-                <div className="d-flex justify-content-center align-items-center py-5">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Cargando...</span>
-                  </div>
-                </div>
-              }>
+              <Suspense fallback={<LazyFallback />}>
                 <Routes>
                   <Route 
                     path="/login" 

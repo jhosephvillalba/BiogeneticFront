@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist',
-    sourcemap: false,
+    sourcemap: process.env.NODE_ENV === 'development' ? true : 'hidden', // ✅ Habilitado en desarrollo, oculto en producción
     minify: 'terser',
     rollupOptions: {
       output: {
@@ -32,7 +32,15 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
   },
   optimizeDeps: {
-    include: ['bootstrap-icons']
+    include: [
+      'bootstrap-icons',
+      'axios',
+      'react-router-dom',
+      'chart.js',
+      'react-chartjs-2',
+      '@fortawesome/fontawesome-svg-core',
+      '@fortawesome/react-fontawesome'
+    ]
   },
   resolve: {
     alias: {

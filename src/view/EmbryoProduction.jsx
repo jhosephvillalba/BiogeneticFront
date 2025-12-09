@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { usersApi } from "../Api";
 import { getBullsByClient, getAvailableBullsByClient } from "../Api/bulls";
@@ -98,64 +98,135 @@ const EmbryoProduction = () => {
   };
 
   // Función para limpiar todos los estados cuando se cambia de cliente
+  // Optimizada: React 18+ agrupa automáticamente, pero usamos startTransition para actualizaciones no críticas
   const clearAllStates = () => {
+    // Estados críticos (sincrónicos)
     setSelectedClient(null);
     setSelectedProduction(null);
     setProduction(null);
-    setEmbryoProductions([]);
-    setOpusRows([]);
-    setClientBulls([]);
-    setFemaleBulls([]);
-    setMaleBulls([]);
-    setSemenEntries([]);
-    setSemenPagination({
-      currentPage: 1,
-      totalPages: 1,
-      totalItems: 0,
-      limit: 10,
-    });
-    setSemenError(null);
-    setSemenLoading(false);
-    setSemenPagination({
-      currentPage: 1,
-      totalPages: 1,
-      totalItems: 0,
-      limit: 10,
-    });
-    setSemenError(null);
-    setSemenLoading(false);
-    setEmbryoProductionData({
-      cliente_id: 0,
-      fecha_opu: new Date().toISOString().split("T")[0],
-      lugar: "",
-      finca: "",
-      hora_inicio: "",
-      hora_final: "",
-      output_ids: [],
-      envase: "",
-      fecha_transferencia: new Date().toISOString().split("T")[0],
-      observacion: "",
-    });
     setError(null);
-    setShowSemenModal(false);
-    setShowConfirmModal(false);
-    setShowObservationModal(false);
-    setEditingInputId(null);
-    setEditValue("");
-    setRemarkValue("");
-    setObservationValue("");
-    setOutputIdUsed(null);
-    // Resetear paginación
-    setPagination({
-      skip: 0,
-      limit: 20,
-      hasMore: true,
-      loadingMore: false
+    
+    // Estados no críticos (pueden ser transiciones)
+    startTransition(() => {
+      setEmbryoProductions([]);
+      setOpusRows([]);
+      setClientBulls([]);
+      setFemaleBulls([]);
+      setMaleBulls([]);
+      setSemenEntries([]);
+      setSemenPagination({
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 0,
+        limit: 10,
+      });
+      setSemenError(null);
+      setSemenLoading(false);
+      setEmbryoProductionData({
+        cliente_id: 0,
+        fecha_opu: new Date().toISOString().split("T")[0],
+        lugar: "",
+        finca: "",
+        hora_inicio: "",
+        hora_final: "",
+        output_ids: [],
+        envase: "",
+        fecha_transferencia: new Date().toISOString().split("T")[0],
+        observacion: "",
+      });
+      setShowSemenModal(false);
+      setShowConfirmModal(false);
+      setShowObservationModal(false);
+      setEditingInputId(null);
+      setEditValue("");
+      setRemarkValue("");
+      setObservationValue("");
+      setOutputIdUsed(null);
+      setPagination({
+        skip: 0,
+        limit: 20,
+        hasMore: true,
+        loadingMore: false
+      });
     });
   };
 
-  // ✅ Implementar función loadClients
-  const loadClients = async (searchTerm = "") => {
+  // ✅ Implementar función loadClients - MEMOIZADA
+  // ✅ Handler memoizado para búsqueda de clientes
+  const handleClientSearchChange = useCallback((e) => {
+    setClientSearchTerm(e.target.value);
+  }, []);
+
+  // ✅ Handler memoizado para selección de producción
+  const handleProductionChange = useCallback(async (e) => {
+    const productionId = parseInt(e.target.value);
+    if (productionId) {
+      const production = embryoProductions.find(p => p.id === productionId);
+      
+      // Validar que la producción pertenezca al cliente actual
+      if (!production || production.cliente_id !== selectedClient?.id) {
+        console.error('Producción no válida para el cliente actual:', production, 'Cliente actual:', selectedClient?.id);
+        alert('Error: La producción seleccionada no pertenece al cliente actual');
+        return;
+      }
+      
+      console.log('Cargando producción:', production.id, 'para cliente:', selectedClient.id);
+      
+      // Verificar si tiene registros OPU
+      const opusRecords = await opusApi.getOpusByProduction(productionId);
+      console.log('Registros OPU cargados desde API:', opusRecords);
+      setSelectedProduction({
+        ...production,
+        opusCount: opusRecords.length
+      });
+      setProduction(production);
+      const mappedRows = mapOpusRecords(opusRecords);
+      console.log('Registros OPU mapeados:', mappedRows);
+      setOpusRows(mappedRows);
+      // Cargar los datos de la producción en el formulario
+      setEmbryoProductionData({
+        cliente_id: production.cliente_id,
+        fecha_opu: production.fecha_opu,
+        lugar: production.lugar || "",
+        finca: production.finca || "",
+        hora_inicio: production.hora_inicio || "",
+        hora_final: production.hora_final || "",
+        output_ids: production.output_ids || [],
+        envase: production.envase || "",
+        fecha_transferencia: production.fecha_transferencia || new Date().toISOString().split("T")[0],
+        observacion: production.observacion,
+      });
+    } else {
+      setSelectedProduction(null);
+      setProduction(null);
+      // Resetear el formulario
+      setEmbryoProductionData({
+        cliente_id: selectedClient.id,
+        fecha_opu: new Date().toISOString().split("T")[0],
+        lugar: "",
+        finca: "",
+        hora_inicio: "",
+        hora_final: "",
+        output_ids: [],
+        envase: "",
+        fecha_transferencia: new Date().toISOString().split("T")[0],
+        observacion: "",
+      });
+      setOpusRows([]);
+    }
+  }, [embryoProductions, selectedClient, mapOpusRecords]);
+
+  // ✅ Handler memoizado para mostrar modal de eliminación
+  const handleShowDeleteModal = useCallback(() => {
+    setShowDeleteModal(true);
+  }, []);
+
+  // ✅ Handler memoizado para selección de cliente
+  const handleClientSelectClick = useCallback((client) => {
+    handleSelectClient(client);
+  }, [handleSelectClient]);
+
+  const loadClients = useCallback(async (searchTerm = "") => {
     setLoadingClients(true);
     setError(null);
     try {
@@ -172,7 +243,7 @@ const EmbryoProduction = () => {
     } finally {
       setLoadingClients(false);
     }
-  };
+  }, []); // ✅ Memoizada - no tiene dependencias externas
 
   // ✅ Implementar función loadClientBulls
   const loadClientBulls = async (clientId) => {
@@ -208,7 +279,7 @@ const EmbryoProduction = () => {
 
     loadRaces();
     loadClients(); // Cargar clientes iniciales
-  }, []);
+  }, [loadClients]); // ✅ Agregado loadClients
 
   // Buscar clientes cuando cambie el término de búsqueda
   useEffect(() => {
@@ -559,7 +630,10 @@ const EmbryoProduction = () => {
     loadSemenEntries(selectedClient.id, pageNumber);
   };
 
-  function renderSemenPaginationControls(current, total, onChange) {
+  // ✅ Componente de paginación memoizado para evitar re-renders innecesarios
+  // Los handlers inline dentro de un componente memoizado no causan problemas
+  // porque el componente solo se re-renderiza cuando cambian las props
+  const SemenPaginationControls = React.memo(({ current, total, onChange }) => {
     if (total <= 1) return null;
 
     const pagesToShow = Array.from({ length: total }, (_, index) => index + 1).filter(
@@ -612,6 +686,11 @@ const EmbryoProduction = () => {
         </ul>
       </nav>
     );
+  });
+
+  // Función helper para mantener compatibilidad
+  function renderSemenPaginationControls(current, total, onChange) {
+    return <SemenPaginationControls current={current} total={total} onChange={onChange} />;
   }
 
   // Lógica de edición y guardado de cantidades
@@ -837,31 +916,31 @@ const EmbryoProduction = () => {
     await loadEmbryoProductions(selectedClient, false);
   };
 
-  // Función helper para mapear registros OPU preservando valores 0
- const mapOpusRecords = (opusRecords) => {
+  // ✅ Función helper para mapear registros OPU preservando valores 0 - Memoizada con useCallback
+  const mapOpusRecords = useCallback((opusRecords) => {
     return opusRecords.map((r, idx) => {
-     const order = r.order !== null && r.order !== undefined ? r.order : idx + 1;
+      const order = r.order !== null && r.order !== undefined ? r.order : idx + 1;
       return {
-       ...r,
-       order: order,
-       isExisting: true,
-       created: true, // Marcar como creado en la base de datos
-       original: { ...r },
-       // Asegurar que los valores numéricos se preserven correctamente, incluyendo 0
-       gi: r.gi !== null && r.gi !== undefined ? r.gi : 0,
-      gii: r.gii !== null && r.gii !== undefined ? r.gii : 0,
-      giii: r.giii !== null && r.giii !== undefined ? r.giii : 0,
-      otros: r.otros !== null && r.otros !== undefined ? r.otros : 0,
-      viables: r.viables !== null && r.viables !== undefined ? r.viables : 0,
-      total_oocitos: r.total_oocitos !== null && r.total_oocitos !== undefined ? r.total_oocitos : 0,
-      ctv: r.ctv !== null && r.ctv !== undefined ? r.ctv : 0,
-      clivados: r.clivados !== null && r.clivados !== undefined ? r.clivados : 0,
-      prevision: r.prevision !== null && r.prevision !== undefined ? r.prevision : 0,
-      empaque: r.empaque !== null && r.empaque !== undefined ? r.empaque : 0,
-      vt_dt: r.vt_dt !== null && r.vt_dt !== undefined ? r.vt_dt : 0,
-    };
-
-  })};
+        ...r,
+        order: order,
+        isExisting: true,
+        created: true, // Marcar como creado en la base de datos
+        original: { ...r },
+        // Asegurar que los valores numéricos se preserven correctamente, incluyendo 0
+        gi: r.gi !== null && r.gi !== undefined ? r.gi : 0,
+        gii: r.gii !== null && r.gii !== undefined ? r.gii : 0,
+        giii: r.giii !== null && r.giii !== undefined ? r.giii : 0,
+        otros: r.otros !== null && r.otros !== undefined ? r.otros : 0,
+        viables: r.viables !== null && r.viables !== undefined ? r.viables : 0,
+        total_oocitos: r.total_oocitos !== null && r.total_oocitos !== undefined ? r.total_oocitos : 0,
+        ctv: r.ctv !== null && r.ctv !== undefined ? r.ctv : 0,
+        clivados: r.clivados !== null && r.clivados !== undefined ? r.clivados : 0,
+        prevision: r.prevision !== null && r.prevision !== undefined ? r.prevision : 0,
+        empaque: r.empaque !== null && r.empaque !== undefined ? r.empaque : 0,
+        vt_dt: r.vt_dt !== null && r.vt_dt !== undefined ? r.vt_dt : 0,
+      };
+    });
+  }, []);
 
 
   // Guardar output_ids en la producción y redirigir
@@ -965,7 +1044,7 @@ const EmbryoProduction = () => {
         {production && (
           <button
             className="btn btn-danger"
-            onClick={() => setShowDeleteModal(true)}
+            onClick={handleShowDeleteModal}
           >
             <i className="bi bi-trash me-1"></i>
             Eliminar Producción
@@ -1002,7 +1081,7 @@ const EmbryoProduction = () => {
                 className="form-control"
                 placeholder="Buscar por nombre o email..."
                 value={clientSearchTerm}
-                onChange={(e) => setClientSearchTerm(e.target.value)}
+                onChange={handleClientSearchChange}
               />
             </div>
 
@@ -1033,7 +1112,7 @@ const EmbryoProduction = () => {
                           <td>
                             <button
                               className="btn btn-sm btn-primary"
-                              onClick={() => handleSelectClient(client)}
+                              onClick={() => handleClientSelectClick(client)}
                             >
                               <i className="bi bi-check me-1"></i>
                               Seleccionar
@@ -1087,62 +1166,7 @@ const EmbryoProduction = () => {
               <select 
                 className="form-select"
                 value={selectedProduction?.id || ''}
-                onChange={async (e) => {
-                  const productionId = parseInt(e.target.value);
-                  if (productionId) {
-                    const production = embryoProductions.find(p => p.id === productionId);
-                    
-                    // Validar que la producción pertenezca al cliente actual
-                    if (!production || production.cliente_id !== selectedClient?.id) {
-                      console.error('Producción no válida para el cliente actual:', production, 'Cliente actual:', selectedClient?.id);
-                      alert('Error: La producción seleccionada no pertenece al cliente actual');
-                      return;
-                    }
-                    
-                    console.log('Cargando producción:', production.id, 'para cliente:', selectedClient.id);
-                    
-                    // Verificar si tiene registros OPU
-                    const opusRecords = await opusApi.getOpusByProduction(productionId);
-                    console.log('Registros OPU cargados desde API:', opusRecords);
-                    setSelectedProduction({
-                      ...production,
-                      opusCount: opusRecords.length
-                    });
-                    setProduction(production);
-                    const mappedRows = mapOpusRecords(opusRecords);
-                    console.log('Registros OPU mapeados:', mappedRows);
-                    setOpusRows(mappedRows);
-                    // Cargar los datos de la producción en el formulario
-                    setEmbryoProductionData({
-                      cliente_id: production.cliente_id,
-                      fecha_opu: production.fecha_opu,
-                      lugar: production.lugar || "",
-                      finca: production.finca || "",
-                      hora_inicio: production.hora_inicio || "",
-                      hora_final: production.hora_final || "",
-                      output_ids: production.output_ids || [],
-                      envase: production.envase || "",
-                      fecha_transferencia: production.fecha_transferencia || new Date().toISOString().split("T")[0],
-                      observacion: production.observacion,
-                    });
-                  } else {
-                    setSelectedProduction(null);
-                    setProduction(null);
-                    // Resetear el formulario
-                    setEmbryoProductionData({
-                      cliente_id: selectedClient.id,
-                      fecha_opu: new Date().toISOString().split("T")[0],
-                      lugar: "",
-                      finca: "",
-                      hora_inicio: "",
-                      hora_final: "",
-                      output_ids: [],
-                      envase: "",
-                      fecha_transferencia: new Date().toISOString().split("T")[0],
-                    });
-                    setOpusRows([]);
-                  }
-                }}
+                onChange={handleProductionChange}
                 onScroll={(e) => {
                   const { scrollTop, scrollHeight, clientHeight } = e.target;
                   // Cargar más cuando esté cerca del final (80% del scroll)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteBull, createBull, getBullsByClient } from "../Api/bulls";
 import { racesApi, sexesApi, usersApi } from "../Api";
@@ -62,6 +62,18 @@ const Bulls = () => {
   // Estado para las entradas del toro seleccionado
   const [bullInputs, setBullInputs] = useState([]);
   const [loadingInputs, setLoadingInputs] = useState(false);
+  
+  // Estado para el modal de visualización de entradas (grande con filtro y paginación)
+  const [showEntriesModal, setShowEntriesModal] = useState(false);
+  const [entriesModalBull, setEntriesModalBull] = useState(null);
+  const [entriesList, setEntriesList] = useState([]);
+  const [loadingEntries, setLoadingEntries] = useState(false);
+  const [entriesSearch, setEntriesSearch] = useState("");
+  const [entriesPagination, setEntriesPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    total: 0,
+  });
 
   // Paginación local
   const [pagination, setPagination] = useState({
@@ -128,7 +140,7 @@ const Bulls = () => {
 
       console.log("Buscando toros para el cliente:", client);
 
-      const response = await getBullsByClient(client.id);
+      const response = await getBullsByClient(client.id, 0, 100, filter.searchQuery);
       console.log("Respuesta de la API:", response);
 
       let bullsList = [];
@@ -231,18 +243,9 @@ const Bulls = () => {
   }, []);
 
   // Función para aplicar filtros locales con useMemo para optimización
+  // Nota: La búsqueda ahora se hace en el servidor, solo filtramos por raza, sexo y estado localmente
   const filteredBulls = useMemo(() => {
     let result = [...bulls];
-
-    // Filtrar por texto de búsqueda
-    if (filter.searchQuery) {
-      const searchTerm = filter.searchQuery.toLowerCase();
-      result = result.filter(
-        (bull) =>
-          bull.name?.toLowerCase().includes(searchTerm) ||
-          bull.registration_number?.toLowerCase().includes(searchTerm)
-      );
-    }
 
     // Filtrar por raza
     if (filter.race) {
@@ -279,7 +282,7 @@ const Bulls = () => {
   }, [filteredBulls, pagination]);
 
   // Cargar toros del cliente seleccionado
-  const loadClientBulls = useCallback(async () => {
+  const loadClientBulls = useCallback(async (searchTerm = "") => {
     if (!selectedClient) {
       setBulls([]);
       return;
@@ -289,8 +292,9 @@ const Bulls = () => {
       setLoading(true);
       setError(null);
 
-      const response = await getBullsByClient(selectedClient.id);
-      setBulls(response || []);
+      const response = await getBullsByClient(selectedClient.id, 0, 100, searchTerm);
+      const bullsList = response || [];
+      setBulls(bullsList);
       setPagination((prev) => ({ ...prev, currentPage: 1 })); // Resetear a primera página
     } catch (error) {
       console.error("Error al cargar toros:", error);
@@ -303,8 +307,19 @@ const Bulls = () => {
 
   // Efecto para cargar toros cuando cambia el cliente
   useEffect(() => {
-    loadClientBulls();
-  }, [loadClientBulls]);
+    loadClientBulls(filter.searchQuery);
+  }, [loadClientBulls, selectedClient]);
+
+  // Efecto para recargar toros cuando cambia el término de búsqueda (con debounce)
+  useEffect(() => {
+    if (!selectedClient) return;
+
+    const timer = setTimeout(() => {
+      loadClientBulls(filter.searchQuery);
+    }, 500); // Debounce de 500ms
+
+    return () => clearTimeout(timer);
+  }, [filter.searchQuery, selectedClient, loadClientBulls]);
 
   // Efecto para manejar la recuperación del cliente del localStorage
   useEffect(() => {
@@ -317,7 +332,7 @@ const Bulls = () => {
         }, 0);
       }
     }
-  }, [selectedClient, bulls]);
+  }, [selectedClient, bulls, applyLocalFilters]); // ✅ Agregado applyLocalFilters
 
   // Cargar clientes
   const loadClients = useCallback(async () => {
@@ -491,6 +506,96 @@ const Bulls = () => {
     await fetchBullInputs(bull.id);
   };
 
+  // Función para abrir el modal de visualización de entradas (grande)
+  const openEntriesModal = async (bull, e) => {
+    e.stopPropagation();
+    setEntriesModalBull(bull);
+    setEntriesSearch("");
+    setEntriesPagination({ currentPage: 1, itemsPerPage: 10, total: 0 });
+    setShowEntriesModal(true);
+    await loadEntriesForModal(bull.id, "", 1);
+  };
+
+  // Función para cargar entradas con filtro y paginación
+  const loadEntriesForModal = useCallback(async (bullId, search = "", page = 1) => {
+    if (!bullId) return;
+
+    const itemsPerPage = 10; // Valor constante para la paginación
+
+    try {
+      setLoadingEntries(true);
+      const inputsModule = await import("../Api/inputs");
+      const skip = (page - 1) * itemsPerPage;
+      const response = await inputsModule.getInputsByBull(
+        bullId,
+        skip,
+        itemsPerPage,
+        search
+      );
+
+      // Manejar diferentes formatos de respuesta
+      let items = [];
+      let total = 0;
+
+      if (Array.isArray(response)) {
+        items = response;
+        total = response.length;
+      } else if (response?.items) {
+        items = response.items;
+        total = response.total || response.count || items.length;
+      } else if (response?.results) {
+        items = response.results;
+        total = response.count || items.length;
+      } else {
+        items = [];
+        total = 0;
+      }
+
+      setEntriesList(items);
+      setEntriesPagination((prev) => ({
+        ...prev,
+        currentPage: page,
+        total: total,
+      }));
+    } catch (error) {
+      console.error("Error al cargar entradas:", error);
+      setEntriesList([]);
+      setEntriesPagination((prev) => ({
+        ...prev,
+        total: 0,
+      }));
+    } finally {
+      setLoadingEntries(false);
+    }
+  }, []);
+
+  // Función para cerrar el modal de entradas
+  const closeEntriesModal = () => {
+    setShowEntriesModal(false);
+    setEntriesModalBull(null);
+    setEntriesList([]);
+    setEntriesSearch("");
+    setEntriesPagination({ currentPage: 1, itemsPerPage: 10, total: 0 });
+  };
+
+  // Función para manejar el cambio de página en el modal de entradas
+  const handleEntriesPageChange = (newPage) => {
+    if (entriesModalBull) {
+      loadEntriesForModal(entriesModalBull.id, entriesSearch, newPage);
+    }
+  };
+
+  // Efecto para manejar el cambio de búsqueda (con debounce)
+  useEffect(() => {
+    if (!showEntriesModal || !entriesModalBull) return;
+
+    const timer = setTimeout(() => {
+      loadEntriesForModal(entriesModalBull.id, entriesSearch, 1);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [entriesSearch, showEntriesModal, entriesModalBull, loadEntriesForModal]);
+
   const closeInputModal = () => {
     setShowInputModal(false);
     setSelectedBull(null);
@@ -548,9 +653,30 @@ const Bulls = () => {
         escalarilla: updatedEscalarilla,
       });
       await fetchBullInputs(selectedBull?.id);
-      setEditingEntryId(null);
-      setEditLote("");
-      setEditEscalarilla("");
+      
+      // ✅ Recargar lista de toros para obtener totales actualizados de la API
+      if (selectedClient?.id) {
+        try {
+          const response = await getBullsByClient(selectedClient.id, 0, 100, filter.searchQuery);
+          const bullsList = Array.isArray(response)
+            ? response
+            : response?.items
+            ? response.items
+            : response?.results
+            ? response.results
+            : [];
+          setBulls(bullsList);
+        } catch (error) {
+          console.error("Error al actualizar lista de toros:", error);
+        }
+      }
+      
+      // Agrupar limpieza de campos de edición
+      startTransition(() => {
+        setEditingEntryId(null);
+        setEditLote("");
+        setEditEscalarilla("");
+      });
     } catch (error) {
       console.error("Error al actualizar la entrada:", error);
       setEntryUpdateError(
@@ -627,6 +753,23 @@ const Bulls = () => {
       await inputsModule.createInput(inputData);
 
       await fetchBullInputs(selectedBull.id);
+      
+      // ✅ Recargar toros para obtener totales actualizados de la API
+      if (selectedClient?.id) {
+        try {
+          const response = await getBullsByClient(selectedClient.id, 0, 100, filter.searchQuery);
+          const bullsList = Array.isArray(response)
+            ? response
+            : response?.items
+            ? response.items
+            : response?.results
+            ? response.results
+            : [];
+          setBulls(bullsList);
+        } catch (error) {
+          console.error("Error al actualizar lista de toros:", error);
+        }
+      }
 
       setQuantityReceived("");
       setInputLote(inputLote.trim());
@@ -742,15 +885,25 @@ const Bulls = () => {
               <div className="card-body">
                 <div className="row g-3">
                   <div className="col-md-3">
-                    <label className="form-label">Búsqueda</label>
+                    <label className="form-label">
+                      <i className="bi bi-search me-1"></i>
+                      Búsqueda
+                    </label>
                     <input
                       type="text"
                       className="form-control"
-                      placeholder="Nombre o registro..."
+                      placeholder="Buscar por nombre, registro, lote, escalarilla..."
                       name="searchQuery"
                       value={filter.searchQuery}
                       onChange={handleFilterChange}
+                      disabled={loading}
                     />
+                    {loading && filter.searchQuery && (
+                      <small className="text-muted">
+                        <i className="bi bi-hourglass-split me-1"></i>
+                        Buscando...
+                      </small>
+                    )}
                   </div>
 
                   <div className="col-md-3">
@@ -838,13 +991,16 @@ const Bulls = () => {
               <thead className="table-light">
                 <tr>
                   <th width="5%">ID</th>
-                  <th width="20%">Nombre</th>
-                  <th width="15%">Registro</th>
-                  <th width="15%">Lote</th>
-                  <th width="15%">Escalarilla</th>
-                  <th width="15%">Descripción</th>
-                  <th width="20%">Raza</th>
-                  <th width="15%">Sexo</th>
+                  <th width="15%">Nombre</th>
+                  <th width="12%">Registro</th>
+                  <th width="10%">Lote</th>
+                  <th width="10%">Escalarilla</th>
+                  <th width="12%">Descripción</th>
+                  <th width="12%">Raza</th>
+                  <th width="10%">Sexo</th>
+                  <th width="10%">Recibida</th>
+                  <th width="10%">Utilizada</th>
+                  <th width="10%">Disponible</th>
                   {/* <th width="15%">Estado</th> */}
                   <th width="10%">Acciones</th>
                 </tr>
@@ -852,7 +1008,7 @@ const Bulls = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-4">
+                    <td colSpan="12" className="text-center py-4">
                       <div
                         className="spinner-border text-primary"
                         role="status"
@@ -864,14 +1020,14 @@ const Bulls = () => {
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan="7" className="text-center text-danger py-3">
+                    <td colSpan="12" className="text-center text-danger py-3">
                       <i className="bi bi-exclamation-triangle-fill me-2"></i>
                       {error}
                     </td>
                   </tr>
                 ) : filteredBulls.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center text-muted py-4">
+                    <td colSpan="12" className="text-center text-muted py-4">
                       <i className="bi bi-database me-2"></i>
                       {filter.searchQuery ||
                       filter.race ||
@@ -889,6 +1045,11 @@ const Bulls = () => {
                     const sexName =
                       sexes.find((s) => s.id === bull.sex_id)?.name ||
                       "Desconocido";
+                    
+                    // ✅ Usar totales que vienen directamente de la API
+                    const totalReceived = parseNumber(bull.recibida || 0);
+                    const totalTaken = parseNumber(bull.utilizada || 0);
+                    const totalAvailable = parseNumber(bull.disponible || 0);
 
                     return (
                       <tr
@@ -904,6 +1065,23 @@ const Bulls = () => {
                         <td>{bull.description || "Sin registro"}</td>
                         <td>{raceName}</td>
                         <td>{sexName}</td>
+                        <td className="text-center">
+                          <span className="fw-semibold">
+                            {totalReceived.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="text-center">
+                          <span className="fw-semibold">
+                            {totalTaken.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="text-center">
+                          <span className={`fw-semibold ${
+                            totalAvailable <= 0 ? "text-danger" : "text-success"
+                          }`}>
+                            {totalAvailable.toFixed(1)}
+                          </span>
+                        </td>
 
                         {/* <td>
                           <span className={`badge ${bull.status === 'active' ? 'bg-success' : 'bg-secondary'}`}>
@@ -930,14 +1108,11 @@ const Bulls = () => {
                               <i className="bi bi-plus-circle"></i>
                             </button>
                             <button
-                              className="btn btn-sm btn-outline-danger ms-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteBull(bull.id);
-                              }}
-                              title="Eliminar toro"
+                              className="btn btn-sm btn-outline-info ms-1"
+                              onClick={(e) => openEntriesModal(bull, e)}
+                              title="Entradas"
                             >
-                              <i className="bi bi-trash"></i>
+                              <i className="bi bi-arrow-left-right"></i>
                             </button>
                           </div>
                         </td>
@@ -1455,6 +1630,247 @@ const Bulls = () => {
                   className="btn btn-secondary"
                   onClick={closeInputModal}
                   disabled={inputLoading || loadingInputs || entryUpdateLoading}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal grande para visualizar todas las entradas con filtro y paginación */}
+      {showEntriesModal && entriesModalBull && (
+        <div
+          className="modal d-block"
+          tabIndex="-1"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          <div className="modal-dialog modal-dialog-centered modal-xl">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="bi bi-list-ul me-2"></i>
+                  Entradas del Toro: {entriesModalBull.name || "Sin nombre"}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={closeEntriesModal}
+                  disabled={loadingEntries}
+                ></button>
+              </div>
+              <div className="modal-body">
+                {/* Filtro de búsqueda */}
+                <div className="mb-3">
+                  <label className="form-label">
+                    <i className="bi bi-search me-2"></i>
+                    Buscar entradas
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Buscar por lote, escalarilla, ID, fecha..."
+                    value={entriesSearch}
+                    onChange={(e) => setEntriesSearch(e.target.value)}
+                    disabled={loadingEntries}
+                  />
+                </div>
+
+                {/* Tabla de entradas */}
+                {loadingEntries ? (
+                  <div className="text-center py-5">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Cargando...</span>
+                    </div>
+                    <p className="mt-2 text-muted">Cargando entradas...</p>
+                  </div>
+                ) : entriesList.length === 0 ? (
+                  <div className="text-center py-5 text-muted">
+                    <i className="bi bi-inbox fs-1 d-block mb-3"></i>
+                    <p className="mb-0">
+                      {entriesSearch
+                        ? "No se encontraron entradas con ese criterio de búsqueda."
+                        : "No hay entradas registradas para este toro."}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="table-responsive">
+                      <table className="table table-hover table-sm">
+                        <thead className="table-light">
+                          <tr>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Lote</th>
+                            <th>Escalarilla</th>
+                            <th className="text-center">Recibida</th>
+                            <th className="text-center">Utilizada</th>
+                            <th className="text-center">Disponible</th>
+                            <th>Última Salida</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {entriesList.map((entry) => {
+                            const received = parseNumber(entry.quantity_received || 0);
+                            const taken = parseNumber(entry.quantity_taken || 0);
+                            const available = entry.quantity_available !== undefined
+                              ? parseNumber(entry.quantity_available)
+                              : received - taken;
+
+                            return (
+                              <tr key={entry.id}>
+                                <td className="fw-semibold">#{entry.id}</td>
+                                <td>
+                                  {entry.created_at
+                                    ? new Date(entry.created_at).toLocaleDateString('es-CO', {
+                                        timeZone: 'UTC'
+                                      })
+                                    : "N/A"}
+                                </td>
+                                <td>{entry.lote || "N/A"}</td>
+                                <td>{entry.escalarilla || entry.escalerilla || "N/A"}</td>
+                                <td className="text-center">
+                                  <span className="fw-semibold">
+                                    {received.toFixed(1)}
+                                  </span>
+                                </td>
+                                <td className="text-center">
+                                  <span className="fw-semibold">
+                                    {taken.toFixed(1)}
+                                  </span>
+                                </td>
+                                <td className="text-center">
+                                  <span className={`fw-semibold ${
+                                    available <= 0 ? "text-danger" : "text-success"
+                                  }`}>
+                                    {available.toFixed(1)}
+                                  </span>
+                                </td>
+                                <td>
+                                  {entry.last_output_date
+                                    ? new Date(entry.last_output_date).toLocaleDateString('es-CO', {
+                                        timeZone: 'UTC'
+                                      })
+                                    : "N/A"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Paginación */}
+                    {entriesPagination.total > entriesPagination.itemsPerPage && (
+                      <div className="d-flex justify-content-between align-items-center mt-3">
+                        <div className="text-muted small">
+                          Mostrando {((entriesPagination.currentPage - 1) * entriesPagination.itemsPerPage) + 1} -{" "}
+                          {Math.min(
+                            entriesPagination.currentPage * entriesPagination.itemsPerPage,
+                            entriesPagination.total
+                          )}{" "}
+                          de {entriesPagination.total} entradas
+                        </div>
+                        <nav>
+                          <ul className="pagination pagination-sm mb-0">
+                            <li
+                              className={`page-item ${
+                                entriesPagination.currentPage === 1 ? "disabled" : ""
+                              }`}
+                            >
+                              <button
+                                className="page-link"
+                                onClick={() =>
+                                  handleEntriesPageChange(entriesPagination.currentPage - 1)
+                                }
+                                disabled={entriesPagination.currentPage === 1 || loadingEntries}
+                              >
+                                &laquo; Anterior
+                              </button>
+                            </li>
+                            {Array.from({
+                              length: Math.ceil(
+                                entriesPagination.total / entriesPagination.itemsPerPage
+                              ),
+                            }).map((_, index) => {
+                              const page = index + 1;
+                              if (
+                                page === 1 ||
+                                page === entriesPagination.currentPage ||
+                                page ===
+                                  Math.ceil(
+                                    entriesPagination.total / entriesPagination.itemsPerPage
+                                  ) ||
+                                (page >= entriesPagination.currentPage - 1 &&
+                                  page <= entriesPagination.currentPage + 1)
+                              ) {
+                                return (
+                                  <li
+                                    key={page}
+                                    className={`page-item ${
+                                      entriesPagination.currentPage === page ? "active" : ""
+                                    }`}
+                                  >
+                                    <button
+                                      className="page-link"
+                                      onClick={() => handleEntriesPageChange(page)}
+                                      disabled={loadingEntries}
+                                    >
+                                      {page}
+                                    </button>
+                                  </li>
+                                );
+                              } else if (
+                                page === entriesPagination.currentPage - 2 ||
+                                page === entriesPagination.currentPage + 2
+                              ) {
+                                return (
+                                  <li key={page} className="page-item disabled">
+                                    <span className="page-link">...</span>
+                                  </li>
+                                );
+                              }
+                              return null;
+                            })}
+                            <li
+                              className={`page-item ${
+                                entriesPagination.currentPage >=
+                                Math.ceil(
+                                  entriesPagination.total / entriesPagination.itemsPerPage
+                                )
+                                  ? "disabled"
+                                  : ""
+                              }`}
+                            >
+                              <button
+                                className="page-link"
+                                onClick={() =>
+                                  handleEntriesPageChange(entriesPagination.currentPage + 1)
+                                }
+                                disabled={
+                                  entriesPagination.currentPage >=
+                                    Math.ceil(
+                                      entriesPagination.total / entriesPagination.itemsPerPage
+                                    ) || loadingEntries
+                                }
+                              >
+                                Siguiente &raquo;
+                              </button>
+                            </li>
+                          </ul>
+                        </nav>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={closeEntriesModal}
+                  disabled={loadingEntries}
                 >
                   Cerrar
                 </button>

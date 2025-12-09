@@ -4,7 +4,12 @@ import { logger } from '../utils/errorHandler';
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
+    this.state = { 
+      hasError: false, 
+      error: null, 
+      errorInfo: null,
+      isLazyLoadingError: false
+    };
   }
 
   static getDerivedStateFromError(error) {
@@ -13,12 +18,29 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Registrar el error
-    logger.error('Error capturado por ErrorBoundary:', error);
-    logger.error('Error Info:', errorInfo);
+    // Detectar errores de lazy loading (carga de módulos)
+    const isLazyLoadingError = 
+      (error.message && (
+        error.message.includes('Loading chunk') ||
+        error.message.includes('Failed to fetch dynamically imported module') ||
+        error.message.includes('ChunkLoadError')
+      )) ||
+      (error.name === 'ChunkLoadError');
+    
+    if (isLazyLoadingError) {
+      logger.error('Error de carga de módulo lazy:', error);
+      logger.error('Error Info:', errorInfo);
+      // Los errores de lazy loading pueden ser temporales (red, caché)
+      // Se puede intentar recargar la página automáticamente
+    } else {
+      // Registrar el error normal
+      logger.error('Error capturado por ErrorBoundary:', error);
+      logger.error('Error Info:', errorInfo);
+    }
     
     this.setState({
-      errorInfo: errorInfo
+      errorInfo: errorInfo,
+      isLazyLoadingError // Agregar flag para UI específica
     });
     
     // Aquí podrías enviar el error a un servicio de monitoreo
@@ -33,9 +55,13 @@ class ErrorBoundary extends React.Component {
           <div className="alert alert-danger" role="alert">
             <h4 className="alert-heading">
               <i className="bi bi-exclamation-triangle-fill me-2"></i>
-              Error de Renderizado
+              {this.state.isLazyLoadingError ? 'Error de Carga de Módulo' : 'Error de Renderizado'}
             </h4>
-            <p>Ha ocurrido un error inesperado en la aplicación.</p>
+            <p>
+              {this.state.isLazyLoadingError 
+                ? 'No se pudo cargar un módulo de la aplicación. Esto puede deberse a un problema de conexión o caché.'
+                : 'Ha ocurrido un error inesperado en la aplicación.'}
+            </p>
             <p>Por favor, intenta recargar la página o contacta a soporte si el problema persiste.</p>
             
             {this.state.error && (

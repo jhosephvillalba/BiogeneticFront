@@ -139,9 +139,13 @@ export const getBullsBySex = async (sexId, skip = 0, limit = 100) => {
 };
 
 // Obtener toros por cliente
-export const getBullsByClient = async (clientId, skip = 0, limit = 100) => {
+export const getBullsByClient = async (clientId, skip = 0, limit = 100, search = "") => {
   try {
-    const response = await axios.get(`/bulls/client/${clientId}?skip=${skip}&limit=${limit}`);
+    let url = `/bulls/client/${clientId}?skip=${skip}&limit=${limit}`;
+    if (search && search.trim() !== "") {
+      url += `&search=${encodeURIComponent(search.trim())}`;
+    }
+    const response = await axios.get(url);
     return response.data;
   } catch (error) {
     console.error("Error al obtener toros del cliente:", error);
