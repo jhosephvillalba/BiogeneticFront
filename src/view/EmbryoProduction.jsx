@@ -248,11 +248,6 @@ const EmbryoProduction = () => {
     setShowDeleteModal(true);
   }, []);
 
-  // ✅ Handler memoizado para selección de cliente
-  const handleClientSelectClick = useCallback((client) => {
-    handleSelectClient(client);
-  }, [handleSelectClient]);
-
   const loadClients = useCallback(async (searchTerm = "") => {
     setLoadingClients(true);
     setError(null);
@@ -272,8 +267,8 @@ const EmbryoProduction = () => {
     }
   }, []); // ✅ Memoizada - no tiene dependencias externas
 
-  // ✅ Implementar función loadClientBulls
-  const loadClientBulls = async (clientId) => {
+  // ✅ Implementar función loadClientBulls - Memoizada
+  const loadClientBulls = useCallback(async (clientId) => {
     setLoadingBulls(true);
     try {
       const bulls = await getAvailableBullsByClient(clientId);
@@ -291,7 +286,7 @@ const EmbryoProduction = () => {
     } finally {
       setLoadingBulls(false);
     }
-  };
+  }, []);
 
   // ✅ Cargar razas al montar el componente
   useEffect(() => {
@@ -346,8 +341,8 @@ const EmbryoProduction = () => {
     }
   }, [showObservationModal]);
 
-  // Nueva función para cargar producciones embrionarias con paginación
-  const loadEmbryoProductions = async (client, resetPagination = true) => {
+  // Nueva función para cargar producciones embrionarias con paginación - Memoizada
+  const loadEmbryoProductions = useCallback(async (client, resetPagination = true) => {
     try {
       if (!client) return;
       
@@ -396,10 +391,12 @@ const EmbryoProduction = () => {
         hasMore: false
       }));
     }
-  };
+  }, [pagination]);
 
-  // Modificar handleSelectClient para incluir la carga de producciones
-  const handleSelectClient = async (client) => {
+  // ✅ Modificar handleSelectClient para incluir la carga de producciones
+  // ✅ Debe estar definida ANTES de handleClientSelectClick que la usa
+  // ✅ Memoizada para evitar recreaciones innecesarias
+  const handleSelectClient = useCallback(async (client) => {
     // Limpiar estados antes de cargar nuevo cliente
     setSelectedProduction(null);
     setProduction(null);
@@ -436,7 +433,13 @@ const EmbryoProduction = () => {
     await loadClientBulls(client.id);
     // Luego cargar las producciones pasando el cliente directamente (reset paginación)
     await loadEmbryoProductions(client, true);
-  };
+  }, [loadClientBulls, loadEmbryoProductions]);
+
+  // ✅ Handler memoizado para selección de cliente
+  // ✅ Debe estar definida DESPUÉS de handleSelectClient que usa
+  const handleClientSelectClick = useCallback((client) => {
+    handleSelectClient(client);
+  }, [handleSelectClient]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
