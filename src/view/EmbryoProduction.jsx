@@ -151,6 +151,33 @@ const EmbryoProduction = () => {
     });
   };
 
+  // ✅ Función helper para mapear registros OPU preservando valores 0 - Memoizada con useCallback
+  // ✅ Debe estar definida ANTES de handleProductionChange que la usa
+  const mapOpusRecords = useCallback((opusRecords) => {
+    return opusRecords.map((r, idx) => {
+      const order = r.order !== null && r.order !== undefined ? r.order : idx + 1;
+      return {
+        ...r,
+        order: order,
+        isExisting: true,
+        created: true, // Marcar como creado en la base de datos
+        original: { ...r },
+        // Asegurar que los valores numéricos se preserven correctamente, incluyendo 0
+        gi: r.gi !== null && r.gi !== undefined ? r.gi : 0,
+        gii: r.gii !== null && r.gii !== undefined ? r.gii : 0,
+        giii: r.giii !== null && r.giii !== undefined ? r.giii : 0,
+        otros: r.otros !== null && r.otros !== undefined ? r.otros : 0,
+        viables: r.viables !== null && r.viables !== undefined ? r.viables : 0,
+        total_oocitos: r.total_oocitos !== null && r.total_oocitos !== undefined ? r.total_oocitos : 0,
+        ctv: r.ctv !== null && r.ctv !== undefined ? r.ctv : 0,
+        clivados: r.clivados !== null && r.clivados !== undefined ? r.clivados : 0,
+        prevision: r.prevision !== null && r.prevision !== undefined ? r.prevision : 0,
+        empaque: r.empaque !== null && r.empaque !== undefined ? r.empaque : 0,
+        vt_dt: r.vt_dt !== null && r.vt_dt !== undefined ? r.vt_dt : 0,
+      };
+    });
+  }, []);
+
   // ✅ Implementar función loadClients - MEMOIZADA
   // ✅ Handler memoizado para búsqueda de clientes
   const handleClientSearchChange = useCallback((e) => {
@@ -915,32 +942,6 @@ const EmbryoProduction = () => {
     setPagination(prev => ({ ...prev, loadingMore: true }));
     await loadEmbryoProductions(selectedClient, false);
   };
-
-  // ✅ Función helper para mapear registros OPU preservando valores 0 - Memoizada con useCallback
-  const mapOpusRecords = useCallback((opusRecords) => {
-    return opusRecords.map((r, idx) => {
-      const order = r.order !== null && r.order !== undefined ? r.order : idx + 1;
-      return {
-        ...r,
-        order: order,
-        isExisting: true,
-        created: true, // Marcar como creado en la base de datos
-        original: { ...r },
-        // Asegurar que los valores numéricos se preserven correctamente, incluyendo 0
-        gi: r.gi !== null && r.gi !== undefined ? r.gi : 0,
-        gii: r.gii !== null && r.gii !== undefined ? r.gii : 0,
-        giii: r.giii !== null && r.giii !== undefined ? r.giii : 0,
-        otros: r.otros !== null && r.otros !== undefined ? r.otros : 0,
-        viables: r.viables !== null && r.viables !== undefined ? r.viables : 0,
-        total_oocitos: r.total_oocitos !== null && r.total_oocitos !== undefined ? r.total_oocitos : 0,
-        ctv: r.ctv !== null && r.ctv !== undefined ? r.ctv : 0,
-        clivados: r.clivados !== null && r.clivados !== undefined ? r.clivados : 0,
-        prevision: r.prevision !== null && r.prevision !== undefined ? r.prevision : 0,
-        empaque: r.empaque !== null && r.empaque !== undefined ? r.empaque : 0,
-        vt_dt: r.vt_dt !== null && r.vt_dt !== undefined ? r.vt_dt : 0,
-      };
-    });
-  }, []);
 
 
   // Guardar output_ids en la producción y redirigir
