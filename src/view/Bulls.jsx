@@ -75,6 +75,13 @@ const Bulls = () => {
     total: 0,
   });
 
+  // Estados para acciones en el modal de entradas
+  const [entryToDelete, setEntryToDelete] = useState(null);
+  const [deletingEntry, setDeletingEntry] = useState(false);
+  const [editingAvailableEntry, setEditingAvailableEntry] = useState(null);
+  const [editingAvailableValue, setEditingAvailableValue] = useState("");
+  const [updatingEntry, setUpdatingEntry] = useState(false);
+
   // Paginación local
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -576,6 +583,141 @@ const Bulls = () => {
     setEntriesList([]);
     setEntriesSearch("");
     setEntriesPagination({ currentPage: 1, itemsPerPage: 10, total: 0 });
+    setEntryToDelete(null);
+    setEditingAvailableEntry(null);
+    setEditingAvailableValue("");
+  };
+
+  // Función para eliminar una entrada
+  const handleDeleteEntry = async (entry) => {
+    if (!window.confirm(`¿Está seguro de eliminar la entrada #${entry.id}?`)) {
+      return;
+    }
+
+    try {
+      setDeletingEntry(true);
+      const inputsModule = await import("../Api/inputs");
+      await inputsModule.deleteInput(entry.id);
+
+      // Recargar la lista de entradas
+      if (entriesModalBull) {
+        await loadEntriesForModal(entriesModalBull.id, entriesSearch, entriesPagination.currentPage);
+      }
+
+      // Recargar toros para actualizar totales
+      if (selectedClient?.id) {
+        try {
+          const response = await getBullsByClient(selectedClient.id, 0, 100, filter.searchQuery);
+          const bullsList = Array.isArray(response)
+            ? response
+            : response?.items
+            ? response.items
+            : response?.results
+            ? response.results
+            : [];
+          setBulls(bullsList);
+        } catch (error) {
+          console.error("Error al actualizar lista de toros:", error);
+        }
+      }
+
+      alert("Entrada eliminada correctamente");
+    } catch (error) {
+      console.error("Error al eliminar entrada:", error);
+      alert("Error al eliminar la entrada: " + (error.response?.data?.detail || error.message));
+    } finally {
+      setDeletingEntry(false);
+      setEntryToDelete(null);
+    }
+  };
+
+  // Función para iniciar edición de cantidad disponible
+  const handleStartEditAvailable = (entry) => {
+    const currentReceived = parseNumber(entry.quantity_received || 0);
+    const currentTaken = parseNumber(entry.quantity_taken || 0);
+    const currentAvailable = currentReceived - currentTaken;
+    setEditingAvailableEntry(entry.id);
+    setEditingAvailableValue(currentAvailable.toFixed(1));
+  };
+
+  // Función para cancelar edición de cantidad disponible
+  const handleCancelEditAvailable = () => {
+    setEditingAvailableEntry(null);
+    setEditingAvailableValue("");
+  };
+
+  // Función para guardar cantidad disponible modificada
+  const handleSaveAvailable = async (entry) => {
+    if (!entry || editingAvailableEntry !== entry.id) return;
+
+    const newAvailable = parseFloat(editingAvailableValue);
+    const currentReceived = parseNumber(entry.quantity_received || 0);
+    const currentTaken = parseNumber(entry.quantity_taken || 0);
+    const currentAvailable = currentReceived - currentTaken;
+
+    // Validaciones
+    if (isNaN(newAvailable) || newAvailable < 0) {
+      alert("Por favor ingrese una cantidad válida mayor o igual a cero");
+      return;
+    }
+
+    if (newAvailable > currentReceived) {
+      alert(`La cantidad disponible (${newAvailable.toFixed(1)}) no puede ser mayor a la recibida (${currentReceived.toFixed(1)})`);
+      return;
+    }
+
+    // Si no hay cambios, cancelar edición
+    if (Math.abs(newAvailable - currentAvailable) < 0.01) {
+      handleCancelEditAvailable();
+      return;
+    }
+
+    try {
+      setUpdatingEntry(true);
+      const inputsModule = await import("../Api/inputs");
+
+      // Calcular nueva cantidad utilizada: quantity_taken = quantity_received - quantity_available
+      const newQuantityTaken = currentReceived - newAvailable;
+
+      // Actualizar la entrada
+      await inputsModule.updateInput(entry.id, {
+        quantity_received: currentReceived,
+        quantity_taken: newQuantityTaken,
+        escalarilla: entry.escalarilla || entry.escalerilla || "",
+        lote: entry.lote || "",
+        bull_id: entry.bull_id,
+        fv: entry.fv || entry.created_at,
+      });
+
+      // Recargar la lista de entradas
+      if (entriesModalBull) {
+        await loadEntriesForModal(entriesModalBull.id, entriesSearch, entriesPagination.currentPage);
+      }
+
+      // Recargar toros para actualizar totales
+      if (selectedClient?.id) {
+        try {
+          const response = await getBullsByClient(selectedClient.id, 0, 100, filter.searchQuery);
+          const bullsList = Array.isArray(response)
+            ? response
+            : response?.items
+            ? response.items
+            : response?.results
+            ? response.results
+            : [];
+          setBulls(bullsList);
+        } catch (error) {
+          console.error("Error al actualizar lista de toros:", error);
+        }
+      }
+
+      handleCancelEditAvailable();
+    } catch (error) {
+      console.error("Error al actualizar cantidad disponible:", error);
+      alert("Error al actualizar la cantidad: " + (error.response?.data?.detail || error.message));
+    } finally {
+      setUpdatingEntry(false);
+    }
   };
 
   // Función para manejar el cambio de página en el modal de entradas
@@ -1708,6 +1850,7 @@ const Bulls = () => {
                             <th className="text-center">Utilizada</th>
                             <th className="text-center">Disponible</th>
                             <th>Última Salida</th>
+                            <th className="text-center">Acciones</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1741,11 +1884,59 @@ const Bulls = () => {
                                   </span>
                                 </td>
                                 <td className="text-center">
-                                  <span className={`fw-semibold ${
-                                    available <= 0 ? "text-danger" : "text-success"
-                                  }`}>
-                                    {available.toFixed(1)}
-                                  </span>
+                                  {editingAvailableEntry === entry.id ? (
+                                    <div className="d-flex align-items-center gap-2 justify-content-center">
+                                      <input
+                                        type="number"
+                                        className="form-control form-control-sm"
+                                        style={{ width: "80px" }}
+                                        value={editingAvailableValue}
+                                        onChange={(e) => setEditingAvailableValue(e.target.value)}
+                                        min="0"
+                                        step="0.1"
+                                        disabled={updatingEntry}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            handleSaveAvailable(entry);
+                                          } else if (e.key === "Escape") {
+                                            handleCancelEditAvailable();
+                                          }
+                                        }}
+                                        autoFocus
+                                      />
+                                      <button
+                                        className="btn btn-success btn-sm"
+                                        onClick={() => handleSaveAvailable(entry)}
+                                        disabled={updatingEntry}
+                                        title="Guardar"
+                                      >
+                                        {updatingEntry ? (
+                                          <span className="spinner-border spinner-border-sm" role="status" />
+                                        ) : (
+                                          <i className="bi bi-check"></i>
+                                        )}
+                                      </button>
+                                      <button
+                                        className="btn btn-secondary btn-sm"
+                                        onClick={handleCancelEditAvailable}
+                                        disabled={updatingEntry}
+                                        title="Cancelar"
+                                      >
+                                        <i className="bi bi-x"></i>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span
+                                      className={`fw-semibold ${
+                                        available <= 0 ? "text-danger" : "text-success"
+                                      }`}
+                                      style={{ cursor: "pointer" }}
+                                      onClick={() => handleStartEditAvailable(entry)}
+                                      title="Click para editar cantidad disponible"
+                                    >
+                                      {available.toFixed(1)}
+                                    </span>
+                                  )}
                                 </td>
                                 <td>
                                   {entry.last_output_date
@@ -1753,6 +1944,20 @@ const Bulls = () => {
                                         timeZone: 'UTC'
                                       })
                                     : "N/A"}
+                                </td>
+                                <td>
+                                  <button
+                                    className="btn btn-outline-danger btn-sm"
+                                    onClick={() => handleDeleteEntry(entry)}
+                                    title="Eliminar entrada"
+                                    disabled={deletingEntry || updatingEntry || loadingEntries || editingAvailableEntry === entry.id}
+                                  >
+                                    {deletingEntry && entryToDelete?.id === entry.id ? (
+                                      <span className="spinner-border spinner-border-sm" role="status" />
+                                    ) : (
+                                      <i className="bi bi-trash"></i>
+                                    )}
+                                  </button>
                                 </td>
                               </tr>
                             );
@@ -1870,7 +2075,7 @@ const Bulls = () => {
                   type="button"
                   className="btn btn-secondary"
                   onClick={closeEntriesModal}
-                  disabled={loadingEntries}
+                  disabled={loadingEntries || deletingEntry || updatingEntry || editingAvailableEntry !== null}
                 >
                   Cerrar
                 </button>
