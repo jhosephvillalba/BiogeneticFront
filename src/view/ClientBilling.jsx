@@ -242,9 +242,17 @@ const ClientBilling = () => {
     // navigate(`/payment/${invoice.id}`);
     
     // ✅ NUEVO: Abrir modal con botón de ePayco
-    // Guardar factura_id en localStorage para usarlo después del pago
+    // Guardar TODOS los datos de la factura en localStorage para usarlos después del pago
     if (invoice.id) {
-      localStorage.setItem('pendingPaymentInvoiceId', invoice.id.toString());
+      const paymentData = {
+        factura_id: invoice.id,
+        monto_pagar: invoice.monto_pagar,
+        monto_base: invoice.monto_base,
+        iva_porcentaje: invoice.iva_porcentaje,
+        id_factura: invoice.id_factura,
+        descripcion: invoice.descripcion
+      };
+      localStorage.setItem('pendingPaymentData', JSON.stringify(paymentData));
     }
     
     setSelectedInvoice(invoice);

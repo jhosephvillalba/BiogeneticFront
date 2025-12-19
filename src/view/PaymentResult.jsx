@@ -17,8 +17,6 @@ const PaymentResult = () => {
     const ref_payco = searchParams.get('ref_payco') || '';
     const estado = searchParams.get('estado') || '';
     const respuesta = searchParams.get('respuesta') || '';
-    const factura_id = searchParams.get('factura_id') || '';
-    const monto = searchParams.get('monto') || searchParams.get('valor') || searchParams.get('amount') || '';
 
     setPaymentInfo({
       ref_payco,
@@ -27,21 +25,35 @@ const PaymentResult = () => {
     });
 
     // Registrar el pago inmediatamente si tenemos ref_payco (ePayco ya procesó el pago)
+    // SOLO usamos ref_payco y estado de ePayco, el resto de datos vienen de localStorage
     if (ref_payco && estado) {
-      registerPayment(ref_payco, estado, factura_id, monto);
+      registerPayment(ref_payco, estado);
     }
   }, [searchParams]);
 
   // Función para registrar el pago en el sistema
-  const registerPayment = async (ref_payco, estado, factura_id_param, monto_param) => {
+  // Usa SOLO los datos guardados en localStorage + ref_payco y estado de ePayco
+  const registerPayment = async (ref_payco, estado) => {
     try {
       setRegisteringPayment(true);
 
-      // Obtener factura_id desde parámetros o localStorage
-      const invoiceId = factura_id_param || localStorage.getItem('pendingPaymentInvoiceId');
+      // Obtener TODOS los datos de la factura desde localStorage (guardados antes de ir a ePayco)
+      const savedPaymentData = localStorage.getItem('pendingPaymentData');
       
-      if (!invoiceId) {
-        console.error('No se encontró factura_id para registrar el pago');
+      if (!savedPaymentData) {
+        console.error('❌ No se encontraron datos de la factura en localStorage');
+        console.error('Datos disponibles en localStorage:', {
+          pendingPaymentInvoiceId: localStorage.getItem('pendingPaymentInvoiceId'),
+          pendingPaymentData: localStorage.getItem('pendingPaymentData')
+        });
+        return;
+      }
+
+      const invoiceData = JSON.parse(savedPaymentData);
+      console.log('📋 Datos de la factura obtenidos de localStorage:', invoiceData);
+
+      if (!invoiceData.factura_id) {
+        console.error('❌ factura_id no encontrado en los datos guardados');
         return;
       }
 
@@ -55,38 +67,41 @@ const PaymentResult = () => {
         paymentStatus = 'rechazado';
       }
 
-      // Obtener monto desde parámetros o desde la factura
-      let monto = null;
-      if (monto_param) {
-        monto = parseFloat(monto_param);
-      } else {
-        try {
-          const invoiceData = await api.billing.getInvoiceById(parseInt(invoiceId));
-          monto = invoiceData.monto_pagar || invoiceData.monto_total || null;
-        } catch (error) {
-          console.warn('No se pudo obtener el monto desde la factura:', error);
-        }
-      }
-
-      // Preparar datos del pago
+      // Preparar datos del pago usando SOLO los datos guardados + ref_payco y estado de ePayco
       const paymentData = {
-        factura_id: parseInt(invoiceId),
-        ref_payco: ref_payco,
+        factura_id: parseInt(invoiceData.factura_id),
+        ref_payco: ref_payco, // ✅ Este es el ÚNICO dato que viene de ePayco
         metodo_pago: 'epayco',
-        monto: monto,
-        estado: paymentStatus,
-        observaciones: `Pago procesado a través de ePayco. Referencia: ${ref_payco}. Estado: ${estado}`
+        monto: invoiceData.monto_pagar ? parseFloat(invoiceData.monto_pagar) : null, // ✅ De los datos guardados
+        estado: paymentStatus, // ✅ Mapeado desde el estado de ePayco
+        observaciones: `Pago procesado a través de ePayco. Referencia: ${ref_payco}. Estado: ${estado}. Factura: ${invoiceData.id_factura || invoiceData.factura_id}`
       };
 
+      console.log('📤 Datos del pago a registrar:', paymentData);
+      console.log('📤 Origen de los datos:', {
+        factura_id: 'localStorage (guardado antes de ePayco)',
+        ref_payco: 'ePayco (parámetro de URL)',
+        metodo_pago: 'fijo: epayco',
+        monto: 'localStorage (guardado antes de ePayco)',
+        estado: 'ePayco (parámetro de URL, mapeado)',
+        observaciones: 'generado'
+      });
+
       // Registrar el pago
-      await api.payments.createManualPayment(paymentData);
-      console.log('Pago registrado exitosamente');
+      const response = await api.payments.createManualPayment(paymentData);
+      console.log('✅ Pago registrado exitosamente:', response);
       
-      // Limpiar el factura_id del localStorage
-      localStorage.removeItem('pendingPaymentInvoiceId');
+      // Limpiar los datos del localStorage
+      localStorage.removeItem('pendingPaymentData');
+      localStorage.removeItem('pendingPaymentInvoiceId'); // Por si acaso existe
       
     } catch (error) {
-      console.error('Error al registrar el pago:', error);
+      console.error('❌ Error al registrar el pago:', error);
+      console.error('Error completo:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
     } finally {
       setRegisteringPayment(false);
     }
