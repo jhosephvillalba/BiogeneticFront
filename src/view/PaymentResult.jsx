@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../Api/index.js';
 
@@ -10,32 +10,40 @@ const PaymentResult = () => {
     estado: '',
     respuesta: ''
   });
-  const [creatingPayment, setCreatingPayment] = useState(false);
-  const [paymentCreated, setPaymentCreated] = useState(false);
+  const [registeringPayment, setRegisteringPayment] = useState(false);
 
-  // Función para crear el registro de pago usando los servicios de payments.js
-  const createPaymentRecord = useCallback(async (ref_payco, estado, factura_id_param, monto_param) => {
+  // Registrar el pago inmediatamente cuando se carga la vista con los datos de ePayco
+  useEffect(() => {
+    const ref_payco = searchParams.get('ref_payco') || '';
+    const estado = searchParams.get('estado') || '';
+    const respuesta = searchParams.get('respuesta') || '';
+    const factura_id = searchParams.get('factura_id') || '';
+    const monto = searchParams.get('monto') || searchParams.get('valor') || searchParams.get('amount') || '';
+
+    setPaymentInfo({
+      ref_payco,
+      estado,
+      respuesta
+    });
+
+    // Registrar el pago inmediatamente si tenemos ref_payco (ePayco ya procesó el pago)
+    if (ref_payco && estado) {
+      registerPayment(ref_payco, estado, factura_id, monto);
+    }
+  }, [searchParams]);
+
+  // Función para registrar el pago en el sistema
+  const registerPayment = async (ref_payco, estado, factura_id_param, monto_param) => {
     try {
+      setRegisteringPayment(true);
+
       // Obtener factura_id desde parámetros o localStorage
       const invoiceId = factura_id_param || localStorage.getItem('pendingPaymentInvoiceId');
       
       if (!invoiceId) {
-        console.warn('No se encontró factura_id para crear el registro de pago');
+        console.error('No se encontró factura_id para registrar el pago');
         return;
       }
-
-      // Verificar que no se haya creado ya el pago
-      if (paymentCreated) {
-        return;
-      }
-
-      setCreatingPayment(true);
-      console.log('Creando registro de pago con datos de ePayco:', {
-        ref_payco,
-        estado,
-        factura_id: invoiceId,
-        monto: monto_param
-      });
 
       // Determinar el estado del pago según la respuesta de ePayco
       const estadoLower = estado.toLowerCase();
@@ -47,23 +55,20 @@ const PaymentResult = () => {
         paymentStatus = 'rechazado';
       }
 
-      // Obtener monto desde parámetros o intentar obtenerlo de la factura
+      // Obtener monto desde parámetros o desde la factura
       let monto = null;
       if (monto_param) {
         monto = parseFloat(monto_param);
       } else {
-        // Intentar obtener el monto desde la factura si no viene en los parámetros
         try {
           const invoiceData = await api.billing.getInvoiceById(parseInt(invoiceId));
           monto = invoiceData.monto_pagar || invoiceData.monto_total || null;
-          console.log('Monto obtenido desde la factura:', monto);
         } catch (error) {
           console.warn('No se pudo obtener el monto desde la factura:', error);
-          // El monto puede ser null, el backend puede calcularlo desde la factura
         }
       }
 
-      // Crear el registro de pago usando el servicio
+      // Preparar datos del pago
       const paymentData = {
         factura_id: parseInt(invoiceId),
         ref_payco: ref_payco,
@@ -73,53 +78,19 @@ const PaymentResult = () => {
         observaciones: `Pago procesado a través de ePayco. Referencia: ${ref_payco}. Estado: ${estado}`
       };
 
-      console.log('Datos del pago a crear:', paymentData);
-
-      // Verificar que api.payments existe
-      if (!api.payments) {
-        throw new Error('api.payments no está disponible');
-      }
-
-      // Intentar crear el pago manual (ya que ePayco procesa el pago externamente)
-      const paymentResponse = await api.payments.createManualPayment(paymentData);
-      console.log('Registro de pago creado exitosamente:', paymentResponse);
-      
-      setPaymentCreated(true);
+      // Registrar el pago
+      await api.payments.createManualPayment(paymentData);
+      console.log('Pago registrado exitosamente');
       
       // Limpiar el factura_id del localStorage
       localStorage.removeItem('pendingPaymentInvoiceId');
       
     } catch (error) {
-      console.error('Error al crear registro de pago:', error);
-      // No mostrar error al usuario, solo loguearlo
-      // El pago ya fue procesado por ePayco, solo falló el registro local
+      console.error('Error al registrar el pago:', error);
     } finally {
-      setCreatingPayment(false);
+      setRegisteringPayment(false);
     }
-  }, []);
-
-  useEffect(() => {
-    // Leer los parámetros de la query string
-    const ref_payco = searchParams.get('ref_payco') || '';
-    const estado = searchParams.get('estado') || '';
-    const respuesta = searchParams.get('respuesta') || '';
-    const factura_id = searchParams.get('factura_id') || '';
-    // ePayco puede enviar el monto en diferentes parámetros
-    const monto = searchParams.get('monto') || searchParams.get('valor') || searchParams.get('amount') || '';
-
-    setPaymentInfo({
-      ref_payco,
-      estado,
-      respuesta
-    });
-
-    console.log('Parámetros de pago recibidos:', { ref_payco, estado, respuesta, factura_id, monto });
-    
-    // Crear registro de pago si hay datos válidos
-    if (ref_payco && estado && !paymentCreated) {
-      createPaymentRecord(ref_payco, estado, factura_id, monto);
-    }
-  }, [searchParams, createPaymentRecord, paymentCreated]);
+  };
 
   const handleBack = () => {
     navigate('/client/billing');
@@ -170,8 +141,8 @@ const PaymentResult = () => {
               </h3>
             </div>
             <div className="card-body p-4">
-              {/* Indicador de creación de registro */}
-              {creatingPayment && (
+              {/* Indicador de registro */}
+              {registeringPayment && (
                 <div className="alert alert-info mb-4">
                   <div className="d-flex align-items-center">
                     <div className="spinner-border spinner-border-sm me-2" role="status">
@@ -179,13 +150,6 @@ const PaymentResult = () => {
                     </div>
                     <span>Registrando el pago en el sistema...</span>
                   </div>
-                </div>
-              )}
-              
-              {paymentCreated && (
-                <div className="alert alert-success mb-4">
-                  <i className="bi bi-check-circle me-2"></i>
-                  El pago ha sido registrado exitosamente en el sistema.
                 </div>
               )}
 
@@ -291,4 +255,3 @@ const PaymentResult = () => {
 };
 
 export default PaymentResult;
-
