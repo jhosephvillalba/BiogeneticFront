@@ -125,15 +125,48 @@ const payments = {
     }
   },
 
-  // Crear pago manual (para pagos en efectivo, transferencia, etc.)
+  // Crear pago (endpoint único para todos los tipos de pago)
+  // POST /api/pagos
+  // Campos requeridos: factura_id
+  // Campos opcionales: ref_payco, metodo_pago (default: 'epayco'), monto, estado (default: 'pendiente'), observaciones
+  createPayment: async (paymentData) => {
+    try {
+      console.log('Creando pago:', paymentData);
+      const response = await axios.post('pagos/', paymentData);
+      console.log('Pago creado exitosamente:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error al crear pago:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
+  },
+
+  // Alias para compatibilidad con código existente - delega a createPayment
   createManualPayment: async (paymentData) => {
     try {
-      console.log('Creando pago manual:', paymentData);
-      const response = await axios.post('pagos/manual', paymentData);
+      console.log('Creando pago manual (alias):', paymentData);
+      const response = await axios.post('pagos/', paymentData);
       console.log('Pago manual creado exitosamente:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error al crear pago manual:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
+  },
+
+  // Alias para compatibilidad con código existente - delega a createPayment
+  createEpaycoPayment: async (paymentData) => {
+    try {
+      console.log('Creando pago ePayco (alias):', paymentData);
+      const response = await axios.post('pagos/', paymentData);
+      console.log('Pago ePayco creado exitosamente:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error al crear pago ePayco:', error);
       console.error('Error response:', error.response?.data);
       console.error('Error status:', error.response?.status);
       throw error;

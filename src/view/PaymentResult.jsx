@@ -25,21 +25,30 @@ const PaymentResult = () => {
 
     const ref_payco = searchParams.get('ref_payco') || '';
     const estado = searchParams.get('estado') || '';
-    const respuesta = searchParams.get('respuesta') || '';
+   // const respuesta = searchParams.get('respuesta') || '';
     const factura_id = searchParams.get('factura_id') || '';
 
     console.log('🔍 PaymentResult cargado con parámetros:', { ref_payco, estado, respuesta, factura_id });
     console.log('🔍 URL completa:', window.location.href);
+    console.log('🔍 Validación de condiciones:', {
+      ref_payco: ref_payco,
+      ref_payco_valido: !!ref_payco && ref_payco.length > 0,
+      factura_id: factura_id,
+      factura_id_valido: !!factura_id && factura_id.length > 0,
+      condicion_cumplida: !!(ref_payco && factura_id)
+    });
 
     setPaymentInfo({
       ref_payco,
-      estado,
+      estado:'pendiente', // Si no viene estado, usar 'pendiente' por defecto
       respuesta
     });
 
     // Registrar el pago inmediatamente si tenemos ref_payco y factura_id (ePayco ya procesó el pago)
-    if (ref_payco && estado && factura_id) {
+    // El estado no es necesario porque siempre será "pendiente" y el webhook lo actualizará
+    if (ref_payco && factura_id) {
       console.log('✅ Condiciones cumplidas, registrando pago...');
+      console.log('✅ Parámetros:', { ref_payco, factura_id, estado: estado || 'pendiente (por defecto)' });
       paymentRegisteredRef.current = true; // Marcar como registrado antes de llamar
       
       // Función para registrar el pago en el sistema
@@ -64,20 +73,28 @@ const PaymentResult = () => {
           console.log('📋 Datos de la factura obtenidos de la API:', invoiceData);
 
           // Validar que tenemos los datos necesarios de la factura
-          if (!invoiceData || !invoiceData.id) {
+          // La API puede devolver la factura directamente o dentro de un objeto
+          const factura = invoiceData.factura || invoiceData;
+          
+          if (!factura || (!factura.id && !invoiceData.id)) {
             console.error('❌ No se pudieron obtener los datos de la factura desde la API');
+            console.error('❌ Estructura de respuesta:', invoiceData);
             setPaymentError('No se pudieron obtener los datos de la factura. Por favor intenta nuevamente.');
             return;
           }
+
+          // Usar factura si existe, sino usar invoiceData directamente
+          const invoiceDataToUse = factura.id ? factura : invoiceData;
+          console.log('📋 Datos de factura a usar:', invoiceDataToUse);
 
           // El estado siempre será "pendiente" porque el webhook de ePayco actualizará el estado más tarde
           const paymentStatus = 'pendiente';
 
           // Parsear monto correctamente (puede venir como string o número)
           let monto = null;
-          if (invoiceData.monto_pagar !== undefined && invoiceData.monto_pagar !== null) {
+          if (invoiceDataToUse.monto_pagar !== undefined && invoiceDataToUse.monto_pagar !== null) {
             // Si es string, remover comas y convertir a número
-            const montoStr = String(invoiceData.monto_pagar).replace(/,/g, '');
+            const montoStr = String(invoiceDataToUse.monto_pagar).replace(/,/g, '');
             monto = parseFloat(montoStr);
             if (isNaN(monto)) {
               console.warn('⚠️ No se pudo parsear monto_pagar, usando null');
@@ -93,7 +110,7 @@ const PaymentResult = () => {
             metodo_pago: 'epayco',
             monto: monto, // ✅ De la API
             estado: paymentStatus, // ✅ Siempre "pendiente" (el webhook actualizará el estado)
-            observaciones: `Pago procesado a través de ePayco. Referencia: ${ref_payco}. Estado inicial: ${estado}. Factura: ${invoiceData.id_factura || invoiceData.id}`
+            observaciones: `Pago procesado a través de ePayco. Referencia: ${ref_payco}. Estado inicial: ${estado || 'pendiente'}. Factura: ${invoiceDataToUse.id_factura || invoiceDataToUse.id || invoiceId}`
           };
 
           console.log('📤 Datos del pago a registrar:', paymentData);
@@ -122,16 +139,16 @@ const PaymentResult = () => {
             throw new Error('api.payments no está disponible');
           }
 
-          if (!api.payments.createManualPayment) {
-            throw new Error('api.payments.createManualPayment no está disponible');
+          if (!api.payments.createPayment) {
+            throw new Error('api.payments.createPayment no está disponible');
           }
 
-          console.log('🚀 Llamando a api.payments.createManualPayment...');
-          console.log('🚀 URL del endpoint: pagos/manual');
+          console.log('🚀 Llamando a api.payments.createPayment...');
+          console.log('🚀 Endpoint: POST /api/pagos');
           console.log('🚀 Payload completo:', JSON.stringify(paymentData, null, 2));
           
-          // Registrar el pago
-          const response = await api.payments.createManualPayment(paymentData);
+          // Registrar el pago usando el endpoint único
+          const response = await api.payments.createPayment(paymentData);
           console.log('✅ Pago registrado exitosamente:', response);
           console.log('✅ Respuesta completa:', JSON.stringify(response, null, 2));
           
@@ -164,11 +181,10 @@ const PaymentResult = () => {
     } else {
       console.warn('⚠️ No se puede registrar el pago:', {
         tieneRefPayco: !!ref_payco,
-        tieneEstado: !!estado,
         tieneFacturaId: !!factura_id,
         ref_payco,
-        estado,
-        factura_id
+        factura_id,
+        estado: estado || '(no requerido)'
       });
     }
   }, [searchParams]);
