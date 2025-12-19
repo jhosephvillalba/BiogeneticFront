@@ -2,10 +2,17 @@ import axios from './instance.js';
 
 const billing = {
   // Listar facturas con paginación y filtros
+  // Requiere cliente_id para filtrar las facturas del cliente (para admin y veterinarios)
   getInvoices: async (filters = {}) => {
     try {
-      const { skip = 0, limit = 100, estado, fecha_desde, fecha_hasta } = filters;
-      let queryParams = `skip=${skip}&limit=${limit}`;
+      const { skip = 0, limit = 100, estado, fecha_desde, fecha_hasta, cliente_id } = filters;
+      
+      // Validar que cliente_id esté presente
+      if (!cliente_id) {
+        throw new Error('cliente_id es requerido para listar facturas');
+      }
+      
+      let queryParams = `skip=${skip}&limit=${limit}&cliente_id=${cliente_id}`;
       
       if (estado) queryParams += `&estado=${estado}`;
       if (fecha_desde) queryParams += `&fecha_desde=${fecha_desde}`;
@@ -15,6 +22,29 @@ const billing = {
       return response.data;
     } catch (error) {
       console.error('Error al obtener facturas:', error);
+      throw error;
+    }
+  },
+
+  // Obtener facturas del cliente autenticado (exclusivo para clientes)
+  // No requiere cliente_id, se obtiene automáticamente del token de autenticación
+  getMyInvoices: async (filters = {}) => {
+    try {
+      const { skip = 0, limit = 100, estado, fecha_desde, fecha_hasta } = filters;
+      
+      // Validar límite máximo
+      const validLimit = Math.min(limit, 1000);
+      
+      let queryParams = `skip=${skip}&limit=${validLimit}`;
+      
+      if (estado) queryParams += `&estado=${estado}`;
+      if (fecha_desde) queryParams += `&fecha_desde=${fecha_desde}`;
+      if (fecha_hasta) queryParams += `&fecha_hasta=${fecha_hasta}`;
+      
+      const response = await axios.get(`facturacion/my-facturas?${queryParams}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener mis facturas:', error);
       throw error;
     }
   },

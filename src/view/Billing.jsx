@@ -118,7 +118,16 @@ const Billing = () => {
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      console.log('Cargando facturas para cliente:', selectedClient?.id);
+      
+      // Validar que hay un cliente seleccionado
+      if (!selectedClient || !selectedClient.id) {
+        console.warn('No hay cliente seleccionado para cargar facturas');
+        setInvoices([]);
+        setTotalPages(1);
+        return;
+      }
+      
+      console.log('Cargando facturas para cliente:', selectedClient.id);
       
       // Verificar que api.billing.getInvoices existe
       if (!api.billing || !api.billing.getInvoices) {
@@ -130,7 +139,7 @@ const Billing = () => {
       const filters = {
         skip,
         limit: invoicesPerPage,
-        // Aquí podrías agregar filtros adicionales si el backend los soporta
+        cliente_id: selectedClient.id, // ✅ Requerido: pasar el ID del cliente
       };
       
       console.log('Filtros para cargar facturas:', filters);

@@ -78,8 +78,9 @@ const ClientBilling = () => {
         apiFilters.estado = filters.status.toLowerCase();
       }
 
-      // Usar la API real para obtener facturas del cliente
-      const invoicesData = await api.billing.getInvoices(apiFilters);
+      // ✅ Usar el nuevo endpoint exclusivo para clientes
+      // No requiere cliente_id, se obtiene automáticamente del token
+      const invoicesData = await api.billing.getMyInvoices(apiFilters);
       
       // Manejar diferentes estructuras de respuesta
       let invoicesList = [];
