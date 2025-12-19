@@ -25,7 +25,7 @@ const PaymentResult = () => {
 
     const ref_payco = searchParams.get('ref_payco') || '';
     const estado = searchParams.get('estado') || '';
-   // const respuesta = searchParams.get('respuesta') || '';
+    const respuesta = searchParams.get('respuesta') || '';
     const factura_id = searchParams.get('factura_id') || '';
 
     console.log('🔍 PaymentResult cargado con parámetros:', { ref_payco, estado, respuesta, factura_id });
@@ -40,7 +40,7 @@ const PaymentResult = () => {
 
     setPaymentInfo({
       ref_payco,
-      estado:'pendiente', // Si no viene estado, usar 'pendiente' por defecto
+      estado: estado || 'pendiente', // Si no viene estado, usar 'pendiente' por defecto
       respuesta
     });
 
