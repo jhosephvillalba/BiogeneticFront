@@ -132,7 +132,7 @@ const payments = {
   createPayment: async (paymentData) => {
     try {
       console.log('Creando pago:', paymentData);
-      const response = await axios.post('pagos/', paymentData);
+      const response = await axios.post('pagos', paymentData);
       console.log('Pago creado exitosamente:', response.data);
       return response.data;
     } catch (error) {
@@ -147,7 +147,7 @@ const payments = {
   createManualPayment: async (paymentData) => {
     try {
       console.log('Creando pago manual (alias):', paymentData);
-      const response = await axios.post('pagos/', paymentData);
+      const response = await axios.post('pagos', paymentData);
       console.log('Pago manual creado exitosamente:', response.data);
       return response.data;
     } catch (error) {
@@ -162,7 +162,7 @@ const payments = {
   createEpaycoPayment: async (paymentData) => {
     try {
       console.log('Creando pago ePayco (alias):', paymentData);
-      const response = await axios.post('pagos/', paymentData);
+      const response = await axios.post('pagos', paymentData);
       console.log('Pago ePayco creado exitosamente:', response.data);
       return response.data;
     } catch (error) {
