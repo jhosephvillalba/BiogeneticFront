@@ -431,7 +431,8 @@ const App = () => {
                     <Route path="/billing/create" element={<CreateBilling />} />
                     <Route path="/billing/detail/:id" element={<BillingDetail />} />
                     <Route path="/client/billing" element={<ClientBilling />} />
-                    <Route path="/payment/:id" element={<Payment />} />
+                    {/* ✅ DESHABILITADO: Ruta de Payment con formulario (no borrar para preservar el trabajo) */}
+                    {/* <Route path="/payment/:id" element={<Payment />} /> */}
                     <Route path="/pagos/response" element={<PaymentResult />} />
                   </Route>
                   <Route path="*" element={<p>There's nothing here: 404!</p>} />

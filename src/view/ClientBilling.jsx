@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../Api/index.js';
 
@@ -11,6 +11,8 @@ const ClientBilling = () => {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const epaycoScriptLoaded = useRef(false);
+  const epaycoFormRef = useRef(null);
   
   // Filtros
   const [filters, setFilters] = useState({
@@ -54,6 +56,33 @@ const ClientBilling = () => {
   useEffect(() => {
     loadInvoices();
   }, [currentPage, filters]);
+
+  // Cargar script de ePayco cuando se abre el modal de pago
+  useEffect(() => {
+    if (showPaymentModal && selectedInvoice) {
+      // Cargar script de ePayco si no está cargado
+      if (!epaycoScriptLoaded.current) {
+        const existingScript = document.querySelector('script[src="https://checkout.epayco.co/checkout.js"]');
+        
+        if (!existingScript) {
+          const script = document.createElement('script');
+          script.src = 'https://checkout.epayco.co/checkout.js';
+          script.async = true;
+          script.onload = () => {
+            epaycoScriptLoaded.current = true;
+            // Forzar re-render del botón después de cargar el script
+            if (epaycoFormRef.current) {
+              const event = new Event('epayco-script-loaded');
+              window.dispatchEvent(event);
+            }
+          };
+          document.body.appendChild(script);
+        } else {
+          epaycoScriptLoaded.current = true;
+        }
+      }
+    }
+  }, [showPaymentModal, selectedInvoice]);
 
   const loadInvoices = async () => {
     try {
@@ -177,8 +206,12 @@ const ClientBilling = () => {
   };
 
   const handleMakePayment = (invoice) => {
-    // Navegar a la vista de pago
-    navigate(`/payment/${invoice.id}`);
+    // ✅ DESHABILITADO: Navegación a vista de pago con formulario
+    // navigate(`/payment/${invoice.id}`);
+    
+    // ✅ NUEVO: Abrir modal con botón de ePayco
+    setSelectedInvoice(invoice);
+    setShowPaymentModal(true);
   };
 
   const formatCurrency = (value) => {
@@ -739,15 +772,15 @@ const ClientBilling = () => {
         </div>
       )}
 
-      {/* Modal de Pago */}
+      {/* Modal de Pago con ePayco */}
       {showPaymentModal && selectedInvoice && (
         <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog">
+          <div className="modal-dialog modal-lg">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
                   <i className="bi bi-credit-card me-2"></i>
-                  Realizar Pago - {selectedInvoice.invoiceNumber}
+                  Realizar Pago - Factura {selectedInvoice.id_factura || selectedInvoice.id}
                 </h5>
                 <button
                   type="button"
@@ -765,12 +798,54 @@ const ClientBilling = () => {
                     }
                   </h2>
                 </div>
-                <p className="text-muted text-center">
-                  Esta funcionalidad estará disponible próximamente para procesar pagos en línea.
-                </p>
-                <div className="alert alert-info">
-                  <i className="bi bi-info-circle me-2"></i>
-                  Por favor, contacte con el administrador para realizar el pago de esta factura.
+                
+                {/* Información de la factura */}
+                <div className="card mb-4">
+                  <div className="card-body">
+                    <div className="row">
+                      <div className="col-md-6">
+                        <p className="mb-2">
+                          <strong>Número de Factura:</strong> {selectedInvoice.id_factura || selectedInvoice.id}
+                        </p>
+                        <p className="mb-2">
+                          <strong>Monto Base:</strong> ${parseFloat(selectedInvoice.monto_base || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                      <div className="col-md-6">
+                        <p className="mb-2">
+                          <strong>IVA ({selectedInvoice.iva_porcentaje || 0}%):</strong> ${parseFloat((selectedInvoice.monto_base || 0) * (selectedInvoice.iva_porcentaje || 0) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="mb-0">
+                          <strong>Total:</strong> ${parseFloat(selectedInvoice.monto_pagar || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botón de pago ePayco */}
+                <div className="text-center">
+                  <form id="epayco-payment-form" ref={epaycoFormRef}>
+                    {/* El script de ePayco se carga dinámicamente y busca elementos con clase epayco-button */}
+                    <div
+                      data-epayco-key='f87a61bc0caebd8dc52a251e55083498' 
+                      className='epayco-button' 
+                      data-epayco-amount={Math.round(parseFloat(selectedInvoice.monto_pagar || 0))} 
+                      data-epayco-tax={Math.round(parseFloat((selectedInvoice.monto_base || 0) * (selectedInvoice.iva_porcentaje || 0) / 100))}  
+                      data-epayco-tax-ico='0'               
+                      data-epayco-tax-base={Math.round(parseFloat(selectedInvoice.monto_base || 0))}
+                      data-epayco-name={`Factura ${selectedInvoice.id_factura || selectedInvoice.id}`} 
+                      data-epayco-description={selectedInvoice.descripcion || `Pago de factura ${selectedInvoice.id_factura || selectedInvoice.id}`} 
+                      data-epayco-currency='cop'    
+                      data-epayco-country='CO' 
+                      data-epayco-test='true' 
+                      data-epayco-external='false' 
+                      data-epayco-response='https://admin.biogenetic.com.co/pagos/response'  
+                      data-epayco-confirmation='https://api.biogenetic.com.co/api/pagos/confirmation' 
+                      data-epayco-button='https://multimedia.epayco.co/dashboard/btns/btn5.png'
+                    >
+                    </div>
+                  </form>
                 </div>
               </div>
               <div className="modal-footer">
@@ -780,16 +855,6 @@ const ClientBilling = () => {
                   onClick={() => setShowPaymentModal(false)}
                 >
                   Cancelar
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    alert('Funcionalidad de pago en desarrollo');
-                    setShowPaymentModal(false);
-                  }}
-                >
-                  Procesar Pago
                 </button>
               </div>
             </div>
