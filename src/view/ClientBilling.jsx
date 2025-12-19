@@ -11,7 +11,6 @@ const ClientBilling = () => {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const epaycoScriptLoaded = useRef(false);
   const epaycoFormRef = useRef(null);
   
   // Filtros
@@ -57,32 +56,65 @@ const ClientBilling = () => {
     loadInvoices();
   }, [currentPage, filters]);
 
-  // Cargar script de ePayco cuando se abre el modal de pago
+  // Insertar script de ePayco exactamente como se proporcionó
   useEffect(() => {
-    if (showPaymentModal && selectedInvoice) {
-      // Cargar script de ePayco si no está cargado
-      if (!epaycoScriptLoaded.current) {
-        const existingScript = document.querySelector('script[src="https://checkout.epayco.co/checkout.js"]');
-        
-        if (!existingScript) {
-          const script = document.createElement('script');
-          script.src = 'https://checkout.epayco.co/checkout.js';
-          script.async = true;
-          script.onload = () => {
-            epaycoScriptLoaded.current = true;
-            // Forzar re-render del botón después de cargar el script
-            if (epaycoFormRef.current) {
-              const event = new Event('epayco-script-loaded');
-              window.dispatchEvent(event);
-            }
-          };
-          document.body.appendChild(script);
-        } else {
-          epaycoScriptLoaded.current = true;
-        }
+    if (showPaymentModal && selectedInvoice && epaycoFormRef.current) {
+      const form = epaycoFormRef.current;
+      
+      // Limpiar contenido anterior
+      form.innerHTML = '';
+      
+      // Calcular valores dinámicos
+      const amount = Math.round(parseFloat(selectedInvoice.monto_pagar || 0));
+      const tax = parseFloat((selectedInvoice.monto_base || 0) * (selectedInvoice.iva_porcentaje || 0) / 100).toFixed(2);
+      const taxBase = Math.round(parseFloat(selectedInvoice.monto_base || 0));
+      const invoiceName = selectedInvoice.id_factura || selectedInvoice.id;
+      const invoiceDescription = (selectedInvoice.descripcion || `Pago de factura ${selectedInvoice.id_factura || selectedInvoice.id}`).replace(/'/g, "&#39;");
+      const invoiceId = selectedInvoice.id;
+      
+      // Construir URL de respuesta con factura_id como parámetro
+      const responseUrl = `https://admin.biogenetic.com.co/pagos/response?factura_id=${invoiceId}`;
+      
+      // Insertar el HTML exacto que se proporcionó, solo modificando valores dinámicos
+      form.innerHTML = `
+        <script src='https://checkout.epayco.co/checkout.js'
+            data-epayco-key='f87a61bc0caebd8dc52a251e55083498' 
+            class='epayco-button' 
+            data-epayco-amount='${amount}' 
+            data-epayco-tax='${tax}'  
+            data-epayco-tax-ico='0.00'               
+            data-epayco-tax-base='${taxBase}'
+            data-epayco-name='${invoiceName}' 
+            data-epayco-description='${invoiceDescription}' 
+            data-epayco-currency='cop'    
+            data-epayco-country='CO' 
+            data-epayco-test='true' 
+            data-epayco-external='false' 
+            data-epayco-response='${responseUrl}'  
+            data-epayco-confirmation='https://api.biogenetic.com.co/api/pagos/confirmation' 
+            data-epayco-button='https://multimedia.epayco.co/dashboard/btns/btn5.png'> 
+        </script>
+      `;
+      
+      // Ejecutar el script después de insertarlo
+      const scripts = form.getElementsByTagName('script');
+      for (let i = 0; i < scripts.length; i++) {
+        const script = scripts[i];
+        const newScript = document.createElement('script');
+        Array.from(script.attributes).forEach(attr => {
+          newScript.setAttribute(attr.name, attr.value);
+        });
+        script.parentNode.replaceChild(newScript, script);
       }
+      
+      return () => {
+        if (form) {
+          form.innerHTML = '';
+        }
+      };
     }
   }, [showPaymentModal, selectedInvoice]);
+
 
   const loadInvoices = async () => {
     try {
@@ -210,6 +242,11 @@ const ClientBilling = () => {
     // navigate(`/payment/${invoice.id}`);
     
     // ✅ NUEVO: Abrir modal con botón de ePayco
+    // Guardar factura_id en localStorage para usarlo después del pago
+    if (invoice.id) {
+      localStorage.setItem('pendingPaymentInvoiceId', invoice.id.toString());
+    }
+    
     setSelectedInvoice(invoice);
     setShowPaymentModal(true);
   };
@@ -823,29 +860,9 @@ const ClientBilling = () => {
                   </div>
                 </div>
 
-                {/* Botón de pago ePayco */}
+                {/* Botón de pago ePayco - Insertado exactamente como se proporcionó */}
                 <div className="text-center">
-                  <form id="epayco-payment-form" ref={epaycoFormRef}>
-                    {/* El script de ePayco se carga dinámicamente y busca elementos con clase epayco-button */}
-                    <div
-                      data-epayco-key='f87a61bc0caebd8dc52a251e55083498' 
-                      className='epayco-button' 
-                      data-epayco-amount={Math.round(parseFloat(selectedInvoice.monto_pagar || 0))} 
-                      data-epayco-tax={Math.round(parseFloat((selectedInvoice.monto_base || 0) * (selectedInvoice.iva_porcentaje || 0) / 100))}  
-                      data-epayco-tax-ico='0'               
-                      data-epayco-tax-base={Math.round(parseFloat(selectedInvoice.monto_base || 0))}
-                      data-epayco-name={`Factura ${selectedInvoice.id_factura || selectedInvoice.id}`} 
-                      data-epayco-description={selectedInvoice.descripcion || `Pago de factura ${selectedInvoice.id_factura || selectedInvoice.id}`} 
-                      data-epayco-currency='cop'    
-                      data-epayco-country='CO' 
-                      data-epayco-test='true' 
-                      data-epayco-external='false' 
-                      data-epayco-response='https://admin.biogenetic.com.co/pagos/response'  
-                      data-epayco-confirmation='https://api.biogenetic.com.co/api/pagos/confirmation' 
-                      data-epayco-button='https://multimedia.epayco.co/dashboard/btns/btn5.png'
-                    >
-                    </div>
-                  </form>
+                  <form ref={epaycoFormRef}></form>
                 </div>
               </div>
               <div className="modal-footer">
