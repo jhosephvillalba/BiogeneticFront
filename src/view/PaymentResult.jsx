@@ -11,12 +11,21 @@ const PaymentResult = () => {
     respuesta: ''
   });
   const [registeringPayment, setRegisteringPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   // Registrar el pago inmediatamente cuando se carga la vista con los datos de ePayco
   useEffect(() => {
     const ref_payco = searchParams.get('ref_payco') || '';
     const estado = searchParams.get('estado') || '';
     const respuesta = searchParams.get('respuesta') || '';
+
+    console.log('🔍 PaymentResult cargado con parámetros:', { ref_payco, estado, respuesta });
+    console.log('🔍 URL completa:', window.location.href);
+    console.log('🔍 localStorage disponible:', {
+      pendingPaymentData: localStorage.getItem('pendingPaymentData'),
+      pendingPaymentInvoiceId: localStorage.getItem('pendingPaymentInvoiceId')
+    });
 
     setPaymentInfo({
       ref_payco,
@@ -27,7 +36,13 @@ const PaymentResult = () => {
     // Registrar el pago inmediatamente si tenemos ref_payco (ePayco ya procesó el pago)
     // SOLO usamos ref_payco y estado de ePayco, el resto de datos vienen de localStorage
     if (ref_payco && estado) {
+      console.log('✅ Condiciones cumplidas, llamando a registerPayment...');
       registerPayment(ref_payco, estado);
+    } else {
+      console.warn('⚠️ No se puede registrar el pago:', {
+        tieneRefPayco: !!ref_payco,
+        tieneEstado: !!estado
+      });
     }
   }, [searchParams]);
 
@@ -87,9 +102,23 @@ const PaymentResult = () => {
         observaciones: 'generado'
       });
 
+      // Verificar que api.payments existe
+      if (!api.payments) {
+        throw new Error('api.payments no está disponible');
+      }
+
+      if (!api.payments.createManualPayment) {
+        throw new Error('api.payments.createManualPayment no está disponible');
+      }
+
+      console.log('🚀 Llamando a api.payments.createManualPayment con:', paymentData);
+      
       // Registrar el pago
       const response = await api.payments.createManualPayment(paymentData);
       console.log('✅ Pago registrado exitosamente:', response);
+      
+      setPaymentSuccess(true);
+      setPaymentError(null);
       
       // Limpiar los datos del localStorage
       localStorage.removeItem('pendingPaymentData');
@@ -100,8 +129,17 @@ const PaymentResult = () => {
       console.error('Error completo:', {
         message: error.message,
         response: error.response?.data,
-        status: error.response?.status
+        status: error.response?.status,
+        statusText: error.response?.statusText
       });
+      
+      const errorMessage = error.response?.data?.detail || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          'Error desconocido al registrar el pago';
+      
+      setPaymentError(errorMessage);
+      setPaymentSuccess(false);
     } finally {
       setRegisteringPayment(false);
     }
@@ -165,6 +203,26 @@ const PaymentResult = () => {
                     </div>
                     <span>Registrando el pago en el sistema...</span>
                   </div>
+                </div>
+              )}
+
+              {/* Mensaje de éxito */}
+              {paymentSuccess && (
+                <div className="alert alert-success mb-4">
+                  <i className="bi bi-check-circle me-2"></i>
+                  <strong>¡Pago registrado exitosamente!</strong> El pago ha sido guardado en el sistema.
+                </div>
+              )}
+
+              {/* Mensaje de error */}
+              {paymentError && (
+                <div className="alert alert-danger mb-4">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  <strong>Error al registrar el pago:</strong> {paymentError}
+                  <br />
+                  <small className="text-muted">
+                    Por favor contacta con soporte con la referencia: {paymentInfo.ref_payco}
+                  </small>
                 </div>
               )}
 
