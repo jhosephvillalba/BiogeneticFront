@@ -134,9 +134,10 @@ const PaymentResult = () => {
             console.log('✅ Transacción ePayco obtenida:', epaycoTransaction);
             
             // Extraer x_ref_payco de la respuesta
-            if (epaycoTransaction.transaction_detail && epaycoTransaction.transaction_detail.x_ref_payco) {
-              x_ref_payco = epaycoTransaction.transaction_detail.x_ref_payco;
-              console.log('✅ x_ref_payco obtenido:', x_ref_payco);
+            if (epaycoTransaction.transaction_detail && epaycoTransaction.transaction_detail.x_ref_payco !== undefined) {
+              // Convertir a string porque puede venir como número
+              x_ref_payco = String(epaycoTransaction.transaction_detail.x_ref_payco);
+              console.log('✅ x_ref_payco obtenido (convertido a string):', x_ref_payco, 'Tipo:', typeof x_ref_payco);
             } else {
               console.warn('⚠️ No se encontró x_ref_payco en la respuesta, usando ref_payco de la URL');
             }
@@ -145,6 +146,9 @@ const PaymentResult = () => {
             // Continuar con ref_payco si falla la consulta
             x_ref_payco = ref_payco;
           }
+          
+          // Asegurar que x_ref_payco sea siempre una cadena
+          x_ref_payco = String(x_ref_payco || ref_payco || '');
           
           // Obtener los datos de la factura desde la API
           const invoiceData = await api.billing.getInvoiceById(invoiceId);
@@ -209,9 +213,14 @@ const PaymentResult = () => {
             throw new Error('factura_id inválido');
           }
 
-          if (!paymentData.ref_payco || paymentData.ref_payco.trim() === '') {
+          // Asegurar que ref_payco sea una cadena antes de usar trim
+          const refPaycoStr = String(paymentData.ref_payco || '');
+          if (!refPaycoStr || refPaycoStr.trim() === '') {
             throw new Error('ref_payco es requerido');
           }
+          
+          // Actualizar paymentData con el ref_payco como string
+          paymentData.ref_payco = refPaycoStr.trim();
 
           // Verificar que api.payments existe
           if (!api.payments) {
