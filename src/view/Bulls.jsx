@@ -1928,14 +1928,14 @@ const Bulls = () => {
                                   ) : (
                                     <span
                                       className={`fw-semibold ${
-                                        available <= 0 ? "text-danger" : "text-success"
+                                    available <= 0 ? "text-danger" : "text-success"
                                       }`}
                                       style={{ cursor: "pointer" }}
                                       onClick={() => handleStartEditAvailable(entry)}
                                       title="Click para editar cantidad disponible"
                                     >
-                                      {available.toFixed(1)}
-                                    </span>
+                                    {available.toFixed(1)}
+                                  </span>
                                   )}
                                 </td>
                                 <td>

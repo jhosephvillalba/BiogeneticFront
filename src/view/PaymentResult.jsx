@@ -23,12 +23,30 @@ const PaymentResult = () => {
       return;
     }
 
-    const ref_payco = searchParams.get('ref_payco') || '';
-    const estado = searchParams.get('estado') || '';
-    const respuesta = searchParams.get('respuesta') || '';
+    // ePayco envía ref_payco como x_ref_payco en la URL de respuesta
+    // Intentar múltiples variantes por compatibilidad
+    const ref_payco = searchParams.get('x_ref_payco');
+    
+    // ePayco puede enviar el estado con diferentes nombres: x_cod_response, x_response, estado
+    const estado = searchParams.get('x_cod_response') || 
+                   searchParams.get('x_response') || 
+                   searchParams.get('estado') || '';
+    
+    // ePayco puede enviar la respuesta/mensaje con diferentes nombres: x_response_reason_text, respuesta, x_message
+    const respuesta = searchParams.get('x_response_reason_text') || 
+                      searchParams.get('respuesta') || 
+                      searchParams.get('x_message') || '';
+    
     const factura_id = searchParams.get('factura_id') || '';
 
-    console.log('🔍 PaymentResult cargado con parámetros:', { ref_payco, estado, respuesta, factura_id });
+    // Log de todos los parámetros de la URL para debugging
+    console.log('🔍 PaymentResult cargado - Todos los parámetros de la URL:');
+    const allParams = {};
+    searchParams.forEach((value, key) => {
+      allParams[key] = value;
+    });
+    console.log('🔍 Parámetros completos:', allParams);
+    console.log('🔍 PaymentResult valores extraídos:', { ref_payco, estado, respuesta, factura_id });
     console.log('🔍 URL completa:', window.location.href);
     console.log('🔍 Validación de condiciones:', {
       ref_payco: ref_payco,
