@@ -23,9 +23,9 @@ const PaymentResult = () => {
       return;
     }
 
-    // ePayco envía ref_payco como x_ref_payco en la URL de respuesta
-    // Intentar múltiples variantes por compatibilidad
-    const ref_payco = searchParams.get('x_ref_payco');
+    // ePayco solo envía ref_payco en la URL de respuesta
+    // Este es el valor que debemos usar como ref_payco en la base de datos
+    const ref_payco = searchParams.get('ref_payco') || searchParams.get('x_ref_payco') || '';
     
     // ePayco puede enviar el estado con diferentes nombres: x_cod_response, x_response, estado
     const estado = searchParams.get('x_cod_response') || 
@@ -46,7 +46,12 @@ const PaymentResult = () => {
       allParams[key] = value;
     });
     console.log('🔍 Parámetros completos:', allParams);
-    console.log('🔍 PaymentResult valores extraídos:', { ref_payco, estado, respuesta, factura_id });
+    console.log('🔍 PaymentResult valores extraídos:', { 
+      ref_payco, 
+      estado, 
+      respuesta, 
+      factura_id 
+    });
     console.log('🔍 URL completa:', window.location.href);
     console.log('🔍 Validación de condiciones:', {
       ref_payco: ref_payco,
@@ -56,6 +61,36 @@ const PaymentResult = () => {
       condicion_cumplida: !!(ref_payco && factura_id)
     });
 
+    // Guardar respuesta de ePayco en sessionStorage para que ClientBilling pueda leerla
+    if (ref_payco) {
+      try {
+        const epaycoResponse = {
+          ref_payco: ref_payco,
+          x_cod_response: estado,
+          x_response_reason_text: respuesta,
+          factura_id: factura_id,
+          timestamp: new Date().toISOString()
+        };
+        sessionStorage.setItem('epayco_response', JSON.stringify(epaycoResponse));
+        
+        // ============================================
+        // 🧪 PRUEBA: Imprimir datos guardados
+        // ============================================
+        console.log('========================================');
+        console.log('💾 PAYMENTRESULT: GUARDANDO RESPUESTA');
+        console.log('========================================');
+        console.log('📦 Datos guardados en sessionStorage:');
+        console.log('🔑 ref_payco:', epaycoResponse.ref_payco);
+        console.log('🔑 x_cod_response:', epaycoResponse.x_cod_response);
+        console.log('🔑 x_response_reason_text:', epaycoResponse.x_response_reason_text);
+        console.log('🔑 factura_id:', epaycoResponse.factura_id);
+        console.log('🔑 timestamp:', epaycoResponse.timestamp);
+        console.log('========================================');
+      } catch (error) {
+        console.error('❌ Error al guardar respuesta de ePayco:', error);
+      }
+    }
+
     setPaymentInfo({
       ref_payco,
       estado: estado || 'pendiente', // Si no viene estado, usar 'pendiente' por defecto
@@ -64,9 +99,14 @@ const PaymentResult = () => {
 
     // Registrar el pago inmediatamente si tenemos ref_payco y factura_id (ePayco ya procesó el pago)
     // El estado no es necesario porque siempre será "pendiente" y el webhook lo actualizará
-    if (ref_payco && factura_id) {
+    if (ref_payco && ref_payco.trim() !== '' && factura_id && factura_id.trim() !== '') {
       console.log('✅ Condiciones cumplidas, registrando pago...');
-      console.log('✅ Parámetros:', { ref_payco, factura_id, estado: estado || 'pendiente (por defecto)' });
+      console.log('✅ Parámetros:', { 
+        ref_payco, 
+        factura_id, 
+        estado: estado || 'pendiente (por defecto)' 
+      });
+      console.log('✅ IMPORTANTE: Usando ref_payco de la URL para registrar el pago');
       paymentRegisteredRef.current = true; // Marcar como registrado antes de llamar
       
       // Función para registrar el pago en el sistema
@@ -121,14 +161,15 @@ const PaymentResult = () => {
           }
 
           // Preparar datos del pago usando los datos de la API + ref_payco
+          // IMPORTANTE: Usamos ref_payco de la URL (ePayco lo envía en la respuesta)
           // El estado siempre será "pendiente" porque el webhook de ePayco lo actualizará
           const paymentData = {
-            factura_id: invoiceId, // ✅ De la URL
-            ref_payco: ref_payco, // ✅ De ePayco (parámetro de URL)
+            factura_id: invoiceId, // ✅ De la URL (ID de nuestra factura)
+            ref_payco: ref_payco, // ✅ ref_payco de ePayco (viene en la URL de respuesta)
             metodo_pago: 'epayco',
             monto: monto, // ✅ De la API
             estado: paymentStatus, // ✅ Siempre "pendiente" (el webhook actualizará el estado)
-            observaciones: `Pago procesado a través de ePayco. Referencia: ${ref_payco}. Estado inicial: ${estado || 'pendiente'}. Factura: ${invoiceDataToUse.id_factura || invoiceDataToUse.id || invoiceId}`
+            observaciones: `Pago procesado a través de ePayco. ref_payco: ${ref_payco}. Estado inicial: ${estado || 'pendiente'}. Factura: ${invoiceDataToUse.id_factura || invoiceDataToUse.id || invoiceId}`
           };
 
           console.log('📤 Datos del pago a registrar:', paymentData);

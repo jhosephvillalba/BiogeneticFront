@@ -54,9 +54,42 @@ const ClientBilling = () => {
   // Cargar facturas del cliente
   useEffect(() => {
     loadInvoices();
+    
+    // Verificar si hay respuesta de ePayco guardada en sessionStorage
+    try {
+      const savedResponse = sessionStorage.getItem('epayco_response');
+      if (savedResponse) {
+        const responseData = JSON.parse(savedResponse);
+        
+        // ============================================
+        // 🧪 PRUEBA: Imprimir datos de ePayco
+        // ============================================
+        console.log('========================================');
+        console.log('📥 RESPUESTA DE EPAYCO ENCONTRADA');
+        console.log('========================================');
+        console.log('📦 Datos completos:', responseData);
+        console.log('----------------------------------------');
+        console.log('🔑 x_id_factura:', responseData.x_id_factura);
+        console.log('🔑 ref_payco:', responseData.ref_payco);
+        console.log('🔑 x_cod_response:', responseData.x_cod_response);
+        console.log('🔑 x_response_reason_text:', responseData.x_response_reason_text);
+        console.log('🔑 factura_id:', responseData.factura_id);
+        console.log('🔑 timestamp:', responseData.timestamp);
+        console.log('========================================');
+        
+        // Aquí puedes usar responseData.x_id_factura según necesites
+        if (responseData.x_id_factura) {
+          console.log('✅ x_id_factura disponible para usar:', responseData.x_id_factura);
+        }
+      } else {
+        console.log('ℹ️ No hay respuesta de ePayco guardada en sessionStorage');
+      }
+    } catch (error) {
+      console.error('❌ Error al leer respuesta de ePayco:', error);
+    }
   }, [currentPage, filters]);
 
-  // Insertar script de ePayco exactamente como se proporcionó
+  // Insertar script de ePayco y capturar respuesta
   useEffect(() => {
     if (showPaymentModal && selectedInvoice && epaycoFormRef.current) {
       const form = epaycoFormRef.current;
@@ -74,6 +107,63 @@ const ClientBilling = () => {
       
       // Construir URL de respuesta con factura_id como parámetro
       const responseUrl = `https://admin.biogenetic.com.co/pagos/response?factura_id=${invoiceId}`;
+      
+      // Función para guardar respuesta de ePayco
+      const saveEpaycoResponse = (responseData) => {
+        try {
+          console.log('========================================');
+          console.log('💾 GUARDANDO RESPUESTA DE EPAYCO');
+          console.log('========================================');
+          console.log('📦 Datos recibidos:', responseData);
+          
+          // Guardar en sessionStorage para que esté disponible después de la redirección
+          if (responseData.x_id_factura) {
+            const dataToSave = {
+              x_id_factura: responseData.x_id_factura,
+              ref_payco: responseData.ref_payco || responseData.x_ref_payco,
+              x_cod_response: responseData.x_cod_response,
+              x_response_reason_text: responseData.x_response_reason_text,
+              factura_id: invoiceId,
+              timestamp: new Date().toISOString()
+            };
+            
+            sessionStorage.setItem('epayco_response', JSON.stringify(dataToSave));
+            
+            console.log('✅ Datos guardados en sessionStorage:');
+            console.log('🔑 x_id_factura:', dataToSave.x_id_factura);
+            console.log('🔑 ref_payco:', dataToSave.ref_payco);
+            console.log('🔑 factura_id:', dataToSave.factura_id);
+            console.log('========================================');
+          } else {
+            console.warn('⚠️ No se encontró x_id_factura en la respuesta');
+          }
+        } catch (error) {
+          console.error('❌ Error al guardar respuesta de ePayco:', error);
+        }
+      };
+      
+      // Listener para eventos de ePayco (si están disponibles)
+      const handleEpaycoEvent = (event) => {
+        console.log('========================================');
+        console.log('📨 EVENTO DE EPAYCO RECIBIDO');
+        console.log('========================================');
+        console.log('📦 Evento completo:', event);
+        console.log('📦 event.detail:', event.detail);
+        console.log('========================================');
+        
+        if (event.detail) {
+          saveEpaycoResponse(event.detail);
+        }
+      };
+      
+      // Agregar listeners para eventos de ePayco
+      window.addEventListener('epayco:response', handleEpaycoEvent);
+      window.addEventListener('epayco:success', handleEpaycoEvent);
+      window.addEventListener('epayco:error', handleEpaycoEvent);
+      
+      // Interceptar redirección de ePayco (si es posible)
+      // ePayco puede redirigir directamente, pero intentamos capturar datos antes
+      const originalLocation = window.location.href;
       
       // Insertar el HTML exacto que se proporcionó, solo modificando valores dinámicos
       form.innerHTML = `
@@ -107,7 +197,39 @@ const ClientBilling = () => {
         script.parentNode.replaceChild(newScript, script);
       }
       
+      // Intentar acceder al objeto epayco global si está disponible
+      const checkEpaycoObject = setInterval(() => {
+        if (window.epayco || window.Epayco) {
+          console.log('✅ Objeto ePayco encontrado:', window.epayco || window.Epayco);
+          clearInterval(checkEpaycoObject);
+          
+          // Si hay métodos de callback disponibles, configurarlos
+          try {
+            const epayco = window.epayco || window.Epayco;
+            if (epayco && typeof epayco.on === 'function') {
+              epayco.on('response', (data) => {
+                console.log('📨 Callback de ePayco recibido:', data);
+                saveEpaycoResponse(data);
+              });
+            }
+          } catch (error) {
+            console.warn('⚠️ No se pudo configurar callback de ePayco:', error);
+          }
+        }
+      }, 500);
+      
+      // Limpiar después de 10 segundos si no se encuentra
+      setTimeout(() => {
+        clearInterval(checkEpaycoObject);
+      }, 10000);
+      
       return () => {
+        // Limpiar listeners
+        window.removeEventListener('epayco:response', handleEpaycoEvent);
+        window.removeEventListener('epayco:success', handleEpaycoEvent);
+        window.removeEventListener('epayco:error', handleEpaycoEvent);
+        clearInterval(checkEpaycoObject);
+        
         if (form) {
           form.innerHTML = '';
         }
