@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../Api/index.js';
 
 const ClientBilling = () => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // No se usa actualmente, pero se mantiene para futuras navegaciones
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -13,7 +13,6 @@ const ClientBilling = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const epaycoFormRef = useRef(null);
   
-  // Filtros
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
@@ -22,7 +21,6 @@ const ClientBilling = () => {
 
   const invoicesPerPage = 15;
 
-  // Estados de factura
   const getStatusBadge = (status) => {
     const statusConfig = {
       'pendiente': 'warning',
@@ -51,53 +49,41 @@ const ClientBilling = () => {
     return statusTexts[status] || status;
   };
 
-  // Cargar facturas del cliente
   useEffect(() => {
     loadInvoices();
-    
-    // Verificar si hay respuesta de ePayco guardada en sessionStorage
+    checkEpaycoResponse();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, filters]);
+
+  // Verificar si hay respuesta de ePayco en sessionStorage
+  const checkEpaycoResponse = () => {
     try {
       const savedResponse = sessionStorage.getItem('epayco_response');
       if (savedResponse) {
         const responseData = JSON.parse(savedResponse);
+        console.log('Respuesta de ePayco:', responseData);
         
-        // ============================================
-        // 🧪 PRUEBA: Imprimir datos de ePayco
-        // ============================================
-        console.log('========================================');
-        console.log('📥 RESPUESTA DE EPAYCO ENCONTRADA');
-        console.log('========================================');
-        console.log('📦 Datos completos:', responseData);
-        console.log('----------------------------------------');
-        console.log('🔑 x_id_factura:', responseData.x_id_factura);
-        console.log('🔑 ref_payco:', responseData.ref_payco);
-        console.log('🔑 x_cod_response:', responseData.x_cod_response);
-        console.log('🔑 x_response_reason_text:', responseData.x_response_reason_text);
-        console.log('🔑 factura_id:', responseData.factura_id);
-        console.log('🔑 timestamp:', responseData.timestamp);
-        console.log('========================================');
-        
-        // Aquí puedes usar responseData.x_id_factura según necesites
-        if (responseData.x_id_factura) {
-          console.log('✅ x_id_factura disponible para usar:', responseData.x_id_factura);
+        // Aquí puedes procesar la respuesta
+        // Por ejemplo, mostrar un mensaje o actualizar la factura
+        if (responseData.x_cod_response === '1') {
+          // Pago exitoso
+          console.log('Pago exitoso para factura:', responseData.factura_id);
         }
-      } else {
-        console.log('ℹ️ No hay respuesta de ePayco guardada en sessionStorage');
+        
+        // Limpiar sessionStorage después de procesar
+        // sessionStorage.removeItem('epayco_response');
       }
     } catch (error) {
-      console.error('❌ Error al leer respuesta de ePayco:', error);
+      console.error('Error al leer respuesta de ePayco:', error);
     }
-  }, [currentPage, filters]);
+  };
 
-  // Insertar script de ePayco y capturar respuesta
+  // Insertar script de ePayco
   useEffect(() => {
     if (showPaymentModal && selectedInvoice && epaycoFormRef.current) {
       const form = epaycoFormRef.current;
-      
-      // Limpiar contenido anterior
       form.innerHTML = '';
       
-      // Calcular valores dinámicos
       const amount = Math.round(parseFloat(selectedInvoice.monto_pagar || 0));
       const tax = parseFloat((selectedInvoice.monto_base || 0) * (selectedInvoice.iva_porcentaje || 0) / 100).toFixed(2);
       const taxBase = Math.round(parseFloat(selectedInvoice.monto_base || 0));
@@ -105,67 +91,12 @@ const ClientBilling = () => {
       const invoiceDescription = (selectedInvoice.descripcion || `Pago de factura ${selectedInvoice.id_factura || selectedInvoice.id}`).replace(/'/g, "&#39;");
       const invoiceId = selectedInvoice.id;
       
-      // Construir URL de respuesta con factura_id como parámetro
       const responseUrl = `https://admin.biogenetic.com.co/pagos/response?factura_id=${invoiceId}`;
-      const confirmationUrl = `https://admin.biogenetic.com.co/pagos/confirmation?factura_id=${invoiceId}`;
-      // Función para guardar respuesta de ePayco
-      const saveEpaycoResponse = (responseData) => {
-        try {
-          console.log('========================================');
-          console.log('💾 GUARDANDO RESPUESTA DE EPAYCO');
-          console.log('========================================');
-          console.log('📦 Datos recibidos:', responseData);
-          
-          // Guardar en sessionStorage para que esté disponible después de la redirección
-          if (responseData.x_id_factura) {
-            const dataToSave = {
-              x_id_factura: responseData.x_id_factura,
-              ref_payco: responseData.ref_payco || responseData.x_ref_payco,
-              x_cod_response: responseData.x_cod_response,
-              x_response_reason_text: responseData.x_response_reason_text,
-              factura_id: invoiceId,
-              timestamp: new Date().toISOString()
-            };
-            
-            sessionStorage.setItem('epayco_response', JSON.stringify(dataToSave));
-            
-            //console.log('✅ Datos guardados en sessionStorage:');
-            //console.log('🔑 x_id_factura:', dataToSave.x_id_factura);
-            //console.log('🔑 ref_payco:', dataToSave.ref_payco);
-            //console.log('🔑 factura_id:', dataToSave.factura_id);
-            //console.log('========================================');
-          } else {
-            console.warn('⚠️ No se encontró x_id_factura en la respuesta');
-          }
-        } catch (error) {
-          console.error('❌ Error al guardar respuesta de ePayco:', error);
-        }
-      };
+      const confirmationUrl = `https://admin.biogenetic.com.co/pagos/confirmation`;
       
-      // Listener para eventos de ePayco (si están disponibles)
-      const handleEpaycoEvent = (event) => {
-        //console.log('========================================');
-        //console.log('📨 EVENTO DE EPAYCO RECIBIDO');
-        //console.log('========================================');
-        //console.log('📦 Evento completo:', event);
-        //console.log('📦 event.detail:', event.detail);
-        //console.log('========================================');
-        
-        if (event.detail) {
-          saveEpaycoResponse(event.detail);
-        }
-      };
+      // Log de la URL de respuesta de ePayco
+      console.log('🔗 URL de respuesta de ePayco:', responseUrl);
       
-      // Agregar listeners para eventos de ePayco
-      window.addEventListener('epayco:response', handleEpaycoEvent);
-      window.addEventListener('epayco:success', handleEpaycoEvent);
-      window.addEventListener('epayco:error', handleEpaycoEvent);
-      
-      // Interceptar redirección de ePayco (si es posible)
-      // ePayco puede redirigir directamente, pero intentamos capturar datos antes
-      const originalLocation = window.location.href;
-      
-      // Insertar el HTML exacto que se proporcionó, solo modificando valores dinámicos
       form.innerHTML = `
         <script src='https://checkout.epayco.co/checkout.js'
             data-epayco-key='f87a61bc0caebd8dc52a251e55083498' 
@@ -186,7 +117,6 @@ const ClientBilling = () => {
         </script>
       `;
       
-      // Ejecutar el script después de insertarlo
       const scripts = form.getElementsByTagName('script');
       for (let i = 0; i < scripts.length; i++) {
         const script = scripts[i];
@@ -197,58 +127,21 @@ const ClientBilling = () => {
         script.parentNode.replaceChild(newScript, script);
       }
       
-      // Intentar acceder al objeto epayco global si está disponible
-      const checkEpaycoObject = setInterval(() => {
-        if (window.epayco || window.Epayco) {
-          console.log('✅ Objeto ePayco encontrado:', window.epayco || window.Epayco);
-          clearInterval(checkEpaycoObject);
-          
-          // Si hay métodos de callback disponibles, configurarlos
-          try {
-            const epayco = window.epayco || window.Epayco;
-            if (epayco && typeof epayco.on === 'function') {
-              epayco.on('response', (data) => {
-                console.log('📨 Callback de ePayco recibido:', data);
-                saveEpaycoResponse(data);
-              });
-            }
-          } catch (error) {
-            console.warn('⚠️ No se pudo configurar callback de ePayco:', error);
-          }
-        }
-      }, 500);
-      
-      // Limpiar después de 10 segundos si no se encuentra
-      setTimeout(() => {
-        clearInterval(checkEpaycoObject);
-      }, 10000);
-      
       return () => {
-        // Limpiar listeners
-        window.removeEventListener('epayco:response', handleEpaycoEvent);
-        window.removeEventListener('epayco:success', handleEpaycoEvent);
-        window.removeEventListener('epayco:error', handleEpaycoEvent);
-        clearInterval(checkEpaycoObject);
-        
-        if (form) {
-          form.innerHTML = '';
-        }
+        if (form) form.innerHTML = '';
       };
     }
   }, [showPaymentModal, selectedInvoice]);
-
 
   const loadInvoices = async () => {
     try {
       setLoading(true);
       
-      // Preparar filtros para la API
       const apiFilters = {
         skip: (currentPage - 1) * invoicesPerPage,
         limit: invoicesPerPage
       };
 
-      // Agregar filtros si están definidos
       if (filters.startDate) {
         apiFilters.fecha_desde = new Date(filters.startDate).toISOString();
       }
@@ -261,11 +154,8 @@ const ClientBilling = () => {
         apiFilters.estado = filters.status.toLowerCase();
       }
 
-      // ✅ Usar el nuevo endpoint exclusivo para clientes
-      // No requiere cliente_id, se obtiene automáticamente del token
       const invoicesData = await api.billing.getMyInvoices(apiFilters);
       
-      // Manejar diferentes estructuras de respuesta
       let invoicesList = [];
       if (Array.isArray(invoicesData)) {
         invoicesList = invoicesData;
@@ -277,7 +167,6 @@ const ClientBilling = () => {
       
       setInvoices(invoicesList);
       
-      // Calcular total de páginas
       const total = invoicesData.total || invoicesData.count || invoicesList.length;
       setTotalPages(Math.ceil(total / invoicesPerPage));
     } catch (error) {
@@ -293,7 +182,7 @@ const ClientBilling = () => {
       ...prev,
       [filterName]: value
     }));
-    setCurrentPage(1); // Resetear a la primera página
+    setCurrentPage(1);
   };
 
   const handlePageChange = (page) => {
@@ -302,24 +191,17 @@ const ClientBilling = () => {
 
   const handleViewDescription = async (invoice) => {
     try {
-      // Obtener detalles de la factura desde /detalle
       const invoiceDetails = await api.billing.getInvoiceDetails(invoice.id);
-      console.log('=== CONSULTANDO /detalle ===');
-      console.log('Respuesta de /detalle:', invoiceDetails);
-      console.log('Factura original:', invoice);
       
-      // ✅ Extraer el primer elemento del arreglo
       const detailsData = Array.isArray(invoiceDetails) && invoiceDetails.length > 0 
         ? invoiceDetails[0] 
         : {};
       
-      // Combinar datos básicos de la factura con los items de /detalle
       const combinedData = {
-        ...invoice, // Datos básicos (id_factura, fecha_generacion, etc.)
-        ...detailsData // Items (embrio_fresco, embrio_congelado, etc.)
+        ...invoice,
+        ...detailsData
       };
       
-      console.log('Datos combinados:', combinedData);
       setSelectedInvoice(combinedData);
       setShowDescriptionModal(true);
     } catch (error) {
@@ -331,28 +213,15 @@ const ClientBilling = () => {
 
   const handleDownloadInvoice = async (invoice) => {
     try {
-      console.log('Descargando factura:', invoice.id_factura || invoice.id);
-      
-      // Generar PDF usando el servicio
       const pdfBlob = await api.billing.generateInvoicePDF(invoice.id);
-      
-      // Crear URL del blob
       const url = window.URL.createObjectURL(pdfBlob);
-      
-      // Crear elemento de descarga
       const link = document.createElement('a');
       link.href = url;
       link.download = `factura_${invoice.id_factura || invoice.id}.pdf`;
-      
-      // Simular clic para descargar
       document.body.appendChild(link);
       link.click();
-      
-      // Limpiar
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
-      console.log('PDF descargado exitosamente');
     } catch (error) {
       console.error('Error al descargar factura:', error);
       alert('Error al descargar la factura: ' + (error.message || 'Error desconocido'));
@@ -360,27 +229,8 @@ const ClientBilling = () => {
   };
 
   const handleMakePayment = (invoice) => {
-    // ✅ DESHABILITADO: Navegación a vista de pago con formulario
-    // navigate(`/payment/${invoice.id}`);
-    
-    // ✅ NUEVO: Abrir modal con botón de ePayco
-    // El factura_id se pasa en la URL de respuesta de ePayco, no necesitamos localStorage
     setSelectedInvoice(invoice);
     setShowPaymentModal(true);
-  };
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('es-ES');
   };
 
   const isOverdue = (dueDate, status) => {
@@ -602,7 +452,6 @@ const ClientBilling = () => {
                             </button>
                           </li>
                           
-                          {/* Mostrar páginas con lógica inteligente */}
                           {(() => {
                             const pages = [];
                             const maxVisiblePages = 5;
@@ -683,235 +532,199 @@ const ClientBilling = () => {
                 ></button>
               </div>
               <div className="modal-body">
-                {selectedInvoice ? (
-                  <>
-                  <div className="row">
-                    {/* Columna Izquierda - Información General */}
-                    <div className="col-md-6">
-                      <div className="card h-100">
-                        <div className="card-header">
-                          <h6 className="mb-0">
-                            <i className="bi bi-info-circle me-2"></i>
-                            Información General
-                          </h6>
-                        </div>
-                        <div className="card-body">
-                          <div className="mb-3">
-                            <strong>Número de Factura:</strong>
-                            <p className="text-muted mb-0">{selectedInvoice.id_factura || 'N/A'}</p>
-                          </div>
-                          <div className="mb-3">
-                            <strong>Estado:</strong>
-                            <p className="mb-0">
-                              <span className={`badge bg-${getStatusBadge(selectedInvoice.estado)}`}>
-                                {getStatusText(selectedInvoice.estado)}
-                              </span>
-                            </p>
-                          </div>
-                          <div className="mb-3">
-                            <strong>Cliente ID:</strong>
-                            <p className="text-muted mb-0">{selectedInvoice.cliente_id || 'N/A'}</p>
-                          </div>
-                          <div className="mb-0">
-                            <strong>Aplica IVA:</strong>
-                            <p className="text-muted mb-0">
-                              {selectedInvoice.aplica_iva ? 'Sí' : 'No'}
-                            </p>
-                          </div>
-                        </div>
+                <div className="row">
+                  <div className="col-md-6">
+                    <div className="card h-100">
+                      <div className="card-header">
+                        <h6 className="mb-0">
+                          <i className="bi bi-info-circle me-2"></i>
+                          Información General
+                        </h6>
                       </div>
-                    </div>
-
-                    {/* Columna Derecha - Fechas */}
-                    <div className="col-md-6">
-                      <div className="card h-100">
-                        <div className="card-header">
-                          <h6 className="mb-0">
-                            <i className="bi bi-calendar3 me-2"></i>
-                            Fechas
-                          </h6>
+                      <div className="card-body">
+                        <div className="mb-3">
+                          <strong>Número de Factura:</strong>
+                          <p className="text-muted mb-0">{selectedInvoice.id_factura || 'N/A'}</p>
                         </div>
-                        <div className="card-body">
-                          <div className="mb-3">
-                            <strong>Fecha de Creación:</strong>
-                            <p className="text-muted mb-0">
-                              {selectedInvoice.fecha_generacion 
-                                ? new Date(selectedInvoice.fecha_generacion).toLocaleDateString('es-ES')
-                                : '-'
-                              }
-                            </p>
-                          </div>
-                          <div className="mb-3">
-                            <strong>Fecha de Pago:</strong>
-                            <p className="text-muted mb-0">
-                              {selectedInvoice.fecha_pago 
-                                ? new Date(selectedInvoice.fecha_pago).toLocaleDateString('es-ES')
-                                : 'No pagada'
-                              }
-                            </p>
-                          </div>
-                          <div className="mb-0">
-                            <strong>Fecha de Vencimiento:</strong>
-                            <p className="text-muted mb-0">
-                              {selectedInvoice.fecha_vencimiento 
-                                ? new Date(selectedInvoice.fecha_vencimiento).toLocaleDateString('es-ES')
-                                : 'Sin vencimiento'
-                              }
-                            </p>
-                          </div>
+                        <div className="mb-3">
+                          <strong>Estado:</strong>
+                          <p className="mb-0">
+                            <span className={`badge bg-${getStatusBadge(selectedInvoice.estado)}`}>
+                              {getStatusText(selectedInvoice.estado)}
+                            </span>
+                          </p>
+                        </div>
+                        <div className="mb-3">
+                          <strong>Cliente ID:</strong>
+                          <p className="text-muted mb-0">{selectedInvoice.cliente_id || 'N/A'}</p>
+                        </div>
+                        <div className="mb-0">
+                          <strong>Aplica IVA:</strong>
+                          <p className="text-muted mb-0">
+                            {selectedInvoice.aplica_iva ? 'Sí' : 'No'}
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Descripción */}
-                  {selectedInvoice.descripcion && (
-                    <div className="row mt-3">
-                      <div className="col-12">
-                        <div className="card">
-                          <div className="card-header">
-                            <h6 className="mb-0">
-                              <i className="bi bi-file-text me-2"></i>
-                              Descripción
-                            </h6>
-                          </div>
-                          <div className="card-body">
-                            <p className="text-muted mb-0">{selectedInvoice.descripcion}</p>
-                          </div>
+                  <div className="col-md-6">
+                    <div className="card h-100">
+                      <div className="card-header">
+                        <h6 className="mb-0">
+                          <i className="bi bi-calendar3 me-2"></i>
+                          Fechas
+                        </h6>
+                      </div>
+                      <div className="card-body">
+                        <div className="mb-3">
+                          <strong>Fecha de Creación:</strong>
+                          <p className="text-muted mb-0">
+                            {selectedInvoice.fecha_generacion 
+                              ? new Date(selectedInvoice.fecha_generacion).toLocaleDateString('es-ES')
+                              : '-'
+                            }
+                          </p>
+                        </div>
+                        <div className="mb-3">
+                          <strong>Fecha de Pago:</strong>
+                          <p className="text-muted mb-0">
+                            {selectedInvoice.fecha_pago 
+                              ? new Date(selectedInvoice.fecha_pago).toLocaleDateString('es-ES')
+                              : 'No pagada'
+                            }
+                          </p>
+                        </div>
+                        <div className="mb-0">
+                          <strong>Fecha de Vencimiento:</strong>
+                          <p className="text-muted mb-0">
+                            {selectedInvoice.fecha_vencimiento 
+                              ? new Date(selectedInvoice.fecha_vencimiento).toLocaleDateString('es-ES')
+                              : 'Sin vencimiento'
+                            }
+                          </p>
                         </div>
                       </div>
                     </div>
-                  )}
+                  </div>
+                </div>
 
-                  {/* Items de la Factura */}
+                {selectedInvoice.descripcion && (
                   <div className="row mt-3">
                     <div className="col-12">
                       <div className="card">
                         <div className="card-header">
                           <h6 className="mb-0">
-                            <i className="bi bi-list-ul me-2"></i>
-                            Items de la Factura
-                          </h6>
-                        </div>
-                        <div className="card-body p-0">
-                          <div className="table-responsive">
-                            <table className="table table-hover mb-0">
-                              <thead className="table-light">
-                                <tr>
-                                  <th className="ps-3">Item</th>
-                                  <th className="text-end pe-3">Valor</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(() => {
-                                  console.log('=== RENDERIZANDO TABLA DE ITEMS ===');
-                                  console.log('selectedInvoice:', selectedInvoice);
-                                  console.log('Keys disponibles:', Object.keys(selectedInvoice || {}));
-                                  
-                                  if (!selectedInvoice) {
-                                    return (
-                                      <tr>
-                                        <td colSpan="2" className="text-center text-muted py-3">
-                                          No hay datos de factura disponibles
-                                        </td>
-                                      </tr>
-                                    );
-                                  }
-
-                                  const items = [
-                                    { key: 'embrio_fresco', name: 'Embrión Fresco' },
-                                    { key: 'embrio_congelado', name: 'Embrión Congelado' },
-                                    { key: 'material_campo', name: 'Material de Campo' },
-                                    { key: 'nitrogeno', name: 'Nitrógeno' },
-                                    { key: 'mensajeria', name: 'Mensajería' },
-                                    { key: 'pajilla_semen', name: 'Pajilla de Semen' },
-                                    { key: 'fundas_te', name: 'Fundas T.E' }
-                                  ];
-
-                                  return items.map((item) => {
-                                    const value = selectedInvoice[item.key];
-                                    console.log(`${item.key}:`, value, 'Tipo:', typeof value);
-                                    
-                                    return (
-                                      <tr key={item.key}>
-                                        <td className="ps-3">{item.name}</td>
-                                        <td className="text-end pe-3 fw-bold">
-                                          {value && value > 0 
-                                            ? `$${parseFloat(value).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`
-                                            : '$0.00'
-                                          }
-                                        </td>
-                                      </tr>
-                                    );
-                                  });
-                                })()}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Resumen de Montos */}
-                  <div className="row mt-3">
-                    <div className="col-12">
-                      <div className="card">
-                        <div className="card-header">
-                          <h6 className="mb-0">
-                            <i className="bi bi-currency-dollar me-2"></i>
-                            Resumen de Montos
+                            <i className="bi bi-file-text me-2"></i>
+                            Descripción
                           </h6>
                         </div>
                         <div className="card-body">
-                          <div className="row">
-                            <div className="col-md-4">
-                              <div className="text-center">
-                                <strong>Monto Base</strong>
-                                <p className="text-muted mb-0">
-                                  {selectedInvoice.monto_base 
-                                    ? `$${parseFloat(selectedInvoice.monto_base).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`
-                                    : '-'
-                                  }
-                                </p>
-                              </div>
-                            </div>
-                            <div className="col-md-4">
-                              <div className="text-center">
-                                <strong>IVA ({selectedInvoice.iva_porcentaje || 0}%)</strong>
-                                <p className="text-muted mb-0">
-                                  {selectedInvoice.iva_porcentaje 
-                                    ? `$${(selectedInvoice.monto_base * selectedInvoice.iva_porcentaje / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`
-                                    : '-'
-                                  }
-                                </p>
-                              </div>
-                            </div>
-                            <div className="col-md-4">
-                              <div className="text-center">
-                                <strong>Total a Pagar</strong>
-                                <p className="text-success fw-bold fs-5 mb-0">
-                                  {selectedInvoice.monto_pagar 
-                                    ? `$${parseFloat(selectedInvoice.monto_pagar).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`
-                                    : '-'
-                                  }
-                                </p>
-                              </div>
-                            </div>
-                          </div>
+                          <p className="text-muted mb-0">{selectedInvoice.descripcion}</p>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  </>
-                ) : (
-                  <div className="text-center py-4">
-                    <div className="spinner-border text-primary" role="status">
-                      <span className="visually-hidden">Cargando...</span>
-                    </div>
-                    <p className="mt-2">Cargando detalles de la factura...</p>
                   </div>
                 )}
+
+                <div className="row mt-3">
+                  <div className="col-12">
+                    <div className="card">
+                      <div className="card-header">
+                        <h6 className="mb-0">
+                          <i className="bi bi-list-ul me-2"></i>
+                          Items de la Factura
+                        </h6>
+                      </div>
+                      <div className="card-body p-0">
+                        <div className="table-responsive">
+                          <table className="table table-hover mb-0">
+                            <thead className="table-light">
+                              <tr>
+                                <th className="ps-3">Item</th>
+                                <th className="text-end pe-3">Valor</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {[
+                                { key: 'embrio_fresco', name: 'Embrión Fresco' },
+                                { key: 'embrio_congelado', name: 'Embrión Congelado' },
+                                { key: 'material_campo', name: 'Material de Campo' },
+                                { key: 'nitrogeno', name: 'Nitrógeno' },
+                                { key: 'mensajeria', name: 'Mensajería' },
+                                { key: 'pajilla_semen', name: 'Pajilla de Semen' },
+                                { key: 'fundas_te', name: 'Fundas T.E' }
+                              ].map((item) => {
+                                const value = selectedInvoice[item.key];
+                                return (
+                                  <tr key={item.key}>
+                                    <td className="ps-3">{item.name}</td>
+                                    <td className="text-end pe-3 fw-bold">
+                                      {value && value > 0 
+                                        ? `$${parseFloat(value).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`
+                                        : '$0.00'
+                                      }
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="row mt-3">
+                  <div className="col-12">
+                    <div className="card">
+                      <div className="card-header">
+                        <h6 className="mb-0">
+                          <i className="bi bi-currency-dollar me-2"></i>
+                          Resumen de Montos
+                        </h6>
+                      </div>
+                      <div className="card-body">
+                        <div className="row">
+                          <div className="col-md-4">
+                            <div className="text-center">
+                              <strong>Monto Base</strong>
+                              <p className="text-muted mb-0">
+                                {selectedInvoice.monto_base 
+                                  ? `$${parseFloat(selectedInvoice.monto_base).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`
+                                  : '-'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                          <div className="col-md-4">
+                            <div className="text-center">
+                              <strong>IVA ({selectedInvoice.iva_porcentaje || 0}%)</strong>
+                              <p className="text-muted mb-0">
+                                {selectedInvoice.iva_porcentaje 
+                                  ? `$${(selectedInvoice.monto_base * selectedInvoice.iva_porcentaje / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`
+                                  : '-'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                          <div className="col-md-4">
+                            <div className="text-center">
+                              <strong>Total a Pagar</strong>
+                              <p className="text-success fw-bold fs-5 mb-0">
+                                {selectedInvoice.monto_pagar 
+                                  ? `$${parseFloat(selectedInvoice.monto_pagar).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`
+                                  : '-'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="modal-footer">
                 <button
@@ -954,7 +767,6 @@ const ClientBilling = () => {
                   </h2>
                 </div>
                 
-                {/* Información de la factura */}
                 <div className="card mb-4">
                   <div className="card-body">
                     <div className="row">
@@ -978,7 +790,6 @@ const ClientBilling = () => {
                   </div>
                 </div>
 
-                {/* Botón de pago ePayco - Insertado exactamente como se proporcionó */}
                 <div className="text-center">
                   <form ref={epaycoFormRef}></form>
                 </div>
