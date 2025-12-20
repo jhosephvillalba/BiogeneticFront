@@ -107,7 +107,7 @@ const ClientBilling = () => {
       
       // Construir URL de respuesta con factura_id como parámetro
       const responseUrl = `https://admin.biogenetic.com.co/pagos/response?factura_id=${invoiceId}`;
-      
+      const confirmationUrl = `https://admin.biogenetic.com.co/pagos/confirmation?factura_id=${invoiceId}`;
       // Función para guardar respuesta de ePayco
       const saveEpaycoResponse = (responseData) => {
         try {
@@ -129,11 +129,11 @@ const ClientBilling = () => {
             
             sessionStorage.setItem('epayco_response', JSON.stringify(dataToSave));
             
-            console.log('✅ Datos guardados en sessionStorage:');
-            console.log('🔑 x_id_factura:', dataToSave.x_id_factura);
-            console.log('🔑 ref_payco:', dataToSave.ref_payco);
-            console.log('🔑 factura_id:', dataToSave.factura_id);
-            console.log('========================================');
+            //console.log('✅ Datos guardados en sessionStorage:');
+            //console.log('🔑 x_id_factura:', dataToSave.x_id_factura);
+            //console.log('🔑 ref_payco:', dataToSave.ref_payco);
+            //console.log('🔑 factura_id:', dataToSave.factura_id);
+            //console.log('========================================');
           } else {
             console.warn('⚠️ No se encontró x_id_factura en la respuesta');
           }
@@ -144,12 +144,12 @@ const ClientBilling = () => {
       
       // Listener para eventos de ePayco (si están disponibles)
       const handleEpaycoEvent = (event) => {
-        console.log('========================================');
-        console.log('📨 EVENTO DE EPAYCO RECIBIDO');
-        console.log('========================================');
-        console.log('📦 Evento completo:', event);
-        console.log('📦 event.detail:', event.detail);
-        console.log('========================================');
+        //console.log('========================================');
+        //console.log('📨 EVENTO DE EPAYCO RECIBIDO');
+        //console.log('========================================');
+        //console.log('📦 Evento completo:', event);
+        //console.log('📦 event.detail:', event.detail);
+        //console.log('========================================');
         
         if (event.detail) {
           saveEpaycoResponse(event.detail);
@@ -181,7 +181,7 @@ const ClientBilling = () => {
             data-epayco-test='true' 
             data-epayco-external='false' 
             data-epayco-response='${responseUrl}'  
-            data-epayco-confirmation='https://api.biogenetic.com.co/api/pagos/confirmation' 
+            data-epayco-confirmation='${confirmationUrl}' 
             data-epayco-button='https://multimedia.epayco.co/dashboard/btns/btn5.png'> 
         </script>
       `;
