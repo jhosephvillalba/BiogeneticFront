@@ -92,7 +92,6 @@ const ClientBilling = () => {
       const invoiceId = selectedInvoice.id;
       
       const responseUrl = `https://admin.biogenetic.com.co/pagos/response?factura_id=${invoiceId}`;
-      const confirmationUrl = `https://api.biogenetic.com.co/pagos/confirmation`;
       
       // Log de la URL de respuesta de ePayco
       console.log('🔗 URL de respuesta de ePayco:', responseUrl);
@@ -112,7 +111,7 @@ const ClientBilling = () => {
             data-epayco-test='true' 
             data-epayco-external='false' 
             data-epayco-response='${responseUrl}'  
-            data-epayco-confirmation='${confirmationUrl}' 
+            data-epayco-confirmation='https://api.biogenetic.com.co/pagos/confirmation' 
             data-epayco-button='https://multimedia.epayco.co/dashboard/btns/btn5.png'> 
         </script>
       `;
