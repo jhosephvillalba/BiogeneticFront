@@ -243,6 +243,19 @@ const PaymentResult = () => {
           setPaymentSuccess(true);
           setPaymentError(null);
           
+          // Redirigir automáticamente después de un breve delay para asegurar que el pago se haya registrado
+          // Esto asegura que el pago exista antes de que el webhook sea llamado
+          console.log('🔄 Redirigiendo a la vista de facturación en 2 segundos...');
+          setTimeout(() => {
+            navigate('/client/billing', { 
+              state: { 
+                paymentRegistered: true,
+                factura_id: invoiceId,
+                ref_payco: x_ref_payco
+              } 
+            });
+          }, 2000);
+          
         } catch (error) {
           console.error('❌ Error al registrar el pago:', error);
           console.error('Error completo:', {
