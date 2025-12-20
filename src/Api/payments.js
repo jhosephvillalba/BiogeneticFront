@@ -240,6 +240,22 @@ const payments = {
       console.error('Error status:', error.response?.status);
       throw error;
     }
+  },
+
+  // Obtener detalle de transacción de ePayco usando ref_payco
+  // GET /api/pagos/transaction/{ref_payco}/detail
+  getEpaycoTransactionDetail: async (ref_payco) => {
+    try {
+      console.log('Consultando detalle de transacción ePayco, ref_payco:', ref_payco);
+      const response = await axios.get(`pagos/transaction/${ref_payco}/detail`);
+      console.log('Detalle de transacción ePayco obtenido:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error al consultar detalle de transacción ePayco:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
   }
 };
 

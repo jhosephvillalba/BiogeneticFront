@@ -106,7 +106,7 @@ const PaymentResult = () => {
         factura_id, 
         estado: estado || 'pendiente (por defecto)' 
       });
-      console.log('✅ IMPORTANTE: Usando ref_payco de la URL para registrar el pago');
+      console.log('✅ IMPORTANTE: Consultaremos la API de ePayco para obtener x_ref_payco usando ref_payco');
       paymentRegisteredRef.current = true; // Marcar como registrado antes de llamar
       
       // Función para registrar el pago en el sistema
@@ -125,6 +125,26 @@ const PaymentResult = () => {
           }
 
           console.log('📋 Obteniendo datos de la factura desde la API, factura_id:', invoiceId);
+          
+          // Consultar transacción de ePayco para obtener x_ref_payco
+          let x_ref_payco = ref_payco; // Por defecto usar ref_payco de la URL
+          try {
+            console.log('🔍 Consultando transacción ePayco para obtener x_ref_payco, ref_payco:', ref_payco);
+            const epaycoTransaction = await api.payments.getEpaycoTransactionDetail(ref_payco);
+            console.log('✅ Transacción ePayco obtenida:', epaycoTransaction);
+            
+            // Extraer x_ref_payco de la respuesta
+            if (epaycoTransaction.transaction_detail && epaycoTransaction.transaction_detail.x_ref_payco) {
+              x_ref_payco = epaycoTransaction.transaction_detail.x_ref_payco;
+              console.log('✅ x_ref_payco obtenido:', x_ref_payco);
+            } else {
+              console.warn('⚠️ No se encontró x_ref_payco en la respuesta, usando ref_payco de la URL');
+            }
+          } catch (epaycoError) {
+            console.warn('⚠️ No se pudo consultar la transacción de ePayco, usando ref_payco de la URL:', epaycoError);
+            // Continuar con ref_payco si falla la consulta
+            x_ref_payco = ref_payco;
+          }
           
           // Obtener los datos de la factura desde la API
           const invoiceData = await api.billing.getInvoiceById(invoiceId);
@@ -160,16 +180,16 @@ const PaymentResult = () => {
             }
           }
 
-          // Preparar datos del pago usando los datos de la API + ref_payco
-          // IMPORTANTE: Usamos ref_payco de la URL (ePayco lo envía en la respuesta)
+          // Preparar datos del pago usando los datos de la API + x_ref_payco
+          // IMPORTANTE: Usamos x_ref_payco obtenido de la consulta a la transacción de ePayco
           // El estado siempre será "pendiente" porque el webhook de ePayco lo actualizará
           const paymentData = {
             factura_id: invoiceId, // ✅ De la URL (ID de nuestra factura)
-            ref_payco: ref_payco, // ✅ ref_payco de ePayco (viene en la URL de respuesta)
+            ref_payco: x_ref_payco, // ✅ x_ref_payco obtenido de la consulta a ePayco (el webhook busca usando este valor)
             metodo_pago: 'epayco',
             monto: monto, // ✅ De la API
             estado: paymentStatus, // ✅ Siempre "pendiente" (el webhook actualizará el estado)
-            observaciones: `Pago procesado a través de ePayco. ref_payco: ${ref_payco}. Estado inicial: ${estado || 'pendiente'}. Factura: ${invoiceDataToUse.id_factura || invoiceDataToUse.id || invoiceId}`
+            observaciones: `Pago procesado a través de ePayco. ref_payco (URL): ${ref_payco}, x_ref_payco (API): ${x_ref_payco}. Estado inicial: ${estado || 'pendiente'}. Factura: ${invoiceDataToUse.id_factura || invoiceDataToUse.id || invoiceId}`
           };
 
           console.log('📤 Datos del pago a registrar:', paymentData);
