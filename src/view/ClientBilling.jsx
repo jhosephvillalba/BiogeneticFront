@@ -111,7 +111,7 @@ const ClientBilling = () => {
             data-epayco-test='true' 
             data-epayco-external='false' 
             data-epayco-response='${responseUrl}'  
-            data-epayco-confirmation='https://api.biogenetic.com.co/pagos/confirmation' 
+            data-epayco-confirmation='https://api.biogenetic.com.co/api/pagos/confirmation' 
             data-epayco-button='https://multimedia.epayco.co/dashboard/btns/btn5.png'> 
         </script>
       `;
