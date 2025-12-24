@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo, startTransition } from "react";
 import { searchUsers } from "../Api/users";
 import { getBullPerformanceData } from "../Api/bullPerformance";
+import { getRaces } from "../Api/races";
 
 const BullPerformance = () => {
   // Estado para los filtros
   const [filters, setFilters] = useState({
     client_id: null,
+    raza_id: null,
     query: ""
   });
 
@@ -22,6 +24,11 @@ const BullPerformance = () => {
   const [loadingClients, setLoadingClients] = useState(false);
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
+
+  // Estado para razas
+  const [races, setRaces] = useState([]);
+  const [loadingRaces, setLoadingRaces] = useState(false);
+  const [selectedRace, setSelectedRace] = useState(null);
 
   // Función para normalizar datos de la API
   const normalizeApiData = (rawData) => {
@@ -304,6 +311,29 @@ const BullPerformance = () => {
     return () => clearTimeout(timer);
   }, [clientSearchTerm, loadClients]);
 
+  // Cargar razas al montar el componente
+  const loadRaces = useCallback(async () => {
+    try {
+      setLoadingRaces(true);
+      const response = await getRaces(0, 1000);
+      // La API puede devolver un array directamente o dentro de un objeto
+      const racesList = Array.isArray(response) 
+        ? response 
+        : response.items || response.data || [];
+      setRaces(racesList);
+    } catch (error) {
+      console.error("Error al cargar razas:", error);
+      setError("No se pudieron cargar las razas");
+    } finally {
+      setLoadingRaces(false);
+    }
+  }, []);
+
+  // Cargar razas al montar el componente
+  useEffect(() => {
+    loadRaces();
+  }, [loadRaces]);
+
   // Cargar datos de rendimiento desde la API
   const loadPerformanceData = useCallback(async () => {
     try {
@@ -321,6 +351,13 @@ const BullPerformance = () => {
         apiFilters.client_id = selectedClient.id;
       } else if (filters.client_id) {
         apiFilters.client_id = filters.client_id;
+      }
+
+      // Agregar filtro de raza si está seleccionada
+      if (selectedRace && selectedRace.id) {
+        apiFilters.raza_id = selectedRace.id;
+      } else if (filters.raza_id) {
+        apiFilters.raza_id = filters.raza_id;
       }
 
       // Agregar filtro de búsqueda general si existe
@@ -424,7 +461,7 @@ const BullPerformance = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedClient, filters.query, pagination.currentPage, pagination.itemsPerPage]);
+  }, [selectedClient, selectedRace, filters.query, pagination.currentPage, pagination.itemsPerPage]);
 
   // Cargar datos al montar el componente
   useEffect(() => {
@@ -433,14 +470,14 @@ const BullPerformance = () => {
 
   // Recargar datos cuando cambien los filtros
   useEffect(() => {
-    if (selectedClient || filters.query) {
+    if (selectedClient || selectedRace || filters.query) {
       const timer = setTimeout(() => {
         loadPerformanceData();
       }, 500); // Debounce para evitar muchas llamadas
 
       return () => clearTimeout(timer);
     }
-  }, [selectedClient, filters.query, loadPerformanceData]); // ✅ Agregado loadPerformanceData
+  }, [selectedClient, selectedRace, filters.query, loadPerformanceData]); // ✅ Agregado loadPerformanceData
 
   // Recargar datos cuando cambie la página
   useEffect(() => {
@@ -464,10 +501,12 @@ const BullPerformance = () => {
   const clearFilters = () => {
     setFilters({
       client_id: null,
+      raza_id: null,
       query: ""
     });
     setSelectedClient(null);
     setClientSearchTerm("");
+    setSelectedRace(null);
     setPagination(prev => ({ 
       ...prev, 
       currentPage: 1,
@@ -562,7 +601,7 @@ const BullPerformance = () => {
         <div className="card-body">
           <div className="row g-3">
             {/* Filtro por Cliente */}
-            <div className="col-md-6">
+            <div className="col-md-4">
               <label className="form-label">Cliente</label>
               <div className="position-relative">
                 <input
@@ -610,8 +649,39 @@ const BullPerformance = () => {
               </div>
             </div>
 
+            {/* Filtro por Raza */}
+            <div className="col-md-4">
+              <label className="form-label">Raza</label>
+              <select
+                className="form-select"
+                value={selectedRace?.id || ""}
+                onChange={(e) => {
+                  const raceId = e.target.value ? parseInt(e.target.value) : null;
+                  const race = races.find(r => r.id === raceId) || null;
+                  setSelectedRace(race);
+                  setFilters(prev => ({ ...prev, raza_id: raceId }));
+                }}
+                disabled={loadingRaces}
+              >
+                <option value="">Todas las razas</option>
+                {races.map((race) => (
+                  <option key={race.id} value={race.id}>
+                    {race.name || race.nombre || `Raza ${race.id}`}
+                  </option>
+                ))}
+              </select>
+              {loadingRaces && (
+                <div className="mt-2">
+                  <small className="text-muted">
+                    <i className="bi bi-hourglass-split me-1"></i>
+                    Cargando razas...
+                  </small>
+                </div>
+              )}
+            </div>
+
             {/* Filtro General */}
-            <div className="col-md-6">
+            <div className="col-md-4">
               <label className="form-label">Búsqueda General</label>
               <input
                 type="text"

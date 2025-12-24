@@ -9,6 +9,9 @@ export const getBullPerformanceData = async (filters = {}) => {
     if (filters.client_id) {
       params.append('client_id', filters.client_id);
     }
+    if (filters.raza_id) {
+      params.append('raza_id', filters.raza_id);
+    }
     if (filters.query) {
       params.append('query', filters.query);
     }
@@ -35,6 +38,9 @@ export const getBullPerformanceSummary = async (filters = {}) => {
     // Agregar filtros como parámetros de consulta
     if (filters.client_id) {
       params.append('client_id', filters.client_id);
+    }
+    if (filters.raza_id) {
+      params.append('raza_id', filters.raza_id);
     }
     if (filters.query) {
       params.append('query', filters.query);
