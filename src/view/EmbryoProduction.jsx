@@ -750,37 +750,41 @@ const EmbryoProduction = () => {
       setUpdateLoading(true);
       setUpdateError(null);
       
-      const newQty = parseTotalValue(editValue);
+      const additionalQty = parseTotalValue(editValue);  // ✅ Cantidad adicional a usar
       const received = parseTotalValue(input.quantity_received);
       const currentTaken = parseTotalValue(input.quantity_taken);
+      
+      // ✅ Calcular nuevo total usado (actual + adicional)
+      const newTotalTaken = currentTaken + additionalQty;
 
-      if (newQty < currentTaken) {
-        throw new Error("No puedes reducir la cantidad utilizada");
+      // ✅ Validaciones corregidas
+      if (additionalQty <= 0) {
+        throw new Error("La cantidad a utilizar debe ser mayor a cero");
       }
-      if (newQty > received) {
-        throw new Error(`No puedes tomar más de ${received} unidades`);
+      if (newTotalTaken > received) {
+        throw new Error(`No puedes tomar más de ${received} unidades. Intentas usar ${newTotalTaken} pero solo tienes ${received}`);
       }
 
-      // Actualización optimista
+      // ✅ Actualización optimista con cálculo correcto
       setSemenEntries((prev) =>
         prev.map((item) =>
           item.id === input.id
             ? {
                 ...item,
-                quantity_taken: newQty.toFixed(2),
-                total: (received - newQty).toFixed(2),
+                quantity_taken: newTotalTaken.toFixed(2),
+                total: (received - newTotalTaken).toFixed(2),
               }
             : item
         )
       );
 
-      // Llamadas a API
-      await apiInputs.updateInput(input.id, { quantity_taken: newQty });
+      // ✅ Llamadas a API con valores correctos
+      await apiInputs.updateInput(input.id, { quantity_taken: newTotalTaken });
       const output = await apiOuputs.createOutput(input.id, {
-        quantity_output: (newQty - currentTaken).toFixed(2),
+        quantity_output: additionalQty.toFixed(2),  // ✅ Solo la cantidad adicional
         output_date: new Date().toISOString(),
-        remark: remarkValue || "Sin comentario",
-        produccion_embrionaria_id: production?.id, // Relacionar con la producción embrionaria actual
+        remark: remarkValue || `Uso adicional de ${additionalQty} unidades`,
+        produccion_embrionaria_id: production?.id,
       });
 
       // Guardar el id del output para asociarlo a la producción
@@ -1803,7 +1807,7 @@ const EmbryoProduction = () => {
                         );
                         const projectedAvailable =
                           editingInputId === entry.id
-                            ? received - parseTotalValue(editValue, taken)
+                            ? received - (taken + parseTotalValue(editValue, 0))
                             : totalAvailable;
                         const isDepleted = projectedAvailable <= 0;
 
@@ -1835,7 +1839,8 @@ const EmbryoProduction = () => {
                                   onChange={handleEditChange}
                                   min="0"
                                   step="0.1"
-                                  max={received}
+                                  max={(received - taken).toFixed(1)}
+                                  placeholder={`Máx: ${(received - taken).toFixed(1)}`}
                                   disabled={updateLoading}
                                 />
                               ) : (

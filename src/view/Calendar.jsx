@@ -121,10 +121,10 @@ const Calendar = () => {
       || rawTask.end_datetime
       || rawTask.endDateTime;
 
-    const summary = rawTask.summary
-      || rawTask.name
-      || rawTask.task_name
+    const summary = rawTask.task_name
       || rawTask.taskName
+      || rawTask.summary
+      || rawTask.name
       || rawTask.description
       || 'Evento';
 
@@ -139,7 +139,7 @@ const Calendar = () => {
       summary,
       clientName,
       client_name: clientName, // Mantener ambos para compatibilidad
-      taskName: rawTask.taskName || rawTask.task_name || summary,
+      taskName: rawTask.task_name || rawTask.taskName || summary,
       taskType: rawTask.taskType || rawTask.task_type || rawTask.type,
       start: {
         date: startDateStr || (startDateTime ? String(startDateTime).split(' ')[0] : ''),
@@ -1189,7 +1189,9 @@ const Calendar = () => {
                   <div className="list-group">
                     {selectedDayTasks.map(t => {
                       const clientName = t.client_name || t.clientName || t.client?.full_name || 'Sin cliente';
-                      const taskSummary = t.summary || t.task_name || 'Tarea';
+                      const taskSummary = t.task_name === 'Opus' && t.summary ? 
+                        `${t.task_name} - ${t.summary}` : 
+                        (t.task_name || t.summary || 'Tarea');
                       
                       return (
                       <div 
@@ -1840,7 +1842,9 @@ const Calendar = () => {
                           })
                           .map(task => {
                             const clientName = task.client_name || task.clientName || task.client?.full_name || 'Sin cliente';
-                            const taskSummary = task.summary || task.task_name || 'Tarea';
+                        const taskSummary = task.task_name === 'Opus' && task.summary ? 
+                          `${task.task_name} - ${task.summary}` : 
+                          (task.task_name || task.summary || 'Tarea');
                             const taskDate = task.start_date || task.start?.date || 'Sin fecha';
                             const taskTime = task.start_time || (task.start?.dateTime && new Date(task.start.dateTime).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })) || 'Sin hora';
                             
