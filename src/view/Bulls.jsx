@@ -15,7 +15,6 @@ const Bulls = () => {
   });
 
   // Estado para los datos
-  const [filtered, setFilteredBulls] = useState([]);
   const [bulls, setBulls] = useState([]);
   const [races, setRaces] = useState([]);
   const [sexes, setSexes] = useState([]);
@@ -81,6 +80,11 @@ const Bulls = () => {
   const [editingAvailableEntry, setEditingAvailableEntry] = useState(null);
   const [editingAvailableValue, setEditingAvailableValue] = useState("");
   const [updatingEntry, setUpdatingEntry] = useState(false);
+  
+  // Estados para edición de cantidad a tomar por fila
+  const [editingTakeEntryId, setEditingTakeEntryId] = useState(null);
+  const [editingTakeValue, setEditingTakeValue] = useState("");
+  const [updatingTakeEntry, setUpdatingTakeEntry] = useState(false);
 
   // Paginación local
   const [pagination, setPagination] = useState({
@@ -94,44 +98,15 @@ const Bulls = () => {
     return Number.isNaN(parsed) ? 0 : parsed;
   };
 
-  const computeAvailableUnits = (input) => {
+  const computeAvailableUnits = useCallback((input) => {
     if (input?.total !== undefined && input?.total !== null) {
       return parseNumber(input.total);
     }
+    // ✅ Asegurar cálculo correcto de unidades disponibles
     return parseNumber(input.quantity_received) - parseNumber(input.quantity_taken);
-  };
+  }, []);
 
-  const applyLocalFilters = useCallback(
-    (bullsToFilter) => {
-      let filtered = [...bullsToFilter];
 
-      // Filtrar por raza
-      if (filter.race) {
-        filtered = filtered.filter((bull) => bull.race_name === filter.race);
-      }
-
-      // Filtrar por sexo
-      if (filter.sex) {
-        filtered = filtered.filter((bull) => bull.sex_name === filter.sex);
-      }
-
-      // Filtrar por estado
-      if (filter.status) {
-        const statusToFilter =
-          filter.status === "Activo" ? "Active" : "Inactive";
-        filtered = filtered.filter((bull) => bull.status === statusToFilter);
-      }
-
-      console.log("Resultados después de filtros locales:", filtered);
-
-      setFilteredBulls(filtered);
-      setPagination((prev) => ({
-        ...prev,
-        totalItems: filtered.length,
-      }));
-    },
-    [filter]
-  );
 
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
@@ -165,10 +140,6 @@ const Bulls = () => {
       console.log("Lista de toros procesada:", bullsList);
 
       setBulls(bullsList);
-      // Aplicar filtros locales después de establecer los toros
-      setTimeout(() => {
-        applyLocalFilters(bullsList);
-      }, 0);
     } catch (error) {
       console.error("Error al cargar toros del cliente:", error);
       let errorMessage = "No se pudieron cargar los toros del cliente. ";
@@ -187,7 +158,6 @@ const Bulls = () => {
 
       setError(errorMessage);
       setBulls([]);
-      setFilteredBulls([]);
     } finally {
       setLoading(false);
     }
@@ -315,7 +285,7 @@ const Bulls = () => {
   // Efecto para cargar toros cuando cambia el cliente
   useEffect(() => {
     loadClientBulls(filter.searchQuery);
-  }, [loadClientBulls, selectedClient]);
+  }, [loadClientBulls, selectedClient, filter.searchQuery]);
 
   // Efecto para recargar toros cuando cambia el término de búsqueda (con debounce)
   useEffect(() => {
@@ -328,18 +298,7 @@ const Bulls = () => {
     return () => clearTimeout(timer);
   }, [filter.searchQuery, selectedClient, loadClientBulls]);
 
-  // Efecto para manejar la recuperación del cliente del localStorage
-  useEffect(() => {
-    if (selectedClient && selectedClient.id) {
-      console.log("Cliente recuperado del localStorage:", selectedClient);
-      // Asegurar que los filtros se apliquen correctamente
-      if (bulls.length > 0) {
-        setTimeout(() => {
-          applyLocalFilters(bulls);
-        }, 0);
-      }
-    }
-  }, [selectedClient, bulls, applyLocalFilters]); // ✅ Agregado applyLocalFilters
+
 
   // Cargar clientes
   const loadClients = useCallback(async () => {
@@ -380,6 +339,14 @@ const Bulls = () => {
 
     return () => clearTimeout(timer);
   }, [clientSearchTerm, loadClients]);
+
+  // Efecto para actualizar la paginación cuando cambian los toros filtrados
+  useEffect(() => {
+    setPagination((prev) => ({
+      ...prev,
+      totalItems: filteredBulls.length,
+    }));
+  }, [filteredBulls]);
 
   // Manejar cambio en filtros
   const handleFilterChange = (e) => {
@@ -631,19 +598,91 @@ const Bulls = () => {
     }
   };
 
-  // Función para iniciar edición de cantidad disponible
-  const handleStartEditAvailable = (entry) => {
-    const currentReceived = parseNumber(entry.quantity_received || 0);
-    const currentTaken = parseNumber(entry.quantity_taken || 0);
-    const currentAvailable = currentReceived - currentTaken;
-    setEditingAvailableEntry(entry.id);
-    setEditingAvailableValue(currentAvailable.toFixed(1));
+  
+
+  // Función para iniciar edición de cantidad a tomar (al presionar la fila)
+  const handleStartEditTake = (entry) => {
+    const available = entry.quantity_available !== undefined
+      ? parseNumber(entry.quantity_available)
+      : parseNumber(entry.quantity_received || 0) - parseNumber(entry.quantity_taken || 0);
+    
+    setEditingTakeEntryId(entry.id);
+    setEditingTakeValue(""); // Empezar con campo vacío
   };
 
-  // Función para cancelar edición de cantidad disponible
-  const handleCancelEditAvailable = () => {
-    setEditingAvailableEntry(null);
-    setEditingAvailableValue("");
+  // Función para cancelar edición de cantidad a tomar
+  const handleCancelEditTake = () => {
+    setEditingTakeEntryId(null);
+    setEditingTakeValue("");
+  };
+
+  // Función para guardar cantidad a tomar
+  const handleSaveTake = async (entry) => {
+    if (!entry || editingTakeEntryId !== entry.id) return;
+
+    const takeAmount = parseFloat(editingTakeValue);
+    const currentReceived = parseNumber(entry.quantity_received || 0);
+    const currentTaken = parseNumber(entry.quantity_taken || 0);
+    const currentAvailable = entry.quantity_available !== undefined
+      ? parseNumber(entry.quantity_available)
+      : currentReceived - currentTaken;
+
+    // Validaciones
+    if (isNaN(takeAmount) || takeAmount <= 0) {
+      alert("Por favor ingrese una cantidad válida mayor a cero (ej: 0.6, 1.0, 2.5)");
+      return;
+    }
+
+    if (takeAmount > currentAvailable) {
+      alert(`La cantidad a tomar (${takeAmount.toFixed(1)}) no puede ser mayor a la cantidad disponible (${currentAvailable.toFixed(1)})`);
+      return;
+    }
+
+    try {
+      setUpdatingTakeEntry(true);
+      const inputsModule = await import("../Api/inputs");
+
+      // ✅ Usar addOutputToInput para registrar el descuento correctamente
+      // Esto creará un output y ajustará automáticamente las cantidades del input
+      const outputData = {
+        quantity_output: takeAmount,
+        output_date: new Date().toISOString(),
+        remark: `Descuento de ${takeAmount.toFixed(1)} unidades`,
+        produccion_embrionaria_id: 0,
+      };
+
+      await inputsModule.addOutputToInput(entry.id, outputData);
+
+      await loadEntriesForModal(entriesModalBull.id, entriesSearch, entriesPagination.currentPage);
+      
+      // Recargar toros para actualizar totales
+      if (selectedClient?.id) {
+        try {
+          const response = await getBullsByClient(selectedClient.id, 0, 100, filter.searchQuery);
+          const bullsList = Array.isArray(response)
+            ? response
+            : response?.items
+            ? response.items
+            : response?.results
+            ? response.results
+            : [];
+          setBulls(bullsList);
+        } catch (error) {
+          console.error("Error al actualizar lista de toros:", error);
+        }
+      }
+
+      handleCancelEditTake();
+      alert("Cantidad descontada correctamente");
+    } catch (error) {
+      console.error("Error al descontar cantidad:", error);
+      alert(
+        "Error al descontar la cantidad: " +
+          (error.response?.data?.detail || error.message)
+      );
+    } finally {
+      setUpdatingTakeEntry(false);
+    }
   };
 
   // Función para guardar cantidad disponible modificada
@@ -653,22 +692,16 @@ const Bulls = () => {
     const newAvailable = parseFloat(editingAvailableValue);
     const currentReceived = parseNumber(entry.quantity_received || 0);
     const currentTaken = parseNumber(entry.quantity_taken || 0);
-    const currentAvailable = currentReceived - currentTaken;
 
-    // Validaciones
+    // Validaciones corregidas - permitir cualquier cantidad >= 0 y <= cantidad recibida
     if (isNaN(newAvailable) || newAvailable < 0) {
-      alert("Por favor ingrese una cantidad válida mayor o igual a cero");
+      alert("Por favor ingrese una cantidad válida mayor o igual a cero (ej: 0.6, 1.0, 0.0)");
       return;
     }
 
+    // Permitir cualquier cantidad entre 0 y la cantidad recibida (incluyendo decimales)
     if (newAvailable > currentReceived) {
-      alert(`La cantidad disponible (${newAvailable.toFixed(1)}) no puede ser mayor a la recibida (${currentReceived.toFixed(1)})`);
-      return;
-    }
-
-    // Si no hay cambios, cancelar edición
-    if (Math.abs(newAvailable - currentAvailable) < 0.01) {
-      handleCancelEditAvailable();
+      alert(`La cantidad disponible (${newAvailable.toFixed(1)}) no puede ser mayor a la cantidad recibida (${currentReceived.toFixed(1)})`);
       return;
     }
 
@@ -676,18 +709,32 @@ const Bulls = () => {
       setUpdatingEntry(true);
       const inputsModule = await import("../Api/inputs");
 
-      // Calcular nueva cantidad utilizada: quantity_taken = quantity_received - quantity_available
+      // Calcular cantidad a tomar como diferencia: takeAmount = currentTaken - newQuantityTaken
       const newQuantityTaken = currentReceived - newAvailable;
+      const takeAmount = newQuantityTaken - currentTaken;
 
-      // Actualizar la entrada
-      await inputsModule.updateInput(entry.id, {
-        quantity_received: currentReceived,
-        quantity_taken: newQuantityTaken,
-        escalarilla: entry.escalarilla || entry.escalerilla || "",
-        lote: entry.lote || "",
-        bull_id: entry.bull_id,
-        fv: entry.fv || entry.created_at,
-      });
+      // ✅ Si hay un descuento (nueva cantidad tomada > cantidad tomada actual),
+      // crear un output para registrar el cambio
+      if (takeAmount > 0) {
+        const outputData = {
+          quantity_output: takeAmount,
+          output_date: new Date().toISOString(),
+          remark: `Ajuste de cantidad disponible: ${takeAmount.toFixed(1)} unidades descontadas`,
+          produccion_embrionaria_id: 0,
+        };
+
+        await inputsModule.addOutputToInput(entry.id, outputData);
+      } else if (takeAmount < 0) {
+        // Si es un ajuste positivo (devolución), actualizar directamente el input
+        await inputsModule.updateInput(entry.id, {
+          quantity_taken: newQuantityTaken,
+          quantity_available: newAvailable,
+          escalarilla: entry.escalarilla || entry.escalerilla || "",
+          lote: entry.lote || "",
+          bull_id: entry.bull_id,
+          fv: entry.fv || entry.created_at,
+        });
+      }
 
       // Recargar la lista de entradas
       if (entriesModalBull) {
@@ -712,6 +759,7 @@ const Bulls = () => {
       }
 
       handleCancelEditAvailable();
+      alert("Cantidad disponible actualizada correctamente");
     } catch (error) {
       console.error("Error al actualizar cantidad disponible:", error);
       alert("Error al actualizar la cantidad: " + (error.response?.data?.detail || error.message));
@@ -842,7 +890,7 @@ const Bulls = () => {
     }
 
     return entries.filter((entry) => computeAvailableUnits(entry) > 0);
-  }, [bullInputs, entryVisibilityFilter]);
+  }, [bullInputs, entryVisibilityFilter, computeAvailableUnits]);
 
   useEffect(() => {
     if (!editingEntryId) return;
@@ -1840,19 +1888,20 @@ const Bulls = () => {
                   <>
                     <div className="table-responsive">
                       <table className="table table-hover table-sm">
-                        <thead className="table-light">
-                          <tr>
-                            <th>ID</th>
-                            <th>Fecha</th>
-                            <th>Lote</th>
-                            <th>Escalarilla</th>
-                            <th className="text-center">Recibida</th>
-                            <th className="text-center">Utilizada</th>
-                            <th className="text-center">Disponible</th>
-                            <th>Última Salida</th>
-                            <th className="text-center">Acciones</th>
-                          </tr>
-                        </thead>
+                         <thead className="table-light">
+                           <tr>
+                             <th>ID</th>
+                             <th>Fecha</th>
+                             <th>Lote</th>
+                             <th>Escalarilla</th>
+                             <th className="text-center">Recibida</th>
+                             <th className="text-center">Utilizada</th>
+                             <th className="text-center">Disponible</th>
+                             <th className="text-center">Cantidad a Tomar</th>
+                             <th>Última Salida</th>
+                             <th className="text-center">Acciones</th>
+                           </tr>
+                         </thead>
                         <tbody>
                           {entriesList.map((entry) => {
                             const received = parseNumber(entry.quantity_received || 0);
@@ -1861,106 +1910,135 @@ const Bulls = () => {
                               ? parseNumber(entry.quantity_available)
                               : received - taken;
 
-                            return (
-                              <tr key={entry.id}>
-                                <td className="fw-semibold">#{entry.id}</td>
-                                <td>
-                                  {entry.created_at
-                                    ? new Date(entry.created_at).toLocaleDateString('es-CO', {
-                                        timeZone: 'UTC'
-                                      })
-                                    : "N/A"}
-                                </td>
-                                <td>{entry.lote || "N/A"}</td>
-                                <td>{entry.escalarilla || entry.escalerilla || "N/A"}</td>
-                                <td className="text-center">
-                                  <span className="fw-semibold">
-                                    {received.toFixed(1)}
-                                  </span>
-                                </td>
-                                <td className="text-center">
-                                  <span className="fw-semibold">
-                                    {taken.toFixed(1)}
-                                  </span>
-                                </td>
-                                <td className="text-center">
-                                  {editingAvailableEntry === entry.id ? (
-                                    <div className="d-flex align-items-center gap-2 justify-content-center">
-                                      <input
-                                        type="number"
-                                        className="form-control form-control-sm"
-                                        style={{ width: "80px" }}
-                                        value={editingAvailableValue}
-                                        onChange={(e) => setEditingAvailableValue(e.target.value)}
-                                        min="0"
-                                        step="0.1"
-                                        disabled={updatingEntry}
-                                        onKeyDown={(e) => {
-                                          if (e.key === "Enter") {
-                                            handleSaveAvailable(entry);
-                                          } else if (e.key === "Escape") {
-                                            handleCancelEditAvailable();
-                                          }
-                                        }}
-                                        autoFocus
-                                      />
-                                      <button
-                                        className="btn btn-success btn-sm"
-                                        onClick={() => handleSaveAvailable(entry)}
-                                        disabled={updatingEntry}
-                                        title="Guardar"
-                                      >
-                                        {updatingEntry ? (
-                                          <span className="spinner-border spinner-border-sm" role="status" />
-                                        ) : (
-                                          <i className="bi bi-check"></i>
-                                        )}
-                                      </button>
-                                      <button
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={handleCancelEditAvailable}
-                                        disabled={updatingEntry}
-                                        title="Cancelar"
-                                      >
-                                        <i className="bi bi-x"></i>
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span
-                                      className={`fw-semibold ${
-                                    available <= 0 ? "text-danger" : "text-success"
-                                      }`}
-                                      style={{ cursor: "pointer" }}
-                                      onClick={() => handleStartEditAvailable(entry)}
-                                      title="Click para editar cantidad disponible"
-                                    >
-                                    {available.toFixed(1)}
-                                  </span>
-                                  )}
-                                </td>
-                                <td>
-                                  {entry.last_output_date
-                                    ? new Date(entry.last_output_date).toLocaleDateString('es-CO', {
-                                        timeZone: 'UTC'
-                                      })
-                                    : "N/A"}
-                                </td>
-                                <td>
-                                  <button
-                                    className="btn btn-outline-danger btn-sm"
-                                    onClick={() => handleDeleteEntry(entry)}
-                                    title="Eliminar entrada"
-                                    disabled={deletingEntry || updatingEntry || loadingEntries || editingAvailableEntry === entry.id}
-                                  >
-                                    {deletingEntry && entryToDelete?.id === entry.id ? (
-                                      <span className="spinner-border spinner-border-sm" role="status" />
-                                    ) : (
-                                      <i className="bi bi-trash"></i>
-                                    )}
-                                  </button>
-                                </td>
-                              </tr>
-                            );
+                             return (
+                               <tr 
+                                 key={entry.id}
+                                 className={editingTakeEntryId === entry.id ? "table-primary" : ""}
+                                 style={{ cursor: "pointer" }}
+                                 onClick={() => available > 0 && handleStartEditTake(entry)}
+                                 title={available > 0 ? "Click para descontar cantidad" : "No hay cantidad disponible"}
+                               >
+                                 <td className="fw-semibold">#{entry.id}</td>
+                                 <td>
+                                   {entry.created_at
+                                     ? new Date(entry.created_at).toLocaleDateString('es-CO', {
+                                         timeZone: 'UTC'
+                                       })
+                                     : "N/A"}
+                                 </td>
+                                 <td>{entry.lote || "N/A"}</td>
+                                 <td>{entry.escalarilla || entry.escalerilla || "N/A"}</td>
+                                 <td className="text-center">
+                                   <span className="fw-semibold">
+                                     {received.toFixed(1)}
+                                   </span>
+                                 </td>
+                                 <td className="text-center">
+                                   <span className="fw-semibold">
+                                     {taken.toFixed(1)}
+                                   </span>
+                                 </td>
+                                 <td className="text-center">
+                                   <span className={`fw-semibold ${
+                                     available <= 0 ? "text-danger" : "text-success"
+                                   }`}>
+                                     {available.toFixed(1)}
+                                   </span>
+                                 </td>
+                                 <td className="text-center">
+                                   {editingTakeEntryId === entry.id ? (
+                                     <div className="d-flex align-items-center gap-2 justify-content-center">
+                                       <input
+                                         type="number"
+                                         className="form-control form-control-sm"
+                                         style={{ width: "80px" }}
+                                         value={editingTakeValue}
+                                         onChange={(e) => setEditingTakeValue(e.target.value)}
+                                         min="0"
+                                         max={available}
+                                         step="0.1"
+                                         placeholder="0.0"
+                                         disabled={updatingTakeEntry}
+                                         onKeyDown={(e) => {
+                                           if (e.key === "Enter") {
+                                             e.stopPropagation();
+                                             handleSaveTake(entry);
+                                           } else if (e.key === "Escape") {
+                                             e.stopPropagation();
+                                             handleCancelEditTake();
+                                           }
+                                         }}
+                                         onClick={(e) => e.stopPropagation()}
+                                         autoFocus
+                                       />
+                                       <button
+                                         className="btn btn-success btn-sm"
+                                         onClick={(e) => {
+                                           e.stopPropagation();
+                                           handleSaveTake(entry);
+                                         }}
+                                         disabled={updatingTakeEntry}
+                                         title="Descontar"
+                                       >
+                                         {updatingTakeEntry ? (
+                                           <span className="spinner-border spinner-border-sm" role="status" />
+                                         ) : (
+                                           <i className="bi bi-check"></i>
+                                         )}
+                                       </button>
+                                       <button
+                                         className="btn btn-secondary btn-sm"
+                                         onClick={(e) => {
+                                           e.stopPropagation();
+                                           handleCancelEditTake();
+                                         }}
+                                         disabled={updatingTakeEntry}
+                                         title="Cancelar"
+                                       >
+                                         <i className="bi bi-x"></i>
+                                       </button>
+                                     </div>
+                                   ) : (
+                                     <span
+                                       className={`fw-semibold ${
+                                         available <= 0 ? "text-muted" : "text-primary"
+                                       }`}
+                                       style={{ 
+                                         cursor: available > 0 ? "pointer" : "not-allowed",
+                                         opacity: available > 0 ? 1 : 0.5 
+                                       }}
+                                       title={available > 0 ? "Click en la fila para descontar" : "No hay cantidad disponible"}
+                                     >
+                                       {available > 0 ? "Click para descontar" : "No disponible"}
+                                     </span>
+                                   )}
+                                 </td>
+                                 <td>
+                                   {entry.last_output_date
+                                     ? new Date(entry.last_output_date).toLocaleDateString('es-CO', {
+                                         timeZone: 'UTC'
+                                       })
+                                     : "N/A"}
+                                 </td>
+                                 <td>
+                                   <button
+                                     className="btn btn-outline-danger btn-sm"
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       handleDeleteEntry(entry);
+                                     }}
+                                     title="Eliminar entrada"
+                                     disabled={deletingEntry || updatingEntry || loadingEntries || editingAvailableEntry === entry.id || editingTakeEntryId === entry.id}
+                                   >
+                                     {deletingEntry && entryToDelete?.id === entry.id ? (
+                                       <span className="spinner-border spinner-border-sm" role="status" />
+                                     ) : (
+                                       <i className="bi bi-trash"></i>
+                                     )}
+                                   </button>
+                                 </td>
+                               </tr>
+                             );
                           })}
                         </tbody>
                       </table>

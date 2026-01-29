@@ -1,0 +1,32 @@
+
+
+body correcto: 
+
+{
+  "quantity_output": 1,
+  "output_date": "2026-01-29T15:37:02.732Z",
+  "remark": "string",
+  "produccion_embrionaria_id": 0
+}
+
+
+error que se ve: error 422 
+
+{
+    "detail": [
+        {
+            "type": "missing",
+            "loc": [
+                "body",
+                "quantity_output"
+            ],
+            "msg": "Field required",
+            "input": {
+                "quantity": 0.6,
+                "date": "2026-01-29",
+                "description": "Descuento de 0.6 unidades"
+            },
+            "url": "https://errors.pydantic.dev/2.5/v/missing"
+        }
+    ]
+}
