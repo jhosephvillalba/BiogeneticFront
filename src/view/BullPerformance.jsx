@@ -33,7 +33,7 @@ const BullPerformance = () => {
   // Función para normalizar datos de la API
   const normalizeApiData = (rawData) => {
     if (!rawData) return [];
-    
+
     return rawData.map((item, index) => ({
       id: item.id || `bull-${index}`,
       nombre: item.toro || 'Sin nombre',
@@ -317,8 +317,8 @@ const BullPerformance = () => {
       setLoadingRaces(true);
       const response = await getRaces(0, 1000);
       // La API puede devolver un array directamente o dentro de un objeto
-      const racesList = Array.isArray(response) 
-        ? response 
+      const racesList = Array.isArray(response)
+        ? response
         : response.items || response.data || [];
       setRaces(racesList);
     } catch (error) {
@@ -369,7 +369,7 @@ const BullPerformance = () => {
       console.log("URL que se enviará:", `/bull-performance/?${new URLSearchParams(apiFilters).toString()}`);
       const response = await getBullPerformanceData(apiFilters);
       console.log("Respuesta de la API:", response);
-      
+
       // Log detallado de la estructura de datos
       if (response && response.data) {
         console.log("Estructura de datos:", {
@@ -378,7 +378,7 @@ const BullPerformance = () => {
           firstItem: Array.isArray(response.data) && response.data.length > 0 ? response.data[0] : 'No items'
         });
       }
-      
+
       // Manejar la respuesta de la API
       if (response) {
         // La API puede devolver diferentes estructuras, manejamos ambos casos
@@ -428,7 +428,7 @@ const BullPerformance = () => {
       }
     } catch (error) {
       console.error("Error al cargar datos de rendimiento:", error);
-      
+
       // Determinar el tipo de error
       let errorMessage = "Error al cargar los datos de rendimiento";
       if (error.response) {
@@ -443,9 +443,9 @@ const BullPerformance = () => {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       setError(errorMessage);
-      
+
       // Fallback a datos mock en caso de error - Agrupado con startTransition
       console.log("Usando datos mock debido al error");
       startTransition(() => {
@@ -507,8 +507,8 @@ const BullPerformance = () => {
     setSelectedClient(null);
     setClientSearchTerm("");
     setSelectedRace(null);
-    setPagination(prev => ({ 
-      ...prev, 
+    setPagination(prev => ({
+      ...prev,
       currentPage: 1,
       hasMore: true
     }));
@@ -527,6 +527,22 @@ const BullPerformance = () => {
     setShowClientDropdown(false);
   };
 
+  // Función para obtener el color según el porcentaje de producción
+  const getProductionColor = (val) => {
+    const value = parseFloat(val || 0);
+
+    // % Producción > 25.29 Verde
+    if (value > 25.29) return '#198754';
+
+    // 24 < % Producción <= 25.29 Naranja
+    if (value > 24 && value <= 25.29) return '#fd7e14';
+
+    // % Producción <= 24 Rojo
+    if (value <= 24) return '#dc3545';
+
+    return '#6c757d'; // Default para casos no cubiertos (debería ser inalcanzable con esta lógica)
+  };
+
   return (
     <div className="container-fluid py-4">
       {/* Título */}
@@ -539,10 +555,10 @@ const BullPerformance = () => {
           <div className="alert alert-warning alert-dismissible fade show" role="alert">
             <i className="bi bi-exclamation-triangle me-2"></i>
             <strong>Modo de desarrollo:</strong> Se están mostrando datos de ejemplo. Conecta con la API para ver datos reales.
-            <button 
-              type="button" 
-              className="btn-close" 
-              data-bs-dismiss="alert" 
+            <button
+              type="button"
+              className="btn-close"
+              data-bs-dismiss="alert"
               aria-label="Close"
               onClick={() => setUsingMockData(false)}
             ></button>
@@ -626,7 +642,7 @@ const BullPerformance = () => {
                     </div>
                   </span>
                 )}
-                
+
                 {/* Dropdown de clientes */}
                 {showClientDropdown && clients.length > 0 && (
                   <div className="position-absolute w-100 bg-white border border-top-0 shadow-sm" style={{ zIndex: 1000 }}>
@@ -773,7 +789,7 @@ const BullPerformance = () => {
                   <td>{item.donantes_fertilizadas.toLocaleString()}</td>
                   <td>{item.oocitos_civ.toLocaleString()}</td>
                   <td>
-                    <span className={`badge ${(item.porcentaje_produccion || 0) >= 40 ? 'bg-success' : (item.porcentaje_produccion || 0) >= 30 ? 'bg-warning' : 'bg-danger'}`}>
+                    <span className="badge" style={{ backgroundColor: getProductionColor(item.porcentaje_produccion), color: 'white' }}>
                       {item.porcentaje_produccion || 0}%
                     </span>
                   </td>
