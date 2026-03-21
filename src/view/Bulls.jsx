@@ -108,59 +108,15 @@ const Bulls = () => {
 
 
 
-  const handleSelectClient = async (client) => {
+  const handleSelectClient = (client) => {
     setSelectedClient(client);
     // Guardar el cliente seleccionado en localStorage
     localStorage.setItem('selectedClient', JSON.stringify(client));
     setClientSearchTerm("");
     setClients([]);
-
-    // Cargar los toros del cliente seleccionado
-    try {
-      setLoading(true);
-      setError(null);
-
-      console.log("Buscando toros para el cliente:", client);
-
-      const response = await getBullsByClient(client.id, 0, 100, filter.searchQuery);
-      console.log("Respuesta de la API:", response);
-
-      let bullsList = [];
-      if (Array.isArray(response)) {
-        bullsList = response;
-      } else if (response && response.items) {
-        bullsList = response.items;
-      } else if (response && response.results) {
-        bullsList = response.results;
-      } else {
-        console.warn("Formato de respuesta inesperado:", response);
-        bullsList = [];
-      }
-
-      console.log("Lista de toros procesada:", bullsList);
-
-      setBulls(bullsList);
-    } catch (error) {
-      console.error("Error al cargar toros del cliente:", error);
-      let errorMessage = "No se pudieron cargar los toros del cliente. ";
-
-      if (error.response?.data?.detail) {
-        const details = Array.isArray(error.response.data.detail)
-          ? error.response.data.detail[0]?.msg
-          : error.response.data.detail;
-        console.error("Detalles del error:", error.response.data);
-        errorMessage += details || JSON.stringify(error.response.data);
-      } else if (error.message) {
-        errorMessage += error.message;
-      } else {
-        errorMessage += "Error desconocido";
-      }
-
-      setError(errorMessage);
-      setBulls([]);
-    } finally {
-      setLoading(false);
-    }
+    
+    // ✅ La carga ahora se maneja centralizadamente mediante useEffect con debounce
+    // para evitar lag y pérdida de foco al filtrar.
   };
 
   const fetchBullInputs = useCallback(
@@ -282,21 +238,26 @@ const Bulls = () => {
     }
   }, [selectedClient]);
 
-  // Efecto para cargar toros cuando cambia el cliente
+  // Efecto único para cargar toros (con debounce para la búsqueda)
   useEffect(() => {
-    loadClientBulls(filter.searchQuery);
-  }, [loadClientBulls, selectedClient, filter.searchQuery]);
+    if (!selectedClient) {
+      setBulls([]);
+      return;
+    }
 
-  // Efecto para recargar toros cuando cambia el término de búsqueda (con debounce)
-  useEffect(() => {
-    if (!selectedClient) return;
+    // Si no hay término de búsqueda, cargamos inmediatamente
+    if (filter.searchQuery.trim() === "") {
+      loadClientBulls("");
+      return;
+    }
 
+    // Si hay término de búsqueda, usamos debounce de 500ms
     const timer = setTimeout(() => {
       loadClientBulls(filter.searchQuery);
-    }, 500); // Debounce de 500ms
+    }, 500);
 
     return () => clearTimeout(timer);
-  }, [filter.searchQuery, selectedClient, loadClientBulls]);
+  }, [selectedClient, filter.searchQuery, loadClientBulls]);
 
 
 
@@ -1086,7 +1047,7 @@ const Bulls = () => {
                       name="searchQuery"
                       value={filter.searchQuery}
                       onChange={handleFilterChange}
-                      disabled={loading}
+                      // disabled={loading} // ✅ Comentado para evitar pérdida de foco al escribir
                     />
                     {loading && filter.searchQuery && (
                       <small className="text-muted">
