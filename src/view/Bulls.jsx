@@ -100,8 +100,9 @@ const Bulls = () => {
 
   // ✅ Función para comparar cantidades decimales con tolerancia
   const isGreaterOrEqual = (a, b) => {
-    const diff = Math.round((a - b) * 100);
-    return diff >= 0;
+    const roundedA = parseFloat(a.toFixed(2));
+    const roundedB = parseFloat(b.toFixed(2));
+    return roundedA >= roundedB;
   };
 
   const computeAvailableUnits = useCallback((input) => {
@@ -600,14 +601,17 @@ const Bulls = () => {
       ? parseNumber(entry.quantity_available)
       : currentReceived - currentTaken;
 
-    // Validaciones
-    if (isNaN(takeAmount) || Math.round(takeAmount * 100) <= 0) {
+    // Validaciones - redondear ambos valores a 2 decimales para evitar problemas de precisión
+    const roundedTakeAmount = parseFloat(takeAmount.toFixed(2));
+    const roundedCurrentAvailable = parseFloat(currentAvailable.toFixed(2));
+    
+    if (isNaN(takeAmount) || roundedTakeAmount <= 0) {
       alert("Por favor ingrese una cantidad válida mayor a cero (ej: 0.6, 1.0, 2.5)");
       return;
     }
 
-    if (!isGreaterOrEqual(currentAvailable, takeAmount)) {
-      alert(`La cantidad a tomar (${takeAmount.toFixed(1)}) no puede ser mayor a la cantidad disponible (${currentAvailable.toFixed(1)})`);
+    if (roundedTakeAmount > roundedCurrentAvailable) {
+      alert(`La cantidad a tomar (${roundedTakeAmount.toFixed(2)}) no puede ser mayor a la cantidad disponible (${roundedCurrentAvailable.toFixed(2)})`);
       return;
     }
 
@@ -618,9 +622,9 @@ const Bulls = () => {
       // ✅ Usar addOutputToInput para registrar el descuento correctamente
       // Esto creará un output y ajustará automáticamente las cantidades del input
       const outputData = {
-        quantity_output: takeAmount,
+        quantity_output: roundedTakeAmount,
         output_date: new Date().toISOString(),
-        remark: `Descuento de ${takeAmount.toFixed(1)} unidades`,
+        remark: `Descuento de ${roundedTakeAmount.toFixed(1)} unidades`,
         produccion_embrionaria_id: 0,
       };
 
@@ -662,9 +666,13 @@ const Bulls = () => {
   const handleSaveAvailable = async (entry) => {
     if (!entry || editingAvailableEntry !== entry.id) return;
 
-    const newAvailable = parseFloat(editingAvailableValue);
-    const currentReceived = parseNumber(entry.quantity_received || 0);
+    const newAvailableRaw = parseFloat(editingAvailableValue);
+    const currentReceivedRaw = parseNumber(entry.quantity_received || 0);
     const currentTaken = parseNumber(entry.quantity_taken || 0);
+
+    // Redondear a 2 decimales para evitar problemas de precisión
+    const newAvailable = parseFloat(newAvailableRaw.toFixed(2));
+    const currentReceived = parseFloat(currentReceivedRaw.toFixed(2));
 
     // Validaciones corregidas - permitir cualquier cantidad >= 0 y <= cantidad recibida
     if (isNaN(newAvailable) || newAvailable < 0) {
@@ -673,7 +681,7 @@ const Bulls = () => {
     }
 
     // Permitir cualquier cantidad entre 0 y la cantidad recibida (incluyendo decimales)
-    if (!isGreaterOrEqual(currentReceived, newAvailable)) {
+    if (newAvailable > currentReceived) {
       alert(`La cantidad disponible (${newAvailable.toFixed(1)}) no puede ser mayor a la cantidad recibida (${currentReceived.toFixed(1)})`);
       return;
     }
@@ -1915,7 +1923,7 @@ const Bulls = () => {
                                    <span className={`fw-semibold ${
                                      available <= 0 ? "text-danger" : "text-success"
                                    }`}>
-                                     {available.toFixed(1)}
+                                     {available.toFixed(2)}
                                    </span>
                                  </td>
                                  <td className="text-center">
