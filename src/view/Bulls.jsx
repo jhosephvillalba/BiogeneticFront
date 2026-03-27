@@ -98,6 +98,11 @@ const Bulls = () => {
     return Number.isNaN(parsed) ? 0 : parsed;
   };
 
+  // ✅ Función para comparar cantidades decimales con tolerancia
+  const isGreaterThan = (a, b, tolerance = 0.0001) => {
+    return a > b + tolerance;
+  };
+
   const computeAvailableUnits = useCallback((input) => {
     if (input?.total !== undefined && input?.total !== null) {
       return parseNumber(input.total);
@@ -594,7 +599,7 @@ const Bulls = () => {
       return;
     }
 
-    if (takeAmount > currentAvailable) {
+    if (isGreaterThan(takeAmount, currentAvailable)) {
       alert(`La cantidad a tomar (${takeAmount.toFixed(1)}) no puede ser mayor a la cantidad disponible (${currentAvailable.toFixed(1)})`);
       return;
     }
@@ -661,7 +666,7 @@ const Bulls = () => {
     }
 
     // Permitir cualquier cantidad entre 0 y la cantidad recibida (incluyendo decimales)
-    if (newAvailable > currentReceived) {
+    if (isGreaterThan(newAvailable, currentReceived)) {
       alert(`La cantidad disponible (${newAvailable.toFixed(1)}) no puede ser mayor a la cantidad recibida (${currentReceived.toFixed(1)})`);
       return;
     }
