@@ -99,8 +99,11 @@ const Bulls = () => {
   };
 
   // ✅ Función para comparar cantidades decimales con tolerancia
-  const isGreaterThan = (a, b, tolerance = 0.0001) => {
-    return a > b + tolerance;
+  const isGreaterThan = (a, b) => {
+    // Redondear ambos a 2 decimales antes de comparar (suficiente para unidades de 0.1)
+    const roundedA = Math.round(a * 100) / 100;
+    const roundedB = Math.round(b * 100) / 100;
+    return roundedA > roundedB;
   };
 
   const computeAvailableUnits = useCallback((input) => {
