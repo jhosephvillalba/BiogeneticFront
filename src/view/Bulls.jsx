@@ -99,11 +99,9 @@ const Bulls = () => {
   };
 
   // ✅ Función para comparar cantidades decimales con tolerancia
-  const isGreaterThan = (a, b) => {
-    // Redondear ambos a 2 decimales antes de comparar (suficiente para unidades de 0.1)
-    const roundedA = Math.round(a * 100) / 100;
-    const roundedB = Math.round(b * 100) / 100;
-    return roundedA > roundedB;
+  const isGreaterOrEqual = (a, b) => {
+    const diff = Math.round((a - b) * 100);
+    return diff >= 0;
   };
 
   const computeAvailableUnits = useCallback((input) => {
@@ -585,6 +583,12 @@ const Bulls = () => {
     setEditingTakeValue("");
   };
 
+  // Función para cancelar edición de cantidad disponible
+  const handleCancelEditAvailable = () => {
+    setEditingAvailableEntry(null);
+    setEditingAvailableValue("");
+  };
+
   // Función para guardar cantidad a tomar
   const handleSaveTake = async (entry) => {
     if (!entry || editingTakeEntryId !== entry.id) return;
@@ -597,12 +601,12 @@ const Bulls = () => {
       : currentReceived - currentTaken;
 
     // Validaciones
-    if (isNaN(takeAmount) || takeAmount <= 0) {
+    if (isNaN(takeAmount) || Math.round(takeAmount * 100) <= 0) {
       alert("Por favor ingrese una cantidad válida mayor a cero (ej: 0.6, 1.0, 2.5)");
       return;
     }
 
-    if (isGreaterThan(takeAmount, currentAvailable)) {
+    if (!isGreaterOrEqual(currentAvailable, takeAmount)) {
       alert(`La cantidad a tomar (${takeAmount.toFixed(1)}) no puede ser mayor a la cantidad disponible (${currentAvailable.toFixed(1)})`);
       return;
     }
@@ -669,7 +673,7 @@ const Bulls = () => {
     }
 
     // Permitir cualquier cantidad entre 0 y la cantidad recibida (incluyendo decimales)
-    if (isGreaterThan(newAvailable, currentReceived)) {
+    if (!isGreaterOrEqual(currentReceived, newAvailable)) {
       alert(`La cantidad disponible (${newAvailable.toFixed(1)}) no puede ser mayor a la cantidad recibida (${currentReceived.toFixed(1)})`);
       return;
     }
