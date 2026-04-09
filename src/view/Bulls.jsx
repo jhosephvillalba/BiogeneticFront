@@ -74,6 +74,16 @@ const Bulls = () => {
     total: 0,
   });
 
+  // Estado para la vista de entradas por cliente
+  const [viewMode, setViewMode] = useState("bulls"); // "bulls" | "entries"
+  const [clientEntriesList, setClientEntriesList] = useState([]);
+  const [loadingClientEntries, setLoadingClientEntries] = useState(false);
+  const [clientEntriesPagination, setClientEntriesPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    total: 0,
+  });
+
   // Estados para acciones en el modal de entradas
   const [entryToDelete, setEntryToDelete] = useState(null);
   const [deletingEntry, setDeletingEntry] = useState(false);
@@ -121,6 +131,7 @@ const Bulls = () => {
     localStorage.setItem('selectedClient', JSON.stringify(client));
     setClientSearchTerm("");
     setClients([]);
+    setViewMode("bulls");
     
     // ✅ La carga ahora se maneja centralizadamente mediante useEffect con debounce
     // para evitar lag y pérdida de foco al filtrar.
@@ -163,6 +174,7 @@ const Bulls = () => {
   const clearSelectedClient = () => {
     setSelectedClient(null);
     localStorage.removeItem('selectedClient');
+    setViewMode("bulls");
   };
 
   // Cargar datos de referencia (razas y sexos)
@@ -511,6 +523,46 @@ const Bulls = () => {
     }
   }, []);
 
+  // Función para cargar entradas de un cliente (para la vista tipo tabla)
+  const loadClientEntries = useCallback(async (clientId, page = 1) => {
+    if (!clientId) return;
+    const itemsPerPage = 10;
+    try {
+      setLoadingClientEntries(true);
+      const inputsModule = await import("../Api/inputs");
+      const skip = (page - 1) * itemsPerPage;
+      const response = await inputsModule.getInputsByUser(clientId, skip, itemsPerPage);
+      
+      let items = [];
+      let total = 0;
+      if (Array.isArray(response)) {
+        items = response;
+        total = response.length;
+      } else if (response?.items) {
+        items = response.items;
+        total = response.total || response.count || items.length;
+      } else if (response?.results) {
+        items = response.results;
+        total = response.count || items.length;
+      }
+
+      setClientEntriesList(items);
+      setClientEntriesPagination(prev => ({ ...prev, currentPage: page, total: total }));
+    } catch (error) {
+      console.error("Error al cargar entradas del cliente:", error);
+      setClientEntriesList([]);
+      setClientEntriesPagination(prev => ({ ...prev, total: 0 }));
+    } finally {
+      setLoadingClientEntries(false);
+    }
+  }, []);
+
+  const handleClientEntriesPageChange = (newPage) => {
+    if (selectedClient?.id) {
+      loadClientEntries(selectedClient.id, newPage);
+    }
+  };
+
   // Función para cerrar el modal de entradas
   const closeEntriesModal = () => {
     setShowEntriesModal(false);
@@ -630,7 +682,11 @@ const Bulls = () => {
 
       await inputsModule.addOutputToInput(entry.id, outputData);
 
-      await loadEntriesForModal(entriesModalBull.id, entriesSearch, entriesPagination.currentPage);
+      if (entriesModalBull) {
+        await loadEntriesForModal(entriesModalBull.id, entriesSearch, entriesPagination.currentPage);
+      } else if (viewMode === "entries" && selectedClient?.id) {
+        await loadClientEntries(selectedClient.id, clientEntriesPagination.currentPage);
+      }
       
       // Recargar toros para actualizar totales
       if (selectedClient?.id) {
@@ -1052,6 +1108,7 @@ const Bulls = () => {
         {/* Filtros solo visibles si hay un cliente seleccionado */}
         {selectedClient && (
           <>
+            {viewMode === "bulls" && (
             <div className="card mb-4">
               <div className="card-body">
                 <div className="row g-3">
@@ -1138,13 +1195,31 @@ const Bulls = () => {
                 </div>
               </div>
             </div>
+            )}
 
-            {/* Botón para agregar nuevo toro */}
-            <div className="d-flex justify-content-end mb-3">
+            {/* Botón para cambiar vista de tabla y agregar nuevo toro */}
+            <div className="d-flex justify-content-between align-items-center mb-3">
               <button
+                type="button"
+                className={`btn ${viewMode === "entries" ? "btn-secondary" : "btn-info text-white"}`}
+                onClick={() => {
+                  if (viewMode === "bulls") {
+                    setViewMode("entries");
+                    loadClientEntries(selectedClient.id, 1);
+                  } else {
+                    setViewMode("bulls");
+                  }
+                }}
+                disabled={loading}
+              >
+                <i className={`bi ${viewMode === "bulls" ? "bi-list-ul" : "bi-arrow-left"} me-2`}></i>
+                {viewMode === "bulls" ? "Listar solo las entradas" : "Volver a toros"}
+              </button>
+              <button
+                type="button"
                 className="btn btn-success"
                 onClick={() => setShowNewBullModal(true)}
-                disabled={loading}
+                disabled={loading || viewMode === "entries"}
               >
                 <i className="bi bi-plus-circle me-2"></i>
                 Nuevo Toro
@@ -1154,8 +1229,8 @@ const Bulls = () => {
         )}
       </div>
 
-      {/* Tabla de toros */}
-      {selectedClient && (
+      {/* Tabla de toros o entradas */}
+      {selectedClient && viewMode === "bulls" && (
         <>
           <div className="table-responsive rounded-3 border">
             <table className="table table-hover mb-0">
@@ -1352,6 +1427,199 @@ const Bulls = () => {
                       onClick={() =>
                         handlePageChange(pagination.currentPage + 1)
                       }
+                    >
+                      &raquo;
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Tabla de entradas por cliente */}
+      {selectedClient && viewMode === "entries" && (
+        <>
+          <div className="table-responsive rounded-3 border">
+            <table className="table table-hover mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th width="5%">ID</th>
+                  <th width="15%">Toro</th>
+                  <th width="10%">Fecha</th>
+                  <th width="10%">Lote</th>
+                  <th width="15%">Escalarilla</th>
+                  <th width="10%" className="text-center">Recibida</th>
+                  <th width="10%" className="text-center">Utilizada</th>
+                  <th width="10%" className="text-center">Disponible</th>
+                  <th width="15%" className="text-center">Cantidad a Tomar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingClientEntries ? (
+                  <tr>
+                    <td colSpan="8" className="text-center py-4">
+                      <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Cargando...</span>
+                      </div>
+                      <p className="mt-2">Cargando entradas...</p>
+                    </td>
+                  </tr>
+                ) : clientEntriesList.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="text-center text-muted py-4">
+                      <i className="bi bi-inbox fs-3 d-block mb-2"></i>
+                      No hay entradas registradas para este cliente.
+                    </td>
+                  </tr>
+                ) : (
+                  clientEntriesList.map((entry) => {
+                    const bullInfo = bulls.find((b) => b.id === entry.bull_id);
+                    const bullName = bullInfo ? bullInfo.name : `Toro #${entry.bull_id}`;
+
+                    const received = parseNumber(entry.quantity_received || 0);
+                    const taken = parseNumber(entry.quantity_taken || 0);
+                    const available = entry.quantity_available !== undefined
+                      ? parseNumber(entry.quantity_available)
+                      : received - taken;
+
+                    return (
+                      <tr 
+                        key={entry.id}
+                        className={editingTakeEntryId === entry.id ? "table-primary" : ""}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => available > 0 && handleStartEditTake(entry)}
+                        title={available > 0 ? "Click para descontar cantidad" : "No hay cantidad disponible"}
+                      >
+                        <td className="fw-semibold">#{entry.id}</td>
+                        <td>{bullName}</td>
+                        <td>
+                          {entry.created_at
+                            ? new Date(entry.created_at).toLocaleDateString("es-CO", { timeZone: "UTC" })
+                            : "N/A"}
+                        </td>
+                        <td>{entry.lote || "N/A"}</td>
+                        <td>{entry.escalarilla ?? entry.escalerilla ?? "N/A"}</td>
+                        <td className="text-center fw-semibold">{received.toFixed(1)}</td>
+                        <td className="text-center fw-semibold">{taken.toFixed(1)}</td>
+                        <td className="text-center">
+                          <span className={`fw-semibold ${available <= 0 ? "text-danger" : "text-success"}`}>
+                            {available.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="text-center">
+                          {editingTakeEntryId === entry.id ? (
+                            <div className="d-flex align-items-center gap-2 justify-content-center">
+                              <input
+                                type="number"
+                                className="form-control form-control-sm"
+                                style={{ width: "80px" }}
+                                value={editingTakeValue}
+                                onChange={(e) => setEditingTakeValue(e.target.value)}
+                                min="0"
+                                max={available}
+                                step="0.1"
+                                placeholder="0.0"
+                                disabled={updatingTakeEntry}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.stopPropagation();
+                                    handleSaveTake(entry);
+                                  } else if (e.key === "Escape") {
+                                    e.stopPropagation();
+                                    handleCancelEditTake();
+                                  }
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-success btn-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSaveTake(entry);
+                                }}
+                                disabled={updatingTakeEntry}
+                                title="Descontar"
+                              >
+                                {updatingTakeEntry ? (
+                                  <span className="spinner-border spinner-border-sm" role="status" />
+                                ) : (
+                                  <i className="bi bi-check"></i>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCancelEditTake();
+                                }}
+                                disabled={updatingTakeEntry}
+                                title="Cancelar"
+                              >
+                                <i className="bi bi-x"></i>
+                              </button>
+                            </div>
+                          ) : (
+                            <span
+                              className={`fw-semibold ${available <= 0 ? "text-muted" : "text-primary"}`}
+                              style={{ 
+                                cursor: available > 0 ? "pointer" : "not-allowed",
+                                opacity: available > 0 ? 1 : 0.5 
+                              }}
+                              title={available > 0 ? "Click en la fila para descontar" : "No hay cantidad disponible"}
+                            >
+                              {available > 0 ? "Click para descontar" : "No disponible"}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Paginación de entradas de cliente */}
+          {clientEntriesPagination.total > clientEntriesPagination.itemsPerPage && (
+            <div className="d-flex justify-content-center mt-3">
+              <nav aria-label="Paginación de entradas">
+                <ul className="pagination">
+                  <li className={`page-item ${clientEntriesPagination.currentPage === 1 ? "disabled" : ""}`}>
+                    <button
+                      className="page-link"
+                      onClick={() => handleClientEntriesPageChange(clientEntriesPagination.currentPage - 1)}
+                    >
+                      &laquo;
+                    </button>
+                  </li>
+                  {Array.from({ length: Math.ceil(clientEntriesPagination.total / clientEntriesPagination.itemsPerPage) }).map((_, index) => (
+                    <li
+                      key={`client-entry-page-${index}`}
+                      className={`page-item ${clientEntriesPagination.currentPage === index + 1 ? "active" : ""}`}
+                    >
+                      <button
+                        className="page-link"
+                        onClick={() => handleClientEntriesPageChange(index + 1)}
+                      >
+                        {index + 1}
+                      </button>
+                    </li>
+                  ))}
+                  <li
+                    className={`page-item ${
+                      clientEntriesPagination.currentPage === Math.ceil(clientEntriesPagination.total / clientEntriesPagination.itemsPerPage)
+                        ? "disabled"
+                        : ""
+                    }`}
+                  >
+                    <button
+                      className="page-link"
+                      onClick={() => handleClientEntriesPageChange(clientEntriesPagination.currentPage + 1)}
                     >
                       &raquo;
                     </button>
