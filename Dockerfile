@@ -31,13 +31,25 @@ CMD ["yarn", "dev", "--host", "0.0.0.0"]
 # =========================================================
 FROM base AS builder
 
+# Declarar los argumentos de construcción (build-args) que pasa Easypanel / CI
+ARG VITE_API_URL
+ARG VITE_APP_NAME
+ARG VITE_APP_ENV
+ARG VITE_APP_VERSION
+
+# Convertirlos en variables de entorno para que Vite las detecte al compilar
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_APP_NAME=$VITE_APP_NAME
+ENV VITE_APP_ENV=$VITE_APP_ENV
+ENV VITE_APP_VERSION=$VITE_APP_VERSION
+
 # Instalar dependencias limpias
 RUN yarn install --frozen-lockfile
 
 # Copiar el código fuente
 COPY . .
 
-# Compilar la aplicación. Vite cargará las variables de entorno de .env durante este proceso.
+# Compilar la aplicación.
 RUN yarn build
 
 # =========================================================
